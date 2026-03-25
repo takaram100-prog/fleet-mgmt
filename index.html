@@ -385,6 +385,9 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
             <label>提出日付</label>
             <input type="date" id="doc-date" style="width:160px">
             <button class="btn btn-sm" onclick="setTodayDate()">今日</button>
+            <label style="font-size:12px;color:#666;font-weight:500;white-space:nowrap;margin-left:8px">判定日</label>
+            <input type="date" id="doc-judge-date" style="width:160px">
+            <span style="font-size:11px;color:#888">※ 報告書の期限判定に使用（空欄は提出日付と同じ）</span>
             <label style="font-size:12px;color:#666;font-weight:500;white-space:nowrap;margin-left:8px">提出種別</label>
             <select id="doc-tag" style="padding:5px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#1a1a1a">
               <option value="定期（3ヶ月）">定期（3ヶ月）</option>
@@ -392,7 +395,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
               <option value="更新対応">更新対応</option>
               <option value="その他">その他</option>
             </select>
-            <span style="font-size:11px;color:#888">※ 履歴に記録されます</span>
           </div>
           <div class="doc-gen-grid" id="doc-office-cards"></div>
         </div>
@@ -942,13 +944,14 @@ function clearOldHistory(){
 // ====== 書類生成ディスパッチ ======
 // PDF生成（Apps Script経由）
 async function generatePdfViaApps(office, docType, dateStr){
+  const judgeDate = document.getElementById('doc-judge-date')?.value || dateStr;
   const offD = drivers.filter(d=>d.office===office&&(!d.status||d.status==='在籍'));
   const offV = vehicles.filter(v=>v.office===office);
   const res = await fetch(API_URL, {
     method: 'POST',
     body: JSON.stringify({
       action: 'generatePdf',
-      docType, office, dateStr,
+      docType, office, dateStr, judgeDate,
       drivers: offD,
       vehicles: offV
     })
