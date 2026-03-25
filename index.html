@@ -260,9 +260,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="self-form-group">
         <label class="self-form-label">提出書類 * （複数選択可）</label>
         <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1.5px solid var(--color-border-secondary,#ddd);border-radius:8px;background:var(--color-background-primary,#fff)">
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-license" value="運転免許証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">
-            運転免許証（更新）
+          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
+            <input type="checkbox" id="sf-doc-license" value="運転免許証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;margin-top:2px" onchange="sfLicenseChanged()">
+            <div>
+              運転免許証（更新）
+              <div style="font-size:11px;color:#e65100;margin-top:2px">※ 表面・裏面の両方の写真が必要です</div>
+            </div>
           </label>
           <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
             <input type="checkbox" id="sf-doc-shaken" value="車検証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0">
@@ -290,13 +293,16 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <label class="self-form-label">メモ（任意）</label>
         <input type="text" id="sf-note" class="self-form-input" placeholder="例：免許証を更新しました">
       </div>
-      <div class="self-form-group">
-        <label class="self-form-label">写真・書類の画像（任意）</label>
+      <div class="self-form-group" id="sf-upload-group">
+        <label class="self-form-label" id="sf-upload-label">写真・書類の画像</label>
+        <div id="sf-license-notice" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:7px;padding:9px 12px;margin-bottom:8px;font-size:12px;color:#e65100">
+          ⚠️ 運転免許証は<strong>表面・裏面の両方</strong>を撮影してください（2枚必須）
+        </div>
         <div class="self-form-upload" id="sf-upload" ondragover="sfDragOver(event)" ondragleave="sfDragLeave(event)" ondrop="sfDrop(event)">
-          <input type="file" accept="image/*" multiple onchange="sfFileChange(event)" capture="environment">
+          <input type="file" accept="image/*" multiple onchange="sfFileChange(event)">
           <div class="self-form-upload-icon">📷</div>
           <div class="self-form-upload-text">タップして撮影または選択</div>
-          <div class="self-form-upload-sub">免許証・書類の写真</div>
+          <div class="self-form-upload-sub" id="sf-upload-sub">免許証・書類の写真（複数可）</div>
         </div>
         <div class="self-form-previews" id="sf-previews"></div>
       </div>
@@ -1379,6 +1385,17 @@ function sfDragOver(e){e.preventDefault();document.getElementById('sf-upload').c
 function sfDragLeave(e){document.getElementById('sf-upload').classList.remove('drag-over');}
 function sfDrop(e){e.preventDefault();document.getElementById('sf-upload').classList.remove('drag-over');sfAddFiles(e.dataTransfer.files);}
 function sfFileChange(e){sfAddFiles(e.target.files);}
+
+// 免許証チェック変更時に案内表示切替
+function sfLicenseChanged(){
+  const checked=document.getElementById('sf-doc-license')?.checked;
+  const notice=document.getElementById('sf-license-notice');
+  const label=document.getElementById('sf-upload-label');
+  const sub=document.getElementById('sf-upload-sub');
+  if(notice){notice.style.display=checked?'block':'none';}
+  if(label){label.textContent=checked?'写真・書類の画像（免許証は裏表2枚必須）':'写真・書類の画像';}
+  if(sub){sub.textContent=checked?'免許証 表面・裏面 + その他書類':'免許証・書類の写真（複数可）';}
+}
 function sfAddFiles(files){
   for(const f of files){
     const reader=new FileReader();
@@ -1405,6 +1422,8 @@ async function submitSelfForm(){
   if(!office){errEl.textContent='営業所を選択してください';return;}
   if(!name){errEl.textContent='氏名を入力してください';return;}
   if(!selectedDocs.length){errEl.textContent='提出書類を1つ以上選択してください';return;}
+  // 免許証選択時は写真2枚以上必須
+  if(selectedDocs.includes('運転免許証')&&sfFiles.length<2){errEl.textContent='運転免許証は表面・裏面の写真2枚が必要です';return;}
   document.getElementById('sf-submit').disabled=true;
   document.getElementById('sf-submit').textContent='送信中...';
   const doctype=selectedDocs.join('・');
