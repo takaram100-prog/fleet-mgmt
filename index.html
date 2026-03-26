@@ -482,20 +482,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div id="history-list"></div>
         </div>
       </div>
-      <div id="page-company" class="page">
+      <div id="page-contractors" class="page">
         <div class="topbar">
           <h1 id="company-page-title">委託会社</h1>
           <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
         </div>
-        <div class="content" id="company-page-content"></div>
-      </div>
-
-      <div id="page-contractors" class="page">
-        <div class="topbar">
-          <h1>委託会社管理</h1>
-          <button class="btn btn-primary" onclick="openContractorModal()">＋ 委託会社追加</button>
-        </div>
-        <div class="content">
+        <div class="content" id="company-page-content">
           <div style="font-size:11px;color:#888;margin-bottom:12px;padding:8px 12px;background:#e3f2fd;border-radius:6px;border:1px solid #bbdefb">
             💡 委託会社のドライバーは現況届・報告書に「再委託先名＝会社名」で反映されます。
           </div>
@@ -733,11 +725,11 @@ let PASSWORD=localStorage.getItem('fleet_pw')||'1234';
 let offices=JSON.parse(localStorage.getItem('fleet_offices')||'["西成","浜寺","藤井寺","大阪西","集荷","本社"]');
 let vehicles=JSON.parse(localStorage.getItem('fleet_vehicles')||'[]');
 let drivers=JSON.parse(localStorage.getItem('fleet_drivers')||'[]');
-let contractors=JSON.parse(localStorage.getItem('fleet_contractors')||'[]');
+let contractors=JSON.parse(localStorage.getItem('fleet_companies')||localStorage.getItem('fleet_contractors')||'[]');
 let currentOfficeFilter=null,vSortCol=null,vSortDir=1,dSortCol=null,dSortDir=1;
 let editingVehicleId=null,editingDriverId=null;
 
-function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_contractors',JSON.stringify(contractors));}
+function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_companies',JSON.stringify(companies));}
 function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};const p=plate.trim().replace(/\s+/g,' ').split(' ');if(p.length>=4)return{chiiki:p[0],bunrui:p[1],kana:p[2],num:p[3]};const m=plate.match(/^([^\d]+?)(\d{3})\s*([あ-ん])\s*(\d+)/);if(m)return{chiiki:m[1].trim(),bunrui:m[2],kana:m[3],num:m[4]};return{chiiki:plate,bunrui:'',kana:'',num:''};}
 
 // ====== 同期 ======
@@ -1432,7 +1424,8 @@ function showPage(name,el){
   if(name==='history')renderHistory();
   if(name==='archive')renderArchive();
   if(name==='settings'){renderSettingsAll();}
-  if(name==='company'&&currentCompanyId)renderCompanyPage(currentCompanyId);
+  if(name==='contractors'&&currentCompanyId)renderCompanyPage(currentCompanyId);
+  else if(name==='contractors')renderContractorsList();
 }
 function rebuildBulkSelects(){
   const sel=document.getElementById('bulk-office');
@@ -1725,13 +1718,35 @@ function markInboxRead(id){
 }
 
 // ====== 委託会社管理 ======
-let companies = JSON.parse(localStorage.getItem('fleet_companies')||'[]');
+let companies = contractors; // 同一変数のエイリアス
 let editingCompanyId = null;
 let editingCompanyDriverId = null;
 let editingCompanyVehicleId = null;
 let currentCompanyId = null;
 
-function saveCompanies(){localStorage.setItem('fleet_companies',JSON.stringify(companies));}
+function saveCompanies(){localStorage.setItem('fleet_companies',JSON.stringify(companies));contractors=companies;}
+
+function renderContractorsList(){
+  document.getElementById('company-page-title').textContent='委託会社';
+  const el=document.getElementById('company-page-content');
+  if(!companies.length){
+    el.innerHTML='<div style="padding:24px;text-align:center;color:#888;font-size:12px">委託会社が登録されていません。「＋ 委託会社を追加」から登録してください。</div>';
+    return;
+  }
+  el.innerHTML=companies.map(c=>`
+    <div class="company-card" style="cursor:pointer" onclick="showCompanyPage(${c.id},null)">
+      <div class="company-card-header">
+        <div>
+          <div class="company-card-name">${c.name}</div>
+          <div class="company-card-meta">${c.addr||''} / ドライバー${(c.drivers||[]).length}名 / 車両${(c.vehicles||[]).length}台</div>
+        </div>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm" onclick="event.stopPropagation();openCompanyModal(${c.id})">編集</button>
+          <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteCompany(${c.id})">削除</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
 
 function renderCompanyNav(){
   document.getElementById('company-nav').innerHTML = companies.map(c=>`
@@ -1745,7 +1760,7 @@ function renderCompanyNav(){
 function showCompanyPage(companyId, el){
   currentCompanyId = companyId;
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-company').classList.add('active');
+  document.getElementById('page-contractors').classList.add('active');
   document.querySelectorAll('.nav-item[data-page],.nav-item[data-company]').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
   renderCompanyPage(companyId);
@@ -2015,7 +2030,11 @@ function deleteCompanyVehicle(companyId, vehicleId){
 }
 
 // ====== 初期化 ======
-function renderAll(){renderOfficeNav();renderCompanyNav();renderDashboard();renderVehicles(null);renderDrivers(null);renderDocPage();}
+function renderAll(){
+  renderOfficeNav();
+  try{renderCompanyNav();}catch(e){console.error('renderCompanyNav error:',e);}
+  renderDashboard();renderVehicles(null);renderDrivers(null);renderDocPage();
+}
 function renderSettingsAll(){renderSettingsOffices();generateQR();renderInbox();}
 setTodayDate();
 initSelfForm();
