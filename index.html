@@ -277,10 +277,10 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <label class="self-form-label">提出種別 *</label>
         <div style="display:flex;gap:10px">
           <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500" id="sf-mode-update-label" onclick="sfSetMode('update')">
-            <input type="radio" name="sf-mode" value="update" checked style="display:none"> 📋 書類更新
+            <input type="radio" name="sf-mode" value="update" checked style="display:none"> 書類更新
           </label>
           <label style="flex:1;display:flex;align-items:center;justify-content:center;gap:6px;padding:12px;border:2px solid #ddd;border-radius:8px;cursor:pointer;font-size:14px;font-weight:500" id="sf-mode-new-label" onclick="sfSetMode('new')">
-            <input type="radio" name="sf-mode" value="new" style="display:none"> 🆕 新規登録
+            <input type="radio" name="sf-mode" value="new" style="display:none"> 新規登録
           </label>
         </div>
       </div>
@@ -293,11 +293,11 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </select>
       </div>
 
-      <!-- 新規登録：登録番号 -->
+      <!-- 新規登録：登録番号（任意） -->
       <div class="self-form-group" id="sf-regcode-group" style="display:none">
-        <label class="self-form-label">登録番号 *</label>
+        <label class="self-form-label">登録番号（委託会社の方のみ）</label>
         <input type="text" id="sf-regcode" class="self-form-input" placeholder="KYH-001" style="letter-spacing:.1em;text-transform:uppercase">
-        <div style="font-size:11px;color:#888;margin-top:4px">委託会社から配布された登録番号を入力してください</div>
+        <div style="font-size:11px;color:#888;margin-top:4px">委託会社から配布されている場合のみ入力してください</div>
       </div>
 
       <!-- 共通：氏名 -->
@@ -332,25 +332,11 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <label class="self-form-label">住所</label>
           <input type="text" id="sf-addr" class="self-form-input" placeholder="〒000-0000　大阪府...">
         </div>
-        <div class="self-form-group">
-          <label class="self-form-label">運転免許証 有効期限</label>
-          <input type="date" id="sf-license-exp" class="self-form-input">
-        </div>
-        <div class="self-form-group">
-          <label class="self-form-label">免許種別</label>
-          <select id="sf-license-type" class="self-form-select">
-            <option>普通自動車</option><option>準中型</option><option>中型</option><option>大型</option><option>普通自動二輪</option>
-          </select>
-        </div>
-        <div class="self-form-group">
-          <label class="self-form-label">免許の条件等</label>
-          <input type="text" id="sf-license-cond" class="self-form-input" placeholder="眼鏡等 / なし">
-        </div>
       </div>
 
-      <!-- 書類更新のみ：提出書類選択 -->
+      <!-- 共通：提出書類（書類更新・新規登録どちらでも表示） -->
       <div class="self-form-group" id="sf-docs-group">
-        <label class="self-form-label">提出書類 * （複数選択可）</label>
+        <label class="self-form-label">提出書類（複数選択可）</label>
         <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1.5px solid #ddd;border-radius:8px;background:#fff">
           <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
             <input type="checkbox" id="sf-doc-license" value="運転免許証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;margin-top:2px" onchange="sfLicenseChanged()">
@@ -1664,16 +1650,15 @@ let sfMode = 'update'; // 'update' or 'new'
 function sfSetMode(mode){
   sfMode = mode;
   const isNew = mode === 'new';
-  // ラベルのスタイル切替
   document.getElementById('sf-mode-update-label').style.borderColor = isNew ? '#ddd' : '#4a90e2';
   document.getElementById('sf-mode-update-label').style.color = isNew ? '#888' : '#4a90e2';
   document.getElementById('sf-mode-new-label').style.borderColor = isNew ? '#4a90e2' : '#ddd';
   document.getElementById('sf-mode-new-label').style.color = isNew ? '#4a90e2' : '#888';
-  // フィールド表示切替
   document.getElementById('sf-office-group').style.display = isNew ? 'none' : 'block';
   document.getElementById('sf-regcode-group').style.display = isNew ? 'block' : 'none';
   document.getElementById('sf-new-fields').style.display = isNew ? 'block' : 'none';
-  document.getElementById('sf-docs-group').style.display = isNew ? 'none' : 'block';
+  // 提出書類は常に表示
+  document.getElementById('sf-docs-group').style.display = 'block';
   document.getElementById('sf-subtitle').textContent = isNew ? '新規登録フォーム' : '書類提出フォーム';
 }
 
@@ -1723,24 +1708,23 @@ async function submitSelfForm(){
   if(sfMode==='new'){
     // 新規登録モード
     const regcode=document.getElementById('sf-regcode').value.trim().toUpperCase();
-    if(!regcode){errEl.textContent='登録番号を入力してください';return;}
-    // 登録番号で委託会社を検索
-    const companies=JSON.parse(localStorage.getItem('fleet_companies')||'[]');
-    const company=companies.find(c=>c.regCode===regcode);
-    if(!company){errEl.textContent='登録番号が見つかりません。正しい番号を入力してください';return;}
     const birth=document.getElementById('sf-birth').value;
     const tel=document.getElementById('sf-tel').value.trim();
     if(!birth){errEl.textContent='生年月日を入力してください';return;}
     if(!tel){errEl.textContent='電話番号を入力してください';return;}
+    // 登録番号がある場合のみ委託会社を検索
+    let companyId=null, companyName='';
+    if(regcode){
+      const companies=JSON.parse(localStorage.getItem('fleet_companies')||'[]');
+      const company=companies.find(c=>c.regCode===regcode);
+      if(!company){errEl.textContent='登録番号が見つかりません。正しい番号を入力してください';return;}
+      companyId=company.id; companyName=company.name;
+    }
     payload={
       action:'submitForm', mode:'new',
-      name, kana,
-      birth, tel,
+      name, kana, birth, tel,
       addr:document.getElementById('sf-addr').value,
-      licenseExp:document.getElementById('sf-license-exp').value,
-      licenseType:document.getElementById('sf-license-type').value,
-      licenseCond:document.getElementById('sf-license-cond').value,
-      regcode, companyId:company.id, companyName:company.name,
+      regcode, companyId, companyName,
       note, doctype:'新規登録',
       timestamp:new Date().toISOString(),
       files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
@@ -1794,7 +1778,7 @@ async function submitSelfForm(){
 
 function resetSelfForm(){
   sfFiles=[];
-  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-addr','sf-license-exp','sf-license-cond','sf-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-addr','sf-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['sf-doc-license','sf-doc-shaken','sf-doc-jibai','sf-doc-nin','sf-doc-health','sf-doc-other'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   document.getElementById('sf-err').textContent='';
   document.getElementById('sf-submit').disabled=false;
