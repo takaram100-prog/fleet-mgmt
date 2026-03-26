@@ -247,7 +247,13 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 .company-tab.active{color:#4a90e2;border-bottom-color:#4a90e2;font-weight:500}
 .company-tab-content{display:none;padding:12px 16px}
 .company-tab-content.active{display:block}
-.office-multi-select{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #ddd;border-radius:6px;background:#fff}
+.file-drop-zone{border:2px dashed #90caf9;border-radius:8px;padding:14px;text-align:center;cursor:pointer;transition:all .15s;background:#f8fbff;position:relative}
+.file-drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.file-drop-zone.dragover{border-color:#4a90e2;background:#e3f2fd}
+.file-thumb{position:relative;width:60px;height:60px;border-radius:6px;overflow:hidden;border:1px solid #e0e0e0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:10px;color:#888;flex-direction:column;gap:2px}
+.file-thumb img{width:100%;height:100%;object-fit:cover}
+.file-thumb-del{position:absolute;top:1px;right:1px;width:15px;height:15px;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:10px;display:flex;align-items:center;justify-content:center;line-height:1}
+.file-thumb-name{font-size:9px;color:#666;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;padding:0 2px}
 .office-multi-check{display:flex;align-items:center;gap:4px;font-size:12px;cursor:pointer;padding:3px 8px;border-radius:99px;border:1px solid #e0e0e0;background:#f5f5f5;transition:all .15s}
 .office-multi-check.checked{background:#eaf2ff;border-color:#4a90e2;color:#4a90e2;font-weight:500}
 </style>
@@ -405,6 +411,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="nav-item" onclick="showPage('drivers',this)" data-page="drivers"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="4.5" r="2.5"/><path d="M2 13c0-2.8 2.2-5 5-5s5 2.2 5 5"/></svg>ドライバー管理</div>
         <div class="nav-item" onclick="showPage('contractors',this)" data-page="contractors"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="9" rx="1.5"/><path d="M5 3V2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v1"/><path d="M4 7h6M4 9.5h4"/></svg>委託会社管理</div>
         <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
+        <div class="nav-item" onclick="showPage('filemgr',this)" data-page="filemgr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h5l1.5 2H13v7H1z"/><path d="M5 9h4M7 7v4"/></svg>書類・写真管理</div>
         <div class="nav-item" onclick="showPage('bulk',this)" data-page="bulk"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 4h12M1 8h12M1 12h8"/><circle cx="11" cy="12" r="2"/><path d="M11 10v-1M9.3 10.7l-.7-.7M13.7 10.7l.7-.7"/></svg>一括更新</div>
         <div class="nav-item" onclick="showPage('print',this)" data-page="print"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="10" height="7" rx="1"/><path d="M4 5V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 9h6M4 11h4"/></svg>印刷一覧</div>
         <div class="nav-item" onclick="showPage('history',this)" data-page="history"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.5l2.5 1.5"/></svg>提出履歴</div>
@@ -532,7 +539,20 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div id="history-list"></div>
         </div>
       </div>
-      <div id="page-contractors" class="page">
+      <div id="page-filemgr" class="page">
+        <div class="topbar">
+          <h1>書類・写真管理</h1>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="filemgr-search" placeholder="氏名または車両番号で検索..." style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;width:220px" oninput="renderFileMgr()">
+            <select id="filemgr-type" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" onchange="renderFileMgr()">
+              <option value="">すべて</option>
+              <option value="driver">ドライバー</option>
+              <option value="vehicle">車両</option>
+            </select>
+          </div>
+        </div>
+        <div class="content" id="filemgr-content"></div>
+      </div>
         <div class="topbar">
           <h1 id="company-page-title">委託会社</h1>
           <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
@@ -616,6 +636,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🚗 車検証</div></div><div class="doc-fields"><div class="form-group"><label>有効期限</label><input type="date" id="v-shaken-exp"></div><div class="form-group"><label>車台番号</label><input type="text" id="v-shaken-chassis"></div><div class="form-group"><label>型式</label><input type="text" id="v-shaken-type"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🔵 自賠責保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-jibai-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-jibai-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-jibai-company"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🟢 任意保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-nin-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-nin-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-nin-company"></div></div></div>
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="v-files-zone" ondragover="fileDragOver(event,'v-files-zone')" ondragleave="fileDragLeave('v-files-zone')" ondrop="fileDrop(event,'v-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'v-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
+        </div>
+        <div id="v-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveVehicle()">保存する</button></div>
   </div>
@@ -669,7 +698,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <button class="btn btn-sm btn-primary" onclick="addOtherDoc()" style="font-size:10px;padding:2px 8px">＋ 追加</button>
       </div>
       <div id="other-docs-list" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"></div>
-    </div></div>
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="d-files-zone" ondragover="fileDragOver(event,'d-files-zone')" ondragleave="fileDragLeave('d-files-zone')" ondrop="fileDrop(event,'d-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'d-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
+        </div>
+        <div id="d-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
   </div>
 </div>
@@ -718,8 +755,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>免許番号</label><input type="text" id="cd-license-no" class="modal-field"></div>
       <div class="form-group"><label>免許種別</label><select id="cd-license-type" class="modal-field"><option>普通自動車</option><option>準中型</option><option>中型</option><option>大型</option><option>普通自動二輪</option></select></div>
       <div class="form-group"><label>免許の条件等</label><input type="text" id="cd-license-cond" placeholder="眼鏡等 / なし" class="modal-field"></div>
-    </div></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('company-driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompanyDriver()">保存する</button></div>
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="cd-files-zone" ondragover="fileDragOver(event,'cd-files-zone')" ondragleave="fileDragLeave('cd-files-zone')" ondrop="fileDrop(event,'cd-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cd-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
+        </div>
+        <div id="cd-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
   </div>
 </div>
 
@@ -746,10 +790,55 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>自賠責保険会社</label><input type="text" id="cv-jibai-company" class="modal-field"></div>
       <div class="form-group"><label>任意保険満了日</label><input type="date" id="cv-nin-exp" class="modal-field"></div>
       <div class="form-group"><label>任意保険会社</label><input type="text" id="cv-nin-company" class="modal-field"></div>
-    </div></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('company-vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompanyVehicle()">保存する</button></div>
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="cv-files-zone" ondragover="fileDragOver(event,'cv-files-zone')" ondragleave="fileDragLeave('cv-files-zone')" ondrop="fileDrop(event,'cv-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cv-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
+        </div>
+        <div id="cv-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
   </div>
 </div>
+<!-- File Manager Upload Modal -->
+<div id="filemgr-modal" style="display:none" class="modal-bg">
+  <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="modal-header"><span class="modal-title">書類・写真を追加</span><button class="modal-close" onclick="closeModal('filemgr-modal')">✕</button></div>
+    <div class="modal-body">
+      <div class="file-drop-zone" id="filemgr-zone" ondragover="fileDragOver(event,'filemgr-zone')" ondragleave="fileDragLeave('filemgr-zone')" ondrop="fileDrop(event,'filemgr')">
+        <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'filemgr')">
+        <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:4px">📎 ファイルをドロップまたはタップして選択</div>
+        <div style="font-size:11px;color:#888">写真・PDF（複数可）</div>
+      </div>
+      <div id="filemgr-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px"></div>
+      <div style="font-size:11px;color:#888;margin-top:8px">※ Google Driveに自動保存されます</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('filemgr-modal')">キャンセル</button>
+      <button class="btn btn-primary" id="filemgr-save-btn" onclick="saveFileMgr()">保存する</button>
+    </div>
+  </div>
+</div>
+
+<!-- Temp Vehicle Modal -->
+<div id="temp-vehicle-modal" style="display:none" class="modal-bg">
+  <div class="modal modal-sm" onclick="event.stopPropagation()">
+    <div class="modal-header"><span class="modal-title">🔄 予備車両に切り替え</span><button class="modal-close" onclick="closeModal('temp-vehicle-modal')">✕</button></div>
+    <div class="modal-body">
+      <div style="font-size:12px;color:#e65100;background:#fff3e0;padding:8px 12px;border-radius:6px;margin-bottom:12px">⚠️ 元の担当車両は変更されません。一時的な代替使用として記録されます。</div>
+      <div class="form-group">
+        <label>使用する予備車両</label>
+        <select id="temp-vehicle-select" style="width:100%;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:6px"></select>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('temp-vehicle-modal')">キャンセル</button>
+      <button class="btn btn-primary" onclick="saveTempVehicle()">切り替える</button>
+    </div>
+  </div>
+</div>
+
 <div id="office-modal" style="display:none" class="modal-bg">
   <div class="modal modal-sm" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title">営業所を追加</span><button class="modal-close" onclick="closeModal('office-modal')">✕</button></div>
@@ -1479,7 +1568,7 @@ function showPage(name,el){
   if(name==='bulk'){rebuildBulkSelects();renderBulk();}
   if(name==='print'){rebuildPrintSelect();renderPrint();}
   if(name==='history')renderHistory();
-  if(name==='archive')renderArchive();
+  if(name==='filemgr')renderFileMgr();
   if(name==='settings'){renderSettingsAll();}
   if(name==='contractors'&&currentCompanyId)renderCompanyPage(currentCompanyId);
   else if(name==='contractors')renderContractorsList();
@@ -1802,7 +1891,279 @@ function resetSelfForm(){
   sfSetMode('update');
 }
 
-// ====== QRコード & 受信ボックス ======
+// ====== ファイル管理 ======
+// 各モーダルのファイルバッファ
+const modalFiles = {};
+
+function fileDragOver(e, zoneId){
+  e.preventDefault();
+  document.getElementById(zoneId)?.classList.add('dragover');
+}
+function fileDragLeave(zoneId){
+  document.getElementById(zoneId)?.classList.remove('dragover');
+}
+function fileDrop(e, bufKey){
+  e.preventDefault();
+  const zoneId = bufKey + '-zone';
+  fileDragLeave(zoneId);
+  handleFiles(Array.from(e.dataTransfer.files), bufKey);
+}
+function fileSelect(e, bufKey){
+  handleFiles(Array.from(e.target.files), bufKey);
+  e.target.value = '';
+}
+
+function handleFiles(files, bufKey){
+  if(!modalFiles[bufKey]) modalFiles[bufKey] = [];
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const entry = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: ev.target.result,
+        uploadedAt: new Date().toISOString()
+      };
+      modalFiles[bufKey].push(entry);
+      renderFilePreview(bufKey);
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderFilePreview(bufKey){
+  const previewEl = document.getElementById(bufKey + '-preview');
+  if(!previewEl) return;
+  const files = modalFiles[bufKey] || [];
+  previewEl.innerHTML = files.map((f, i) => {
+    const isImg = f.type?.startsWith('image/');
+    const isPdf = f.type === 'application/pdf';
+    return `<div class="file-thumb">
+      ${isImg ? `<img src="${f.dataUrl}" alt="${f.name}">` : `<span style="font-size:18px">${isPdf?'📄':'📎'}</span>`}
+      <button class="file-thumb-del" onclick="removeModalFile('${bufKey}',${i})">×</button>
+      <div class="file-thumb-name">${f.name}</div>
+    </div>`;
+  }).join('');
+}
+
+function removeModalFile(bufKey, idx){
+  if(modalFiles[bufKey]) modalFiles[bufKey].splice(idx,1);
+  renderFilePreview(bufKey);
+}
+
+function clearModalFiles(bufKey){
+  modalFiles[bufKey] = [];
+  renderFilePreview(bufKey);
+}
+
+// ドライバー保存時にファイルをDriveへアップロード
+async function uploadFilesToDrive(files, folder, subFolder){
+  if(!files || !files.length) return [];
+  const results = [];
+  for(const f of files){
+    try{
+      const res = await fetch(API_URL, {
+        method:'POST',
+        body: JSON.stringify({
+          action: 'uploadFile',
+          folder, subFolder,
+          fileName: f.name,
+          mimeType: f.type,
+          dataUrl: f.dataUrl
+        })
+      });
+      const data = await res.json();
+      if(data.fileId) results.push({name:f.name, fileId:data.fileId, url:data.url, uploadedAt:f.uploadedAt});
+    }catch(e){ console.error('Upload error:', e); }
+  }
+  return results;
+}
+
+// 書類・写真管理ページのレンダー
+function renderFileMgr(){
+  const search = (document.getElementById('filemgr-search')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('filemgr-type')?.value || '';
+  const el = document.getElementById('filemgr-content');
+  if(!el) return;
+
+  let html = '';
+
+  // ドライバー一覧（自社＋委託会社）
+  if(!typeFilter || typeFilter === 'driver'){
+    const allDrivers = [
+      ...drivers.map(d => ({...d, _kind:'driver', _office: d.office || (d.offices||[]).join('・')})),
+      ...companies.flatMap(c => (c.drivers||[]).map(d => ({...d, _kind:'driver', _company:c.name, _office:(d.offices||[]).join('・')})))
+    ].filter(d => !search || d.name?.toLowerCase().includes(search));
+
+    if(allDrivers.length){
+      html += `<div style="font-size:12px;font-weight:600;color:#888;margin:0 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">👤 ドライバー（${allDrivers.length}名）</div>`;
+      html += allDrivers.map(d => {
+        const files = d.attachedFiles || [];
+        const currentVehicle = vehicles.find(v => v.driverId == d.id) || companies.flatMap(c=>c.vehicles||[]).find(v=>v.driverId==d.id);
+        const tempVehicle = d.tempVehicleId ? (vehicles.find(v=>v.id==d.tempVehicleId) || companies.flatMap(c=>c.vehicles||[]).find(v=>v.id==d.tempVehicleId)) : null;
+        return `<div class="company-card" style="margin-bottom:8px">
+          <div class="company-card-header" style="cursor:default">
+            <div>
+              <div class="company-card-name">${d.name} ${d._company?`<span style="font-size:10px;color:#888">（${d._company}）</span>`:''}</div>
+              <div class="company-card-meta">
+                ${d._office ? `営業所：${d._office}　` : ''}
+                乗車中：<strong>${tempVehicle ? `🔄 ${tempVehicle.plate}（予備）` : (currentVehicle ? currentVehicle.plate : '未割当')}</strong>
+                ${tempVehicle ? `<button class="btn btn-sm" style="font-size:9px;padding:1px 6px;margin-left:6px" onclick="clearTempVehicle('driver',${d.id})">予備解除</button>` : ''}
+              </div>
+            </div>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('driver',${d.id},'${d._company||''}')">📎 書類追加</button>
+              ${!tempVehicle ? `<button class="btn btn-sm" style="font-size:10px" onclick="openTempVehicleModal('driver',${d.id})">🔄 予備車</button>` : ''}
+            </div>
+          </div>
+          ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
+            ${files.map((f,i) => `<div class="file-thumb" title="${f.name}">
+              ${f.url ? `<a href="${f.url}" target="_blank">${f.name.match(/\.(jpg|jpeg|png|gif)$/i)?`<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:18px">📄</span>'}</a>` : '<span style="font-size:18px">📎</span>'}
+              <div class="file-thumb-name">${f.name}</div>
+              <button class="file-thumb-del" onclick="deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
+            </div>`).join('')}
+          </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
+        </div>`;
+      }).join('');
+    }
+  }
+
+  // 車両一覧
+  if(!typeFilter || typeFilter === 'vehicle'){
+    const allVehicles = [
+      ...vehicles.map(v => ({...v, _kind:'vehicle', _office:v.office})),
+      ...companies.flatMap(c => (c.vehicles||[]).map(v => ({...v, _kind:'vehicle', _company:c.name, _office:(v.offices||[]).join('・')})))
+    ].filter(v => !search || v.plate?.toLowerCase().includes(search));
+
+    if(allVehicles.length){
+      html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0;padding:4px 0;border-bottom:1px solid #e0e0e0">🚗 車両（${allVehicles.length}台）</div>`;
+      html += allVehicles.map(v => {
+        const files = v.attachedFiles || [];
+        const assignedDriver = drivers.find(d=>d.id==v.driverId) || companies.flatMap(c=>c.drivers||[]).find(d=>d.id==v.driverId);
+        const tempDrivers = drivers.filter(d=>d.tempVehicleId==v.id);
+        return `<div class="company-card" style="margin-bottom:8px">
+          <div class="company-card-header" style="cursor:default">
+            <div>
+              <div class="company-card-name">${v.plate} ${v._company?`<span style="font-size:10px;color:#888">（${v._company}）</span>`:''}</div>
+              <div class="company-card-meta">
+                ${v._office ? `営業所：${v._office}　` : ''}
+                担当：${assignedDriver ? assignedDriver.name : '未割当'}
+                ${tempDrivers.length ? `　<span style="color:#e65100;font-size:10px">⚠️ ${tempDrivers.map(d=>d.name).join('・')}が予備使用中</span>` : ''}
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||''}')">📎 書類追加</button>
+          </div>
+          ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
+            ${files.map((f,i) => `<div class="file-thumb" title="${f.name}">
+              ${f.url ? `<a href="${f.url}" target="_blank">${f.name.match(/\.(jpg|jpeg|png|gif)$/i)?`<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:18px">📄</span>'}</a>` : '<span style="font-size:18px">📎</span>'}
+              <div class="file-thumb-name">${f.name}</div>
+              <button class="file-thumb-del" onclick="deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
+            </div>`).join('')}
+          </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
+        </div>`;
+      }).join('');
+    }
+  }
+
+  if(!html) html = '<div style="padding:24px;text-align:center;color:#888;font-size:12px">該当するデータがありません</div>';
+  el.innerHTML = html;
+}
+
+// 書類追加モーダル（書類管理ページから）
+let fileMgrTarget = null;
+function openFileMgrUpload(kind, id, companyName){
+  fileMgrTarget = {kind, id, companyName};
+  modalFiles['filemgr'] = [];
+  renderFilePreview('filemgr');
+  document.getElementById('filemgr-modal').style.display = 'flex';
+}
+
+async function saveFileMgr(){
+  if(!fileMgrTarget) return;
+  const files = modalFiles['filemgr'] || [];
+  if(!files.length){ closeModal('filemgr-modal'); return; }
+
+  const btn = document.getElementById('filemgr-save-btn');
+  btn.textContent = 'アップロード中...'; btn.disabled = true;
+
+  const {kind, id, companyName} = fileMgrTarget;
+
+  // アップロード先フォルダを特定
+  let folderName = '', subFolderName = '';
+  if(kind === 'driver'){
+    const d = drivers.find(x=>x.id==id) || companies.flatMap(c=>c.drivers||[]).find(x=>x.id==id);
+    folderName = d?.office || (d?.offices||[])[0] || '未設定';
+    subFolderName = d?.name || 'unknown';
+  } else {
+    const v = vehicles.find(x=>x.id==id) || companies.flatMap(c=>c.vehicles||[]).find(x=>x.id==id);
+    folderName = v?.office || (v?.offices||[])[0] || '未設定';
+    subFolderName = '車両/' + (v?.plate || 'unknown');
+  }
+
+  const uploaded = await uploadFilesToDrive(files, folderName, subFolderName);
+
+  // データに紐付け
+  if(kind === 'driver'){
+    const d = drivers.find(x=>x.id==id);
+    if(d){ if(!d.attachedFiles) d.attachedFiles=[]; d.attachedFiles.push(...uploaded); saveLocal(); }
+    else {
+      companies.forEach(c => {
+        const cd = (c.drivers||[]).find(x=>x.id==id);
+        if(cd){ if(!cd.attachedFiles) cd.attachedFiles=[]; cd.attachedFiles.push(...uploaded); saveCompanies(); }
+      });
+    }
+  } else {
+    const v = vehicles.find(x=>x.id==id);
+    if(v){ if(!v.attachedFiles) v.attachedFiles=[]; v.attachedFiles.push(...uploaded); saveLocal(); }
+    else {
+      companies.forEach(c => {
+        const cv = (c.vehicles||[]).find(x=>x.id==id);
+        if(cv){ if(!cv.attachedFiles) cv.attachedFiles=[]; cv.attachedFiles.push(...uploaded); saveCompanies(); }
+      });
+    }
+  }
+
+  btn.textContent = '保存する'; btn.disabled = false;
+  closeModal('filemgr-modal');
+  renderFileMgr();
+}
+
+function deleteAttachedFile(kind, id, idx, companyName){
+  if(!confirm('このファイルを削除しますか？')) return;
+  const getTarget = () => {
+    if(kind==='driver'){ return drivers.find(x=>x.id==id) || companies.flatMap(c=>c.drivers||[]).find(x=>x.id==id); }
+    return vehicles.find(x=>x.id==id) || companies.flatMap(c=>c.vehicles||[]).find(x=>x.id==id);
+  };
+  const t = getTarget();
+  if(t?.attachedFiles){ t.attachedFiles.splice(idx,1); saveLocal(); saveCompanies(); renderFileMgr(); }
+}
+
+// 予備車両モーダル
+function openTempVehicleModal(kind, id){
+  const sel = document.getElementById('temp-vehicle-select');
+  if(!sel) return;
+  const allV = [...vehicles, ...companies.flatMap(c=>c.vehicles||[])];
+  sel.innerHTML = '<option value="">選択してください</option>' + allV.map(v=>`<option value="${v.id}">${v.plate}</option>`).join('');
+  document.getElementById('temp-vehicle-modal').dataset.targetId = id;
+  document.getElementById('temp-vehicle-modal').style.display = 'flex';
+}
+
+function saveTempVehicle(){
+  const modal = document.getElementById('temp-vehicle-modal');
+  const driverId = modal.dataset.targetId;
+  const vehicleId = document.getElementById('temp-vehicle-select').value;
+  if(!vehicleId){ alert('車両を選択してください'); return; }
+  const d = drivers.find(x=>x.id==driverId);
+  if(d){ d.tempVehicleId = vehicleId; saveLocal(); }
+  closeModal('temp-vehicle-modal');
+  renderFileMgr();
+}
+
+function clearTempVehicle(kind, id){
+  const d = drivers.find(x=>x.id==id);
+  if(d){ delete d.tempVehicleId; saveLocal(); renderFileMgr(); }
+}
 function generateQR(){
   const url=location.href.split('?')[0].split('#')[0]+'?form=1';
   document.getElementById('qr-url').textContent=url;
