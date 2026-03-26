@@ -625,6 +625,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title" id="vm-title">車両 登録</span><button class="modal-close" onclick="closeModal('vehicle-modal')">✕</button></div>
     <div class="modal-body"><div class="form-grid">
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="v-files-zone" ondragover="fileDragOver(event,'v-files-zone')" ondragleave="fileDragLeave('v-files-zone')" ondrop="fileDrop(event,'v-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'v-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
+        </div>
+        <div id="v-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>車両番号 * （例: 堺 480 り 5560）</label><input type="text" id="v-plate" placeholder="堺 480 り 5560"></div>
       <div class="form-group"><label>車種名（型式）</label><input type="text" id="v-model" placeholder="スズキ キャリイ"></div>
@@ -641,15 +650,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🚗 車検証</div></div><div class="doc-fields"><div class="form-group"><label>有効期限</label><input type="date" id="v-shaken-exp"></div><div class="form-group"><label>車台番号</label><input type="text" id="v-shaken-chassis"></div><div class="form-group"><label>型式</label><input type="text" id="v-shaken-type"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🔵 自賠責保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-jibai-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-jibai-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-jibai-company"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🟢 任意保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-nin-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-nin-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-nin-company"></div></div></div>
-      <div class="section-title">写真・PDF添付</div>
-      <div style="grid-column:1/-1">
-        <div class="file-drop-zone" id="v-files-zone" ondragover="fileDragOver(event,'v-files-zone')" ondragleave="fileDragLeave('v-files-zone')" ondrop="fileDrop(event,'v-files')">
-          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'v-files')">
-          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
-          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
-        </div>
-        <div id="v-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveVehicle()">保存する</button></div>
   </div>
@@ -660,6 +660,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title" id="dm-title">ドライバー 登録</span><button class="modal-close" onclick="closeModal('driver-modal')">✕</button></div>
     <div class="modal-body"><div class="form-grid">
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="d-files-zone" ondragover="fileDragOver(event,'d-files-zone')" ondragleave="fileDragLeave('d-files-zone')" ondrop="fileDrop(event,'d-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'d-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
+        </div>
+        <div id="d-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>姓（漢字）*</label><input type="text" id="d-sei" placeholder="山田" class="modal-field"></div>
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="d-mei" placeholder="太郎" class="modal-field"></div>
@@ -703,15 +712,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <button class="btn btn-sm btn-primary" onclick="addOtherDoc()" style="font-size:10px;padding:2px 8px">＋ 追加</button>
       </div>
       <div id="other-docs-list" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"></div>
-      <div class="section-title">写真・PDF添付</div>
-      <div style="grid-column:1/-1">
-        <div class="file-drop-zone" id="d-files-zone" ondragover="fileDragOver(event,'d-files-zone')" ondragleave="fileDragLeave('d-files-zone')" ondrop="fileDrop(event,'d-files')">
-          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'d-files')">
-          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
-          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
-        </div>
-        <div id="d-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
   </div>
@@ -744,6 +744,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title" id="cdm-title">委託会社 ドライバー登録</span><button class="modal-close" onclick="closeModal('company-driver-modal')">✕</button></div>
     <div class="modal-body"><div class="form-grid">
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="cd-files-zone" ondragover="fileDragOver(event,'cd-files-zone')" ondragleave="fileDragLeave('cd-files-zone')" ondrop="fileDrop(event,'cd-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cd-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
+        </div>
+        <div id="cd-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>姓（漢字）*</label><input type="text" id="cd-sei" placeholder="山田" class="modal-field"></div>
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="cd-mei" placeholder="太郎" class="modal-field"></div>
@@ -761,15 +770,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>免許番号</label><input type="text" id="cd-license-no" class="modal-field"></div>
       <div class="form-group"><label>免許種別</label><select id="cd-license-type" class="modal-field"><option>普通自動車</option><option>準中型</option><option>中型</option><option>大型</option><option>普通自動二輪</option></select></div>
       <div class="form-group"><label>免許の条件等</label><input type="text" id="cd-license-cond" placeholder="眼鏡等 / なし" class="modal-field"></div>
-      <div class="section-title">写真・PDF添付</div>
-      <div style="grid-column:1/-1">
-        <div class="file-drop-zone" id="cd-files-zone" ondragover="fileDragOver(event,'cd-files-zone')" ondragleave="fileDragLeave('cd-files-zone')" ondrop="fileDrop(event,'cd-files')">
-          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cd-files')">
-          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
-          <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
-        </div>
-        <div id="cd-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('company-driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompanyDriver()">保存する</button></div>
   </div>
@@ -780,6 +780,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title" id="cvm-title">委託会社 車両登録</span><button class="modal-close" onclick="closeModal('company-vehicle-modal')">✕</button></div>
     <div class="modal-body"><div class="form-grid">
+      <div class="section-title">写真・PDF添付</div>
+      <div style="grid-column:1/-1">
+        <div class="file-drop-zone" id="cv-files-zone" ondragover="fileDragOver(event,'cv-files-zone')" ondragleave="fileDragLeave('cv-files-zone')" ondrop="fileDrop(event,'cv-files')">
+          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cv-files')">
+          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
+          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
+        </div>
+        <div id="cv-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+      </div>
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>車両番号 *</label><input type="text" id="cv-plate" placeholder="堺 480 り 5560" class="modal-field"></div>
       <div class="form-group"><label>車種名</label><input type="text" id="cv-model" placeholder="スズキ キャリイ" class="modal-field"></div>
@@ -798,15 +807,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>自賠責保険会社</label><input type="text" id="cv-jibai-company" class="modal-field"></div>
       <div class="form-group"><label>任意保険満了日</label><input type="date" id="cv-nin-exp" class="modal-field"></div>
       <div class="form-group"><label>任意保険会社</label><input type="text" id="cv-nin-company" class="modal-field"></div>
-      <div class="section-title">写真・PDF添付</div>
-      <div style="grid-column:1/-1">
-        <div class="file-drop-zone" id="cv-files-zone" ondragover="fileDragOver(event,'cv-files-zone')" ondragleave="fileDragLeave('cv-files-zone')" ondrop="fileDrop(event,'cv-files')">
-          <input type="file" accept="image/*,.pdf" multiple onchange="fileSelect(event,'cv-files')">
-          <div style="font-size:13px;color:#4a90e2;font-weight:500;margin-bottom:3px">📎 ファイルをドロップまたはタップして選択</div>
-          <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
-        </div>
-        <div id="cv-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
-      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('company-vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompanyVehicle()">保存する</button></div>
   </div>
