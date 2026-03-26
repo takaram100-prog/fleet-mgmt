@@ -556,12 +556,18 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-contractors" class="page">
         <div class="topbar">
-          <h1 id="company-page-title">委託会社</h1>
+          <h1>委託会社管理</h1>
           <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
         </div>
-        <div class="content" id="company-page-content">
-          <div id="contractors-list"></div>
+        <div class="content" id="contractors-list-content"></div>
+      </div>
+
+      <div id="page-company-detail" class="page">
+        <div class="topbar">
+          <h1 id="company-page-title">委託会社</h1>
+          <button class="btn btn-sm" onclick="showPage('contractors',document.querySelector('[data-page=contractors]'))">← 一覧へ</button>
         </div>
+        <div class="content" id="company-page-content"></div>
       </div>
 
       <div id="page-archive" class="page">
@@ -917,7 +923,7 @@ function renderSettingsOffices(){document.getElementById('settings-office-list')
 function openOfficeModal(){document.getElementById('office-name-input').value='';document.getElementById('office-modal').style.display='flex';setTimeout(()=>document.getElementById('office-name-input').focus(),50);}
 function saveOffice(){const n=document.getElementById('office-name-input').value.trim();if(!n||offices.includes(n)){alert(n?'既に存在します':'営業所名を入力');return;}offices.push(n);saveLocal();closeModal('office-modal');renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();renderDocPage();}
 function deleteOffice(name){if(!confirm(`「${name}」を削除しますか？`))return;offices=offices.filter(o=>o!==name);saveLocal();renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();if(currentOfficeFilter===name){currentOfficeFilter=null;renderVehicles(null);}renderDocPage();}
-function rebuildOfficeSelects(){['v-office','d-office'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;sel.innerHTML=offices.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');});}
+function rebuildOfficeSelects(){['v-office'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;sel.innerHTML=offices.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');});}
 
 // ====== テーブル ======
 function sortData(data,col,dir){return[...data].sort((a,b)=>{let av=a[col]??'',bv=b[col]??'';if(col==='shaken')av=a.shaken?.exp||'',bv=b.shaken?.exp||'';if(col==='jibai')av=a.jibai?.exp||'',bv=b.jibai?.exp||'';if(col==='nin')av=a.nin?.exp||'',bv=b.nin?.exp||'';if(col==='minexp')av=minExp([a.shaken?.exp,a.jibai?.exp,a.nin?.exp]),bv=minExp([b.shaken?.exp,b.jibai?.exp,b.nin?.exp]);if(col==='license')av=a.license?.exp??'',bv=b.license?.exp??'';if(!av&&bv)return 1;if(av&&!bv)return-1;return av<bv?-dir:av>bv?dir:0;});}
@@ -1605,6 +1611,8 @@ function openVehicleModal(id){
   document.getElementById('v-type').value='社有';document.getElementById('v-kind').value='軽四';
   if(id){const v=vehicles.find(x=>x.id==id);if(v){document.getElementById('v-plate').value=v.plate||'';document.getElementById('v-model').value=v.model||'';document.getElementById('v-kind').value=v.kind||'軽四';document.getElementById('v-type').value=v.type||'社有';document.getElementById('v-office').value=v.office||'';document.getElementById('v-driver').value=v.driver||'';document.getElementById('v-color').value=v.color||'';document.getElementById('v-owner').value=v.owner||'';document.getElementById('v-user').value=v.vehicleUser||'';document.getElementById('v-sub').value=v.sub||'';document.getElementById('v-note').value=v.note||'';document.getElementById('v-shaken-exp').value=v.shaken?.exp||'';document.getElementById('v-shaken-chassis').value=v.shaken?.chassis||'';document.getElementById('v-shaken-type').value=v.shaken?.type||'';document.getElementById('v-jibai-exp').value=v.jibai?.exp||'';document.getElementById('v-jibai-no').value=v.jibai?.no||'';document.getElementById('v-jibai-company').value=v.jibai?.company||'';document.getElementById('v-nin-exp').value=v.nin?.exp||'';document.getElementById('v-nin-no').value=v.nin?.no||'';document.getElementById('v-nin-company').value=v.nin?.company||'';}}
   document.getElementById('vehicle-modal').style.display='flex';
+  modalFiles['v-files']=[];
+  renderFilePreview('v-files');
 }
 function saveVehicle(){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
@@ -1615,13 +1623,17 @@ function saveVehicle(){
 function openDriverModal(id){
   editingDriverId=id||null;
   document.getElementById('dm-title').textContent=id?'ドライバー 編集':'ドライバー 登録';
-  document.getElementById('d-office').innerHTML=offices.map(o=>`<option>${o}</option>`).join('');
+  // 営業所チェックボックスを構築
+  renderOfficeMultiSelect('d-office-checks', []);
   ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('d-type').value='社員';document.getElementById('d-sub-count').value='1';
   document.getElementById('d-status').value='在籍';
   document.getElementById('subcon-fields').style.display='none';
   document.getElementById('archive-fields').style.display='none';
   document.getElementById('other-docs-list').innerHTML='';
+  if(!modalFiles['d-files']) modalFiles['d-files']=[];
+  modalFiles['d-files']=[];
+  renderFilePreview('d-files');
   otherDocCount=0;
   if(id){
     const d=drivers.find(x=>x.id==id);
@@ -1633,7 +1645,9 @@ function openDriverModal(id){
       document.getElementById('d-sei-kana').value=kp[0]||'';
       document.getElementById('d-mei-kana').value=kp[1]||'';
       document.getElementById('d-type').value=d.type||'社員';
-      document.getElementById('d-office').value=d.office||'';
+      // 営業所（複数対応）
+      const selectedOffices = Array.isArray(d.offices) ? d.offices : (d.office ? [d.office] : []);
+      renderOfficeMultiSelect('d-office-checks', selectedOffices);
       document.getElementById('d-tel').value=d.tel||'';
       document.getElementById('d-birth').value=d.birth||'';
       document.getElementById('d-addr').value=d.addr||'';
@@ -1645,7 +1659,7 @@ function openDriverModal(id){
       const docs=Array.isArray(d.otherDocs)?d.otherDocs:(d.other?.name?[d.other]:[]);
       docs.forEach(doc=>addOtherDoc(doc));
       if(d.status==='退職'||d.status==='休止'){document.getElementById('archive-fields').style.display='block';document.getElementById('d-leave-date').value=d.leave?.date||'';document.getElementById('d-leave-reason').value=d.leave?.reason||'';document.getElementById('d-leave-note').value=d.leave?.note||'';}
-      if(d.type==='外注'){document.getElementById('subcon-fields').style.display='block';document.getElementById('d-sub-company').value=d.sub?.company||'';document.getElementById('d-sub-kana').value=d.sub?.kana||'';document.getElementById('d-sub-birth').value=d.sub?.birth||'';document.getElementById('d-sub-area').value=d.sub?.area||'';document.getElementById('d-sub-count').value=d.sub?.count||1;document.getElementById('d-sub-tel').value=d.sub?.tel||'';}
+      if(d.type==='外注（個人）'){document.getElementById('subcon-fields').style.display='block';document.getElementById('d-sub-company').value=d.sub?.company||'';document.getElementById('d-sub-kana').value=d.sub?.kana||'';document.getElementById('d-sub-birth').value=d.sub?.birth||'';document.getElementById('d-sub-area').value=d.sub?.area||'';document.getElementById('d-sub-count').value=d.sub?.count||1;document.getElementById('d-sub-tel').value=d.sub?.tel||'';}
     }
   }
   document.getElementById('driver-modal').style.display='flex';
@@ -1693,7 +1707,11 @@ function saveDriver(){
     const note=document.getElementById('other-doc-note-'+id)?.value||'';
     if(n||exp)otherDocs.push({name:n,exp,note});
   });
-  const obj={id:editingDriverId||Date.now(),name,kana,type,status,office:document.getElementById('d-office').value,tel:document.getElementById('d-tel').value,birth:document.getElementById('d-birth').value,addr:document.getElementById('d-addr').value,license:{exp:document.getElementById('d-license-exp').value,no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:document.getElementById('d-sub-birth').value,area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:document.getElementById('d-sub-tel').value}:{},leave:(status==='退職'||status==='休止')?{date:document.getElementById('d-leave-date').value,reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{}};
+  const selectedOffices = getSelectedOffices('d-office-checks');
+  const obj={id:editingDriverId||Date.now(),name,kana,type,status,
+    office: selectedOffices[0]||'',
+    offices: selectedOffices,
+    tel:document.getElementById('d-tel').value,birth:document.getElementById('d-birth').value,addr:document.getElementById('d-addr').value,license:{exp:document.getElementById('d-license-exp').value,no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:document.getElementById('d-sub-birth').value,area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:document.getElementById('d-sub-tel').value}:{},leave:(status==='退職'||status==='休止')?{date:document.getElementById('d-leave-date').value,reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{}};
   if(editingDriverId){const i=drivers.findIndex(d=>d.id==editingDriverId);if(i>=0)drivers[i]=obj;else drivers.push(obj);}else drivers.push(obj);
   saveLocal();closeModal('driver-modal');renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
   if(status==='退職'||status==='休止')renderArchive();
@@ -2012,7 +2030,7 @@ function renderFileMgr(){
               </div>
             </div>
             <div style="display:flex;gap:6px">
-              <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('driver',${d.id},'${d._company||''}')">📎 書類追加</button>
+              <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('driver',${d.id},'${d._company||""}')">📎 書類追加</button>
               ${!tempVehicle ? `<button class="btn btn-sm" style="font-size:10px" onclick="openTempVehicleModal('driver',${d.id})">🔄 予備車</button>` : ''}
             </div>
           </div>
@@ -2051,7 +2069,7 @@ function renderFileMgr(){
                 ${tempDrivers.length ? `　<span style="color:#e65100;font-size:10px">⚠️ ${tempDrivers.map(d=>d.name).join('・')}が予備使用中</span>` : ''}
               </div>
             </div>
-            <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||''}')">📎 書類追加</button>
+            <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||""}')">📎 書類追加</button>
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
             ${files.map((f,i) => `<div class="file-thumb" title="${f.name}">
@@ -2182,7 +2200,7 @@ function renderQRCode(url){
 function printQR(){
   const url=document.getElementById('qr-url').textContent;
   const w=window.open('','_blank');
-  w.document.write(`<!DOCTYPE html><html><head><title>QRコード</title><style>body{font-family:sans-serif;text-align:center;padding:40px}h2{margin-bottom:8px}p{font-size:12px;color:#666;margin-bottom:20px}#qr{display:inline-block;padding:12px;border:1px solid #ddd;border-radius:8px}</style></head><body><h2>大阪急配株式会社</h2><p>免許証・書類 更新フォーム<br>スマホでQRコードを読み取ってください</p><div id="qr"></div><p style="margin-top:16px;font-size:10px;color:#aaa">${url}</p><script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><script>new QRCode(document.getElementById('qr'),{text:'${url}',width:200,height:200,correctLevel:QRCode.CorrectLevel.M});setTimeout(()=>window.print(),800);<\/script></body></html>`);
+  w.document.write(`<!DOCTYPE html><html><head><title>QRコード</title><style>body{font-family:sans-serif;text-align:center;padding:40px}h2{margin-bottom:8px}p{font-size:12px;color:#666;margin-bottom:20px}#qr{display:inline-block;padding:12px;border:1px solid #ddd;border-radius:8px}</style></head><body><h2>大阪急配株式会社</h2><p>免許証・書類 更新フォーム<br>スマホでQRコードを読み取ってください</p><div id="qr"></div><p style="margin-top:16px;font-size:10px;color:#aaa">${url}</p><\x3cscript src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script><\x3cscript>new QRCode(document.getElementById('qr'),{text:'${url}',width:200,height:200,correctLevel:QRCode.CorrectLevel.M});setTimeout(()=>window.print(),800);<\/script></body></html>`);
   w.document.close();
 }
 
@@ -2259,18 +2277,18 @@ let currentCompanyId = null;
 function saveCompanies(){localStorage.setItem('fleet_companies',JSON.stringify(companies));contractors=companies;}
 
 function renderContractorsList(){
-  document.getElementById('company-page-title').textContent='委託会社';
-  const el=document.getElementById('company-page-content');
+  const el=document.getElementById('contractors-list-content');
+  if(!el) return;
   if(!companies.length){
     el.innerHTML='<div style="padding:24px;text-align:center;color:#888;font-size:12px">委託会社が登録されていません。「＋ 委託会社を追加」から登録してください。</div>';
     return;
   }
   el.innerHTML=companies.map(c=>`
-    <div class="company-card" style="cursor:pointer" onclick="showCompanyPage(${c.id},null)">
+    <div class="company-card" style="cursor:pointer;margin-bottom:8px" onclick="showCompanyPage(${c.id},null)">
       <div class="company-card-header">
         <div>
-          <div class="company-card-name">${c.name}</div>
-          <div class="company-card-meta">${c.addr||''} / ドライバー${(c.drivers||[]).length}名 / 車両${(c.vehicles||[]).length}台</div>
+          <div class="company-card-name">${c.name} <span style="font-size:10px;color:#1565c0;font-weight:600;background:#e3f2fd;padding:1px 7px;border-radius:99px;margin-left:6px">${c.regCode||'—'}</span></div>
+          <div class="company-card-meta">${c.addr||''} ${c.tel?'　℡'+c.tel:''} / ドライバー${(c.drivers||[]).length}名 / 車両${(c.vehicles||[]).length}台</div>
         </div>
         <div style="display:flex;gap:6px">
           <button class="btn btn-sm" onclick="event.stopPropagation();openCompanyModal(${c.id})">編集</button>
@@ -2291,78 +2309,171 @@ function renderCompanyNav(){
 
 function showCompanyPage(companyId, el){
   currentCompanyId = companyId;
+  // 各委託会社は独立ページとして表示
+  let pageId = 'page-company-' + companyId;
+  // ページがなければ動的に作成
+  if(!document.getElementById(pageId)){
+    const div = document.createElement('div');
+    div.id = pageId;
+    div.className = 'page';
+    document.querySelector('.main').appendChild(div);
+  }
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
-  document.getElementById('page-contractors').classList.add('active');
+  document.getElementById(pageId).classList.add('active');
   document.querySelectorAll('.nav-item[data-page],.nav-item[data-company]').forEach(n=>n.classList.remove('active'));
   if(el) el.classList.add('active');
-  renderCompanyPage(companyId);
+  renderCompanyPage(companyId, pageId);
 }
 
-function renderCompanyPage(companyId){
+function renderCompanyPage(companyId, pageId){
+  pageId = pageId || ('page-company-' + companyId);
+  var pageEl = document.getElementById(pageId);
+  var c = companies.find(function(x){return x.id==companyId;});
+  if(!c || !pageEl) return;
+  var dc = c.drivers||[];
+  var vc = c.vehicles||[];
+
+  var dRows = '';
+  dc.forEach(function(d){
+    dRows += '<tr class="clickable ' + rowCls([d.license&&d.license.exp?d.license.exp:'']) + '">';
+    dRows += '<td><strong>' + d.name + '</strong></td>';
+    dRows += '<td>' + (d.kana||'—') + '</td>';
+    dRows += '<td>' + ((d.offices||[]).join('・')||'—') + '</td>';
+    dRows += '<td>' + expBadge(d.license&&d.license.exp?d.license.exp:'') + '</td>';
+    dRows += '<td style="display:flex;gap:4px">';
+    dRows += '<button class="btn btn-sm" onclick="openCompanyDriverModal(' + companyId + ',' + d.id + ')">編集</button>';
+    dRows += '<button class="btn btn-sm btn-danger" onclick="deleteCompanyDriver(' + companyId + ',' + d.id + ')">削除</button>';
+    dRows += '</td></tr>';
+  });
+  var dTable = dc.length
+    ? '<div class="table-wrap"><table><thead><tr><th>氏名</th><th>フリガナ</th><th>担当営業所</th><th>免許証期限</th><th>操作</th></tr></thead><tbody>' + dRows + '</tbody></table></div>'
+    : '<div style="padding:16px;text-align:center;color:#888;font-size:12px">ドライバーが登録されていません</div>';
+
+  var vRows = '';
+  vc.forEach(function(v){
+    vRows += '<tr class="clickable ' + rowCls([v.shaken&&v.shaken.exp?v.shaken.exp:'',v.jibai&&v.jibai.exp?v.jibai.exp:'',v.nin&&v.nin.exp?v.nin.exp:'']) + '">';
+    vRows += '<td><strong>' + v.plate + '</strong></td>';
+    vRows += '<td>' + (v.model||'—') + '</td>';
+    vRows += '<td>' + ((v.offices||[]).join('・')||'—') + '</td>';
+    vRows += '<td>' + expBadge(v.shaken&&v.shaken.exp?v.shaken.exp:'') + '</td>';
+    vRows += '<td>' + expBadge(v.jibai&&v.jibai.exp?v.jibai.exp:'') + '</td>';
+    vRows += '<td>' + expBadge(v.nin&&v.nin.exp?v.nin.exp:'') + '</td>';
+    vRows += '<td style="display:flex;gap:4px">';
+    vRows += '<button class="btn btn-sm" onclick="openCompanyVehicleModal(' + companyId + ',' + v.id + ')">編集</button>';
+    vRows += '<button class="btn btn-sm btn-danger" onclick="deleteCompanyVehicle(' + companyId + ',' + v.id + ')">削除</button>';
+    vRows += '</td></tr>';
+  });
+  var vTable = vc.length
+    ? '<div class="table-wrap"><table><thead><tr><th>車両番号</th><th>車種</th><th>担当営業所</th><th>車検期限</th><th>自賠責</th><th>任意保険</th><th>操作</th></tr></thead><tbody>' + vRows + '</tbody></table></div>'
+    : '<div style="padding:16px;text-align:center;color:#888;font-size:12px">車両が登録されていません</div>';
+
+  var html = '';
+  html += '<div class="topbar" style="position:sticky;top:0;z-index:5;background:#fff">';
+  html += '<h1>' + c.name + '</h1>';
+  html += '<div style="display:flex;gap:6px">';
+  html += '<button class="btn btn-sm" onclick="openCompanyModal(' + c.id + ')">&#x270F;&#xFE0F; 編集</button>';
+  html += '<button class="btn btn-sm btn-danger" onclick="deleteCompany(' + c.id + ')">削除</button>';
+  html += '</div></div>';
+  html += '<div class="content">';
+  html += '<div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:12px 16px;margin-bottom:14px">';
+  html += '<div style="font-size:12px;color:#888">' + (c.addr||'') + (c.tel?' &nbsp;&#x260E;'+c.tel:'') + ' &nbsp;代表：' + (c.rep||'—') + '　社員数：' + (c.count||1) + '名</div>';
+  html += '<div style="margin-top:8px;padding:5px 12px;background:#e3f2fd;border-radius:6px;display:inline-flex;align-items:center;gap:8px">';
+  html += '<span style="font-size:11px;color:#1565c0;font-weight:500">登録番号</span>';
+  html += '<span style="font-size:16px;font-weight:700;color:#1565c0;letter-spacing:.1em">' + (c.regCode||'—') + '</span>';
+  html += '<span style="font-size:10px;color:#888">※ QR新規登録で使用</span>';
+  html += '</div></div>';
+  html += '<div class="company-card">';
+  html += '<div class="company-tabs">';
+  html += '<div class="company-tab active" id="ctab-drivers-' + companyId + '" onclick="switchCompanyTab(\"drivers\",' + companyId + ')">ドライバー（' + dc.length + '名）</div>';
+  html += '<div class="company-tab" id="ctab-vehicles-' + companyId + '" onclick="switchCompanyTab(\"vehicles\",' + companyId + ')">車両（' + vc.length + '台）</div>';
+  html += '<div class="company-tab" id="ctab-files-' + companyId + '" onclick="switchCompanyTab(\"files\",' + companyId + ')">書類・写真</div>';
+  html += '</div>';
+  html += '<div class="company-tab-content active" id="ctabcontent-drivers-' + companyId + '">';
+  html += '<div style="margin-bottom:8px"><button class="btn btn-sm btn-primary" onclick="openCompanyDriverModal(' + companyId + ')">＋ ドライバー追加</button></div>';
+  html += dTable;
+  html += '</div>';
+  html += '<div class="company-tab-content" id="ctabcontent-vehicles-' + companyId + '">';
+  html += '<div style="margin-bottom:8px"><button class="btn btn-sm btn-primary" onclick="openCompanyVehicleModal(' + companyId + ')">＋ 車両追加</button></div>';
+  html += vTable;
+  html += '</div>';
+  html += '<div class="company-tab-content" id="ctabcontent-files-' + companyId + '">';
+  html += renderCompanyFilesTabHTML(dc, vc, companyId);
+  html += '</div>';
+  html += '</div></div>';
+  pageEl.innerHTML = html;
+}
+
+function renderCompanyFilesTabHTML(dc, vc, companyId){
+  var html = '<div style="padding:4px 0">';
+  if(dc.length){
+    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:4px 0 8px;padding-bottom:4px;border-bottom:1px solid #f0f0f0">&#x1F464; ドライバー</div>';
+    dc.forEach(function(d){
+      var files = d.attachedFiles||[];
+      html += '<div style="margin-bottom:10px">';
+      html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' + d.name;
+      html += "<button class='btn btn-sm btn-primary' style='font-size:10px' onclick='openFileMgrUpload(\"driver\"," + d.id + "," + companyId + ")'>&#x1F4CE; 追加</button></div>";
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      if(files.length){
+        files.forEach(function(f,i){
+          var isImg = f.name && f.name.match(/\.(jpg|jpeg|png|gif)$/i);
+          var icon = f.url ? (isImg ? '<img src="'+f.url+'" style="width:100%;height:100%;object-fit:cover">' : '&#x1F4C4;') : '&#x1F4CE;';
+          var link = f.url ? '<a href="'+f.url+'" target="_blank">'+icon+'</a>' : icon;
+          html += '<div class="file-thumb" title="'+f.name+'">'+link+'<div class="file-thumb-name">'+f.name+'</div>';
+          html += '<button class="file-thumb-del" onclick="deleteCompanyAttachedFile('+companyId+',\'driver\','+d.id+','+i+')">x</button></div>';
+        });
+      } else {
+        html += '<div style="font-size:11px;color:#bbb">なし</div>';
+      }
+      html += '</div></div>';
+    });
+  }
+  if(vc.length){
+    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:8px 0;padding-bottom:4px;border-bottom:1px solid #f0f0f0">&#x1F697; 車両</div>';
+    vc.forEach(function(v){
+      var files = v.attachedFiles||[];
+      html += '<div style="margin-bottom:10px">';
+      html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' + v.plate;
+      html += "<button class='btn btn-sm btn-primary' style='font-size:10px' onclick='openFileMgrUpload(\"vehicle\"," + v.id + "," + companyId + ")'>&#x1F4CE; 追加</button></div>";
+      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
+      if(files.length){
+        files.forEach(function(f,i){
+          var isImg = f.name && f.name.match(/\.(jpg|jpeg|png|gif)$/i);
+          var icon = f.url ? (isImg ? '<img src="'+f.url+'" style="width:100%;height:100%;object-fit:cover">' : '&#x1F4C4;') : '&#x1F4CE;';
+          var link = f.url ? '<a href="'+f.url+'" target="_blank">'+icon+'</a>' : icon;
+          html += '<div class="file-thumb" title="'+f.name+'">'+link+'<div class="file-thumb-name">'+f.name+'</div>';
+          html += '<button class="file-thumb-del" onclick="deleteCompanyAttachedFile('+companyId+',\'vehicle\','+v.id+','+i+')">x</button></div>';
+        });
+      } else {
+        html += '<div style="font-size:11px;color:#bbb">なし</div>';
+      }
+      html += '</div></div>';
+    });
+  }
+  if(!dc.length && !vc.length){
+    html += '<div style="padding:16px;text-align:center;color:#888;font-size:12px">書類・写真がありません</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
+
+
+function deleteCompanyAttachedFile(companyId, kind, targetId, idx){
+  if(!confirm('削除しますか？')) return;
   const c = companies.find(x=>x.id==companyId);
   if(!c) return;
-  document.getElementById('company-page-title').textContent = c.name;
-  const drivers_c = c.drivers||[];
-  const vehicles_c = c.vehicles||[];
-
-  document.getElementById('company-page-content').innerHTML = `
-    <div style="background:#fff;border:1px solid #e0e0e0;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;justify-content:space-between;align-items:center">
-      <div>
-        <div style="font-size:14px;font-weight:600">${c.name}</div>
-        <div style="font-size:11px;color:#888;margin-top:3px">${c.addr||''} ${c.tel?'　℡'+c.tel:''}</div>
-        <div style="font-size:11px;color:#888">代表：${c.rep||'—'}　社員数：${c.count||1}名</div>
-        <div style="margin-top:8px;padding:6px 12px;background:#e3f2fd;border-radius:6px;display:inline-flex;align-items:center;gap:8px">
-          <span style="font-size:11px;color:#1565c0;font-weight:500">登録番号</span>
-          <span style="font-size:16px;font-weight:700;color:#1565c0;letter-spacing:.1em">${c.regCode||'—'}</span>
-          <span style="font-size:10px;color:#888">※ 新規登録フォームで使用</span>
-        </div>
-      </div>
-      <div style="display:flex;gap:6px">
-        <button class="btn btn-sm" onclick="openCompanyModal(${c.id})">✏️ 編集</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteCompany(${c.id})">削除</button>
-      </div>
-    </div>
-    <div class="company-card">
-      <div class="company-tabs">
-        <div class="company-tab active" id="ctab-drivers" onclick="switchCompanyTab('drivers',${companyId})">ドライバー（${drivers_c.length}名）</div>
-        <div class="company-tab" id="ctab-vehicles" onclick="switchCompanyTab('vehicles',${companyId})">車両（${vehicles_c.length}台）</div>
-      </div>
-      <div class="company-tab-content active" id="ctabcontent-drivers">
-        <div style="margin-bottom:8px"><button class="btn btn-sm btn-primary" onclick="openCompanyDriverModal(${companyId})">＋ ドライバー追加</button></div>
-        ${drivers_c.length ? `<div class="table-wrap"><table><thead><tr><th>氏名</th><th>フリガナ</th><th>担当営業所</th><th>免許証期限</th><th>操作</th></tr></thead><tbody>${
-          drivers_c.map(d=>`<tr class="clickable ${rowCls([d.license?.exp])}">
-            <td><strong>${d.name}</strong></td>
-            <td>${d.kana||'—'}</td>
-            <td>${(d.offices||[]).join('・')||'—'}</td>
-            <td>${expBadge(d.license?.exp)}</td>
-            <td><button class="btn btn-sm" onclick="openCompanyDriverModal(${companyId},${d.id})">編集</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteCompanyDriver(${companyId},${d.id})">削除</button></td>
-          </tr>`).join('')
-        }</tbody></table></div>` : '<div style="padding:16px;text-align:center;color:#888;font-size:12px">ドライバーが登録されていません</div>'}
-      </div>
-      <div class="company-tab-content" id="ctabcontent-vehicles">
-        <div style="margin-bottom:8px"><button class="btn btn-sm btn-primary" onclick="openCompanyVehicleModal(${companyId})">＋ 車両追加</button></div>
-        ${vehicles_c.length ? `<div class="table-wrap"><table><thead><tr><th>車両番号</th><th>車種</th><th>担当営業所</th><th>車検期限</th><th>自賠責期限</th><th>任意保険期限</th><th>操作</th></tr></thead><tbody>${
-          vehicles_c.map(v=>`<tr class="clickable ${rowCls([v.shaken?.exp,v.jibai?.exp,v.nin?.exp])}">
-            <td><strong>${v.plate}</strong></td>
-            <td>${v.model||'—'}</td>
-            <td>${(v.offices||[]).join('・')||'—'}</td>
-            <td>${expBadge(v.shaken?.exp)}</td>
-            <td>${expBadge(v.jibai?.exp)}</td>
-            <td>${expBadge(v.nin?.exp)}</td>
-            <td><button class="btn btn-sm" onclick="openCompanyVehicleModal(${companyId},${v.id})">編集</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteCompanyVehicle(${companyId},${v.id})">削除</button></td>
-          </tr>`).join('')
-        }</tbody></table></div>` : '<div style="padding:16px;text-align:center;color:#888;font-size:12px">車両が登録されていません</div>'}
-      </div>
-    </div>`;
+  const arr = kind==='driver' ? c.drivers : c.vehicles;
+  const t = (arr||[]).find(x=>x.id==targetId);
+  if(t?.attachedFiles){ t.attachedFiles.splice(idx,1); saveCompanies(); renderCompanyPage(companyId); }
 }
 
 function switchCompanyTab(tab, companyId){
-  document.querySelectorAll('.company-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.company-tab-content').forEach(t=>t.classList.remove('active'));
-  document.getElementById('ctab-'+tab).classList.add('active');
-  document.getElementById('ctabcontent-'+tab).classList.add('active');
+  ['drivers','vehicles','files'].forEach(t=>{
+    const tabEl = document.getElementById(`ctab-${t}-${companyId}`);
+    const contentEl = document.getElementById(`ctabcontent-${t}-${companyId}`);
+    if(tabEl) tabEl.classList.toggle('active', t===tab);
+    if(contentEl) contentEl.classList.toggle('active', t===tab);
+  });
 }
 
 // 委託会社モーダル
@@ -2458,7 +2569,8 @@ function openCompanyDriverModal(companyId, driverId){
     }
   }
   document.getElementById('company-driver-modal').style.display='flex';
-  setTimeout(()=>initModalKeyNav('company-driver-modal'),100);
+  modalFiles['cd-files']=[];
+  renderFilePreview('cd-files');
 }
 
 function renderOfficeMultiSelect(elId, selected){
@@ -2547,8 +2659,9 @@ function openCompanyVehicleModal(companyId, vehicleId){
     }
   }
   document.getElementById('company-vehicle-modal').style.display='flex';
+  modalFiles['cv-files']=[];
+  renderFilePreview('cv-files');
 }
-
 function saveCompanyVehicle(){
   const plate=document.getElementById('cv-plate').value.trim();
   if(!plate){alert('車両番号は必須です');return;}
