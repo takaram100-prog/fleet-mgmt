@@ -685,7 +685,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group" style="margin-bottom:10px"><label>代表者生年月日</label><input type="date" id="cm-rep-birth"></div>
       <div class="form-group" style="margin-bottom:10px"><label>住所</label><input type="text" id="cm-addr" placeholder="〒000-0000　大阪府..."></div>
       <div class="form-group" style="margin-bottom:10px"><label>電話番号</label><input type="tel" id="cm-tel"></div>
-      <div class="form-group"><label>社員数</label><input type="number" id="cm-count" value="1" min="1"></div>
+      <div class="form-group" style="margin-bottom:10px"><label>社員数</label><input type="number" id="cm-count" value="1" min="1"></div>
+      <div class="form-group" style="margin-bottom:10px;background:#e3f2fd;padding:10px;border-radius:7px">
+        <label style="color:#1565c0;font-weight:600">登録番号（自動発行・変更可）</label>
+        <input type="text" id="cm-regcode" placeholder="KYH-001" style="width:100%;padding:8px;margin-top:5px;font-size:16px;font-weight:700;letter-spacing:.15em;border:1.5px solid #90caf9;border-radius:6px;background:#fff;color:#1565c0;text-transform:uppercase">
+        <div style="font-size:10px;color:#888;margin-top:4px">QRフォームの新規登録で使用します</div>
+      </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('company-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompany()">保存する</button></div>
   </div>
@@ -728,6 +733,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>車種名</label><input type="text" id="cv-model" placeholder="スズキ キャリイ" class="modal-field"></div>
       <div class="form-group"><label>車種分類</label><select id="cv-kind" class="modal-field"><option>軽四</option><option>軽バン</option><option>軽トラ</option><option>普通車</option></select></div>
       <div class="form-group"><label>車体色</label><input type="text" id="cv-color" placeholder="白" class="modal-field"></div>
+      <div class="form-group"><label>登録名義</label><input type="text" id="cv-owner" placeholder="山田 太郎" class="modal-field"></div>
+      <div class="form-group"><label>使用者</label><input type="text" id="cv-user" placeholder="山田 太郎" class="modal-field"></div>
       <div class="form-group" style="grid-column:1/-1">
         <label>担当営業所（複数選択可）</label>
         <div id="cv-offices" class="office-multi-select"></div>
@@ -1494,7 +1501,13 @@ function filterVehicleChip(o){currentOfficeFilter=o==='全て'?null:o;renderVehi
 function filterDriverChip(o){currentOfficeFilter=o==='全て'?null:o;renderDrivers(currentOfficeFilter);}
 
 // ====== モーダル ======
-function toggleSubconFields(){document.getElementById('subcon-fields').style.display=document.getElementById('d-type').value==='外注'?'block':'none';}
+function toggleSubconFields(){
+  const type=document.getElementById('d-type').value;
+  document.getElementById('subcon-fields').style.display=type==='外注（個人）'?'block':'none';
+}
+function toggleContractorField(){
+  // 委託会社所属の場合の追加処理（将来拡張用）
+}
 function openVehicleModal(id){
   editingVehicleId=id||null;
   document.getElementById('vm-title').textContent=id?'車両 編集':'車両 登録';
@@ -2009,7 +2022,11 @@ function openCompanyModal(id){
       document.getElementById('cm-addr').value=c.addr||'';
       document.getElementById('cm-tel').value=c.tel||'';
       document.getElementById('cm-count').value=c.count||1;
+      document.getElementById('cm-regcode').value=c.regCode||'';
     }
+  } else {
+    // 新規時は仮の登録番号を表示
+    document.getElementById('cm-regcode').value=generateRegCode();
   }
   document.getElementById('company-modal').style.display='flex';
 }
@@ -2028,7 +2045,7 @@ function saveCompany(){
   const obj={
     id:editingCompanyId||Date.now(),
     name,
-    regCode: editingCompanyId ? (companies.find(x=>x.id==editingCompanyId)?.regCode||generateRegCode()) : generateRegCode(),
+    regCode: document.getElementById('cm-regcode').value.trim().toUpperCase() || generateRegCode(),
     rep:document.getElementById('cm-rep').value,
     repKana:document.getElementById('cm-rep-kana').value,
     repBirth:document.getElementById('cm-rep-birth').value,
@@ -2145,7 +2162,7 @@ function openCompanyVehicleModal(companyId, vehicleId){
   editingCompanyVehicleId=vehicleId||null;
   currentCompanyId=companyId;
   document.getElementById('cvm-title').textContent=vehicleId?'車両 編集':'車両 登録';
-  ['cv-plate','cv-model','cv-color','cv-shaken-exp','cv-jibai-exp','cv-jibai-company','cv-nin-exp','cv-nin-company'].forEach(f=>document.getElementById(f).value='');
+  ['cv-plate','cv-model','cv-color','cv-owner','cv-user','cv-shaken-exp','cv-jibai-exp','cv-jibai-company','cv-nin-exp','cv-nin-company'].forEach(f=>document.getElementById(f).value='');
   document.getElementById('cv-kind').value='軽四';
   // 担当ドライバー（この委託会社のドライバー）
   const c=companies.find(x=>x.id==companyId);
@@ -2158,6 +2175,8 @@ function openCompanyVehicleModal(companyId, vehicleId){
       document.getElementById('cv-model').value=v.model||'';
       document.getElementById('cv-kind').value=v.kind||'軽四';
       document.getElementById('cv-color').value=v.color||'';
+      document.getElementById('cv-owner').value=v.owner||'';
+      document.getElementById('cv-user').value=v.vehicleUser||'';
       document.getElementById('cv-driver').value=v.driverId||'';
       document.getElementById('cv-shaken-exp').value=v.shaken?.exp||'';
       document.getElementById('cv-jibai-exp').value=v.jibai?.exp||'';
@@ -2179,6 +2198,8 @@ function saveCompanyVehicle(){
     model:document.getElementById('cv-model').value,
     kind:document.getElementById('cv-kind').value,
     color:document.getElementById('cv-color').value||'白',
+    owner:document.getElementById('cv-owner').value,
+    vehicleUser:document.getElementById('cv-user').value,
     driverId:document.getElementById('cv-driver').value,
     offices:getSelectedOffices('cv-offices'),
     shaken:{exp:document.getElementById('cv-shaken-exp').value},
