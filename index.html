@@ -542,12 +542,21 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-filemgr" class="page">
         <div class="topbar">
           <h1>書類・写真管理</h1>
-          <div style="display:flex;gap:8px;align-items:center">
-            <input type="text" id="filemgr-search" placeholder="氏名または車両番号で検索..." style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;width:220px" oninput="renderFileMgr()">
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <input type="text" id="filemgr-search" placeholder="氏名または車両番号で検索..." style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;width:200px" oninput="renderFileMgr()">
             <select id="filemgr-type" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" onchange="renderFileMgr()">
               <option value="">すべて</option>
               <option value="driver">ドライバー</option>
               <option value="vehicle">車両</option>
+            </select>
+            <select id="filemgr-status" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" onchange="renderFileMgr()">
+              <option value="">在籍状況：すべて</option>
+              <option value="在籍">在籍のみ</option>
+              <option value="休止">休止</option>
+              <option value="退職">退職・アーカイブ</option>
+            </select>
+            <select id="filemgr-office" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" onchange="renderFileMgr()">
+              <option value="">営業所：すべて</option>
             </select>
             <button class="btn btn-primary" onclick="openFileMgrUploadGeneral()" style="white-space:nowrap">📎 まとめて追加</button>
           </div>
@@ -1921,7 +1930,7 @@ async function submitSelfForm(){
     doctype:payload.doctype||'新規登録',
     note,
     timestamp:new Date().toISOString(),
-    files:sfFiles.map(f=>f.name),
+    files:sfFiles.map(f=>({name:f.name, dataUrl:f.dataUrl||'', type:f.type||''})),
     status:'未確認'
   });
   localStorage.setItem('fleet_inbox',JSON.stringify(inbox.slice(0,200)));
@@ -2111,28 +2120,56 @@ async function uploadFilesToDrive(files, folder, subFolder){
 function renderFileMgr(){
   const search = (document.getElementById('filemgr-search')?.value || '').toLowerCase();
   const typeFilter = document.getElementById('filemgr-type')?.value || '';
+  const statusFilter = document.getElementById('filemgr-status')?.value || '';
+  const officeFilter = document.getElementById('filemgr-office')?.value || '';
   const el = document.getElementById('filemgr-content');
   if(!el) return;
+
+  // 営業所セレクトを動的更新
+  const officeSelect = document.getElementById('filemgr-office');
+  if(officeSelect && officeSelect.options.length <= 1){
+    offices.forEach(o => {
+      const opt = document.createElement('option');
+      opt.value = o; opt.textContent = o;
+      officeSelect.appendChild(opt);
+    });
+  }
 
   let html = '';
 
   // ドライバー一覧（自社＋委託会社）
   if(!typeFilter || typeFilter === 'driver'){
-    const allDrivers = [
+    let allDrivers = [
       ...drivers.map(d => ({...d, _kind:'driver', _office: d.office || (d.offices||[]).join('・')})),
       ...companies.flatMap(c => (c.drivers||[]).map(d => ({...d, _kind:'driver', _company:c.name, _office:(d.offices||[]).join('・')})))
-    ].filter(d => !search || d.name?.toLowerCase().includes(search));
+    ];
+    // フィルター適用
+    if(search) allDrivers = allDrivers.filter(d => d.name?.toLowerCase().includes(search));
+    if(statusFilter) allDrivers = allDrivers.filter(d => {
+      const s = d.status || '在籍';
+      if(statusFilter === '在籍') return s === '在籍';
+      if(statusFilter === '休止') return s === '休止';
+      if(statusFilter === '退職') return s === '退職';
+      return true;
+    });
+    if(officeFilter) allDrivers = allDrivers.filter(d =>
+      d.office === officeFilter || (d.offices||[]).includes(officeFilter)
+    );
 
     if(allDrivers.length){
       html += `<div style="font-size:12px;font-weight:600;color:#888;margin:0 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">👤 ドライバー（${allDrivers.length}名）</div>`;
       html += allDrivers.map(d => {
         const files = d.attachedFiles || [];
+        const dStatus = d.status || '在籍';
+        const statusBadge = dStatus==='在籍' ? '' :
+          dStatus==='休止' ? '<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 6px;border-radius:99px;margin-left:4px">⏸ 休止</span>' :
+          '<span style="font-size:10px;background:#fce4ec;color:#c62828;padding:1px 6px;border-radius:99px;margin-left:4px">🚪 退職</span>';
         const currentVehicle = vehicles.find(v => v.driverId && String(v.driverId) === String(d.id)) || vehicles.find(v => v.driver === d.name) || companies.flatMap(c=>c.vehicles||[]).find(v=>v.driverId && String(v.driverId)===String(d.id)) || companies.flatMap(c=>c.vehicles||[]).find(v=>v.driver===d.name);
         const tempVehicle = d.tempVehicleId ? (vehicles.find(v=>v.id==d.tempVehicleId) || companies.flatMap(c=>c.vehicles||[]).find(v=>v.id==d.tempVehicleId)) : null;
-        return `<div class="company-card" style="margin-bottom:8px">
+        return `<div class="company-card" style="margin-bottom:8px;${dStatus!=='在籍'?'opacity:0.8;border-left:3px solid '+(dStatus==='休止'?'#ff9800':'#e53935'):''}">
           <div class="company-card-header" style="cursor:default">
             <div>
-              <div class="company-card-name">${d.name} ${d._company?`<span style="font-size:10px;color:#888">（${d._company}）</span>`:''}</div>
+              <div class="company-card-name">${d.name} ${d._company?`<span style="font-size:10px;color:#888">（${d._company}）</span>`:''}${statusBadge}</div>
               <div class="company-card-meta">
                 ${d._office ? `営業所：${d._office}　` : ''}
                 乗車中：<strong>${tempVehicle ? `🔄 ${tempVehicle.plate}（予備）` : (currentVehicle ? currentVehicle.plate : '未割当')}</strong>
@@ -2161,10 +2198,14 @@ function renderFileMgr(){
 
   // 車両一覧
   if(!typeFilter || typeFilter === 'vehicle'){
-    const allVehicles = [
+    let allVehicles = [
       ...vehicles.map(v => ({...v, _kind:'vehicle', _office:v.office})),
       ...companies.flatMap(c => (c.vehicles||[]).map(v => ({...v, _kind:'vehicle', _company:c.name, _office:(v.offices||[]).join('・')})))
-    ].filter(v => !search || v.plate?.toLowerCase().includes(search));
+    ];
+    if(search) allVehicles = allVehicles.filter(v => v.plate?.toLowerCase().includes(search));
+    if(officeFilter) allVehicles = allVehicles.filter(v =>
+      v.office === officeFilter || (v.offices||[]).includes(officeFilter)
+    );
 
     if(allVehicles.length){
       html += `<div style="font-size:12px;font-weight:600;color:#888;margin:8px 0;padding:4px 0;border-bottom:1px solid #e0e0e0">🚗 車両（${allVehicles.length}台）</div>`;
@@ -2586,18 +2627,120 @@ function renderInbox(){
   const el=document.getElementById('inbox-list');
   if(!el)return;
   if(!inbox.length){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:12px">受信したフォームはありません</div>';return;}
-  el.innerHTML=inbox.map((item,i)=>`<div class="qr-inbox-item" id="inbox-${item.id}" style="${item.status==='未確認'?'background:#fffde7':''};padding:10px 12px;border-bottom:1px solid #f0f0f0;display:flex;align-items:flex-start;gap:8px">
-    <div style="flex:1">
-      <div style="font-size:12px;font-weight:600">${item.name}　<span style="font-size:10px;color:#888">${item.mode==='new'?'🆕 新規登録 '+item.companyName:item.office}</span>　<span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:99px">${item.doctype}</span>${item.status==='未確認'?'　<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:99px">未確認</span>':''}</div>
-      <div style="font-size:10px;color:#888;margin-top:2px">${new Date(item.timestamp).toLocaleString('ja-JP')}${item.note?'　'+item.note:''}</div>
-      ${item.mode==='new'?`<div style="font-size:10px;color:#4a90e2;margin-top:2px">生年月日：${item.birth||'—'}　電話：${item.tel||'—'}　住所：${item.addr||'—'}</div>`:''}
-      ${item.files?.length?`<div style="font-size:10px;color:#aaa;margin-top:2px">添付: ${item.files.join(', ')}</div>`:''}
+
+  // 現在のタブ取得
+  const currentTab = el.dataset.tab || 'unread';
+
+  const pending = inbox.filter(i=>i.status!=='登録済');
+  const registered = inbox.filter(i=>i.status==='登録済');
+
+  const tabsHTML = `<div style="display:flex;border-bottom:1px solid #e0e0e0;margin-bottom:8px">
+    <div onclick="inboxSetTab('unread')" style="padding:7px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid ${currentTab==='unread'?'#4a90e2':'transparent'};color:${currentTab==='unread'?'#4a90e2':'#888'};font-weight:${currentTab==='unread'?'600':'400'}">
+      未確認・確認済 <span style="background:#e53935;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;margin-left:4px">${unread||''}</span>
     </div>
-    <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-      ${item.mode==='new'&&item.status!=='登録済'?`<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`:''}
-      <button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">${item.status==='登録済'?'✅ 登録済':'確認済'}</button>
+    <div onclick="inboxSetTab('registered')" style="padding:7px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid ${currentTab==='registered'?'#43a047':'transparent'};color:${currentTab==='registered'?'#43a047':'#888'};font-weight:${currentTab==='registered'?'600':'400'}">
+      ✅ 登録済 (${registered.length})
     </div>
-  </div>`).join('');
+  </div>`;
+
+  const renderItem = (item) => {
+    const isNew = item.mode==='new';
+    const filesHTML = (item.files||[]).length ? `
+      <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px">
+        ${(item.files||[]).map((f,fi)=>{
+          const fname = typeof f==='string' ? f : f.name;
+          const fdataUrl = typeof f==='object' ? (f.dataUrl||'') : '';
+          const isImg = fname.match(/\.(jpg|jpeg|png|gif)$/i);
+          const isPdf = fname.match(/\.pdf$/i);
+          if(fdataUrl && isImg){
+            return `<img src="${fdataUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;cursor:pointer" onclick="openFilePreviewFromAttached('','${esc(fname)}','${fdataUrl.substring(0,30)}');openInboxFilePreview(${item.id},${fi})" title="${esc(fname)}">`;
+          }
+          return `<div onclick="openInboxFilePreview(${item.id},${fi})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;background:#f0f4ff;border-radius:4px;font-size:10px;color:#4a90e2;cursor:pointer;border:1px solid #c5d8f8">
+            ${isPdf?'📄':'📎'} ${esc(fname)}
+          </div>`;
+        }).join('')}
+      </div>` : '';
+
+    return `<div style="padding:10px 12px;border-bottom:1px solid #f0f0f0;${item.status==='未確認'?'background:#fffde7':''}">
+      <div style="display:flex;align-items:flex-start;gap:8px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+            ${esc(item.name)}
+            <span style="font-size:10px;color:#888">${isNew?'🆕 新規 '+(item.companyName||'社員/外注'):esc(item.office)}</span>
+            <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:99px">${esc(item.doctype)}</span>
+            ${item.status==='未確認'?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:99px">未確認</span>':''}
+            ${item.status==='登録済'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">✅ 登録済</span>':''}
+          </div>
+          <div style="font-size:10px;color:#888;margin-top:2px">${new Date(item.timestamp).toLocaleString('ja-JP')}${item.note?'　'+esc(item.note):''}</div>
+          ${isNew?`<div style="font-size:10px;color:#4a90e2;margin-top:2px">生年月日：${item.birth||'—'}　電話：${item.tel||'—'}</div>`:''}
+          ${filesHTML}
+        </div>
+        <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
+          ${isNew&&item.status!=='登録済'?`<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`:''}
+          ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
+          ${(item.files||[]).some(f=>typeof f==='object'&&f.dataUrl)?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
+          <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">🗑 削除</button>
+        </div>
+      </div>
+    </div>`;
+  };
+
+  const list = currentTab==='registered' ? registered : pending;
+  el.innerHTML = tabsHTML + (list.length
+    ? list.map(renderItem).join('')
+    : `<div style="padding:16px;text-align:center;color:#888;font-size:12px">${currentTab==='registered'?'登録済みのデータはありません':'未確認・確認済みのデータはありません'}</div>`);
+}
+
+function inboxSetTab(tab){
+  const el=document.getElementById('inbox-list');
+  if(el){el.dataset.tab=tab;}
+  renderInbox();
+}
+
+function deleteInboxItem(id){
+  if(!confirm('この受信データを削除しますか？'))return;
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const filtered=inbox.filter(i=>i.id!==id);
+  localStorage.setItem('fleet_inbox',JSON.stringify(filtered));
+  renderInbox();
+}
+
+function openInboxFilePreview(inboxId, fileIdx){
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===inboxId);
+  if(!item) return;
+  const f = (item.files||[])[fileIdx];
+  if(!f) return;
+  const fname = typeof f==='string' ? f : f.name;
+  const fdataUrl = typeof f==='object' ? (f.dataUrl||'') : '';
+  openFilePreviewFromAttached('', fname, fdataUrl);
+}
+
+function saveInboxFilesToDriver(inboxId){
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===inboxId);
+  if(!item) return;
+  const files = (item.files||[]).filter(f=>typeof f==='object'&&f.dataUrl);
+  if(!files.length){alert('保存できる添付ファイルがありません');return;}
+
+  // 対象ドライバーを検索（名前一致）
+  const target = drivers.find(d=>d.name===item.name) ||
+    companies.flatMap(c=>c.drivers||[]).find(d=>d.name===item.name);
+
+  if(!target){
+    alert(`「${item.name}」がドライバー管理に見つかりません。\n先に登録してから保存してください。`);
+    return;
+  }
+
+  if(!confirm(`「${item.name}」の添付ファイル${files.length}件をドライバー管理に保存しますか？`))return;
+
+  if(!target.attachedFiles) target.attachedFiles=[];
+  files.forEach(f=>{
+    target.attachedFiles.push({name:f.name, dataUrl:f.dataUrl, type:f.type||'', uploadedAt:item.timestamp});
+  });
+  saveLocal(); saveCompanies();
+  alert(`✅ ${files.length}件を「${item.name}」の書類として保存しました。`);
+  renderFileMgr();
 }
 
 function registerFromInbox(id){
