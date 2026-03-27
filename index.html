@@ -206,7 +206,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   .topbar{flex-wrap:wrap;gap:6px}
 }
 /* ===== セルフ入力フォーム（スマホ専用ページ） ===== */
-#self-form-screen{display:none;min-height:100vh;background:#f0f4ff;padding:16px}
+#self-form-screen{display:none;min-height:100vh;background:#f0f4ff;padding:16px;position:fixed;inset:0;z-index:999;overflow-y:auto}
 .self-form-card{background:#fff;border-radius:16px;padding:24px 20px;max-width:480px;margin:0 auto;box-shadow:0 2px 16px rgba(74,144,226,.12)}
 .self-form-logo{text-align:center;margin-bottom:20px}
 .self-form-logo-title{font-size:17px;font-weight:700;color:#1a1a1a;margin-bottom:3px}
@@ -2545,6 +2545,10 @@ function generateQR(){
   const s=document.createElement('script');
   s.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
   s.onload=()=>renderQRCode(url);
+  s.onerror=()=>{
+    const el=document.getElementById('qr-code-area');
+    el.innerHTML=`<div style="font-size:11px;color:#888;padding:8px;text-align:center">QRライブラリ読込失敗<br><a href="${url}" target="_blank" style="color:#4a90e2">フォームを開く</a></div>`;
+  };
   document.head.appendChild(s);
 }
 function renderQRCode(url){
@@ -3063,7 +3067,9 @@ setTodayDate();
 initSelfForm();
 
 // ====== 自動ログイン（リロード時にセッション維持）======
+// ?form=1 のQRフォームアクセス時は自動ログインしない
 (function(){
+  if(location.search.includes('form=1') || location.hash === '#form') return; // QRフォームは除外
   const SESSION_KEY = 'fleet_session';
   if(localStorage.getItem(SESSION_KEY) === 'ok'){
     document.getElementById('login-screen').style.display='none';
