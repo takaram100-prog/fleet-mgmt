@@ -936,8 +936,8 @@ function isOsakaVehicle(v){const o=v.owner||'',u=v.vehicleUser||'';return COMPAN
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ====== ログイン ======
-function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){localStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncFromSheet();}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
-function doLogout(){localStorage.removeItem('fleet_session');document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('pw-input').value='';document.getElementById('login-err').textContent='';}
+function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){sessionStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncFromSheet();}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
+function doLogout(){sessionStorage.removeItem('fleet_session');document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('pw-input').value='';document.getElementById('login-err').textContent='';}
 function changePw(){const o=document.getElementById('pw-old').value,n=document.getElementById('pw-new').value,n2=document.getElementById('pw-new2').value,msg=document.getElementById('pw-msg');if(o!==PASSWORD){msg.style.color='#e53935';msg.textContent='現在のパスワードが違います';return;}if(!n){msg.style.color='#e53935';msg.textContent='新しいパスワードを入力';return;}if(n!==n2){msg.style.color='#e53935';msg.textContent='確認用が一致しません';return;}PASSWORD=n;localStorage.setItem('fleet_pw',n);['pw-old','pw-new','pw-new2'].forEach(id=>document.getElementById(id).value='');msg.style.color='#43a047';msg.textContent='変更しました';}
 
 // ====== 営業所 ======
@@ -2549,9 +2549,10 @@ function clearTempVehicle(kind, id){
   if(d){ delete d.tempVehicleId; saveLocal(); renderFileMgr(); }
 }
 function generateQR(){
-  // ローカルファイルで開いた場合でも常にGitHub PagesのURLを使う
-  const FORM_URL = 'https://takaram100-prog.github.io/fleet-mgmt/#form';
-  const url = location.protocol === 'file:' ? FORM_URL : (location.href.split('?')[0].split('#')[0]+'#form');
+  // ローカルファイル・about:srcdoc・Claude内プレビューなど本番以外の場合は固定URLを使う
+  const FIXED_URL = 'https://takaram100-prog.github.io/fleet-mgmt/#form';
+  const isProduction = location.protocol === 'https:' && location.hostname === 'takaram100-prog.github.io';
+  const url = isProduction ? (location.href.split('?')[0].split('#')[0]+'#form') : FIXED_URL;
   document.getElementById('qr-url').textContent=url;
   // QRコードライブラリを動的ロード
   if(window.QRCode){renderQRCode(url);return;}
@@ -2603,33 +2604,52 @@ function registerFromInbox(id){
   const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
   const item=inbox.find(i=>i.id===id);
   if(!item)return;
-  if(!confirm(`「${item.name}」を委託会社「${item.companyName}」のドライバーとして登録しますか？`))return;
-  // 委託会社にドライバーを登録
-  const c=companies.find(x=>x.id==item.companyId);
-  if(!c){alert('委託会社が見つかりません');return;}
-  if(!c.drivers)c.drivers=[];
-  const newDriver={
-    id:Date.now(),
-    name:item.name,
-    kana:item.kana||'',
-    offices:[],  // 後で設定
-    tel:item.tel||'',
-    birth:item.birth||'',
-    addr:item.addr||'',
-    license:{
-      exp:item.licenseExp||'',
-      type:item.licenseType||'普通自動車',
-      cond:item.licenseCond||''
-    },
-  };
-  c.drivers.push(newDriver);
-  saveCompanies();
-  // 受信ボックスを登録済みに
-  item.status='登録済';
-  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
-  renderInbox();
-  renderCompanyNav();
-  alert(`✅ 「${item.name}」を${item.companyName}に登録しました。\n担当営業所は委託会社管理ページで設定してください。`);
+
+  if(item.companyId && item.companyName){
+    // 委託会社ドライバーとして登録
+    if(!confirm(`「${item.name}」を委託会社「${item.companyName}」のドライバーとして登録しますか？`))return;
+    const c=companies.find(x=>x.id==item.companyId);
+    if(!c){alert('委託会社が見つかりません');return;}
+    if(!c.drivers)c.drivers=[];
+    c.drivers.push({
+      id:Date.now(),
+      name:item.name,
+      kana:item.kana||'',
+      offices:[],
+      tel:item.tel||'',
+      birth:item.birth||'',
+      addr:item.addr||'',
+      license:{exp:item.licenseExp||'',type:item.licenseType||'普通自動車',cond:item.licenseCond||''},
+    });
+    saveCompanies();
+    item.status='登録済';
+    localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    renderInbox(); renderCompanyNav();
+    alert(`✅ 「${item.name}」を${item.companyName}に登録しました。\n担当営業所は委託会社管理ページで設定してください。`);
+  } else {
+    // 社員・外注として通常登録
+    if(!confirm(`「${item.name}」を社員／外注ドライバーとして登録しますか？\n（区分は登録後にドライバー管理で変更できます）`))return;
+    const newDriver={
+      id:Date.now(),
+      name:item.name,
+      kana:item.kana||'',
+      type:'社員',
+      office:'',
+      offices:[],
+      status:'在籍',
+      tel:item.tel||'',
+      birth:item.birth||'',
+      addr:item.addr||'',
+      license:{exp:item.licenseExp||'',type:item.licenseType||'普通自動車',cond:item.licenseCond||''},
+      other:{},sub:{},
+    };
+    drivers.push(newDriver);
+    saveLocal();
+    item.status='登録済';
+    localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    renderInbox(); renderDrivers(currentOfficeFilter); renderDashboard();
+    alert(`✅ 「${item.name}」をドライバー管理に登録しました。\n区分・担当営業所をドライバー管理ページで設定してください。`);
+  }
 }
 
 function markInboxRead(id){
@@ -3079,12 +3099,12 @@ function renderSettingsAll(){renderSettingsOffices();generateQR();renderInbox();
 setTodayDate();
 initSelfForm();
 
-// ====== 自動ログイン（リロード時にセッション維持）======
+// ====== 自動ログイン（同一タブ内のリロード時のみセッション維持）======
 // ?form=1 のQRフォームアクセス時は自動ログインしない
 (function(){
   if(location.search.includes('form=1') || location.hash === '#form') return; // QRフォームは除外
   const SESSION_KEY = 'fleet_session';
-  if(localStorage.getItem(SESSION_KEY) === 'ok'){
+  if(sessionStorage.getItem(SESSION_KEY) === 'ok'){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-screen').style.display='block';
     renderAll();
