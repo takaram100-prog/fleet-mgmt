@@ -1777,7 +1777,8 @@ function closeSidebar(){
 let sfFiles=[];
 
 function initSelfForm(){
-  if(location.search.includes('form=1')||location.hash==='#form'){
+  const isForm = location.search.includes('form=1') || location.hash === '#form';
+  if(isForm){
     // 他の画面を全て非表示
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-screen').style.display='none';
@@ -2548,7 +2549,9 @@ function clearTempVehicle(kind, id){
   if(d){ delete d.tempVehicleId; saveLocal(); renderFileMgr(); }
 }
 function generateQR(){
-  const url=location.href.split('?')[0].split('#')[0]+'?form=1';
+  // ローカルファイルで開いた場合でも常にGitHub PagesのURLを使う
+  const FORM_URL = 'https://takaram100-prog.github.io/fleet-mgmt/#form';
+  const url = location.protocol === 'file:' ? FORM_URL : (location.href.split('?')[0].split('#')[0]+'#form');
   document.getElementById('qr-url').textContent=url;
   // QRコードライブラリを動的ロード
   if(window.QRCode){renderQRCode(url);return;}
