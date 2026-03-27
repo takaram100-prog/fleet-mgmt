@@ -433,6 +433,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div class="sync-bar">
             <span>📡 Googleスプレッドシートと同期</span>
             <button class="btn btn-sm" onclick="syncFromSheet()">🔄 読み込み</button>
+            <button class="btn btn-sm" onclick="syncInboxFromSheet().then(()=>alert('✅ 受信ボックスを更新しました'))">📥 受信更新</button>
             <button class="btn btn-sm btn-primary" onclick="syncToSheet()">💾 保存</button>
             <span class="sync-status" id="sync-status"></span>
           </div>
@@ -919,13 +920,41 @@ function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};
 async function syncFromSheet(){
   setSyncStatus('読み込み中...','');
   try{
+    // drivers/vehicles取得
     const res=await fetch(API_URL+'?action=getAll');const json=await res.json();
     if(json.ok){
       if(json.data.drivers?.length){drivers=json.data.drivers.map(d=>{['license','other','sub'].forEach(k=>{if(typeof d[k]==='string')try{d[k]=JSON.parse(d[k]);}catch(e){d[k]={};} });if(!d.license)d.license={};if(!d.other)d.other={};if(!d.sub)d.sub={};return d;});}
       if(json.data.vehicles?.length){vehicles=json.data.vehicles.map(v=>{['shaken','jibai','nin'].forEach(k=>{if(typeof v[k]==='string')try{v[k]=JSON.parse(v[k]);}catch(e){v[k]={};}});if(!v.shaken)v.shaken={};if(!v.jibai)v.jibai={};if(!v.nin)v.nin={};return v;});}
-      saveLocal();renderAll();setSyncStatus('✅ 読み込み完了 '+new Date().toLocaleTimeString(),'sync-ok');
+      saveLocal();renderAll();
     }
+    // inbox取得（GASから）
+    await syncInboxFromSheet();
+    setSyncStatus('✅ 読み込み完了 '+new Date().toLocaleTimeString(),'sync-ok');
   }catch(e){setSyncStatus('⚠️ 読み込みエラー','sync-err');}
+}
+
+async function syncInboxFromSheet(){
+  try{
+    const res = await fetch(API_URL+'?action=getInbox');
+    const json = await res.json();
+    if(!json.ok || !json.inbox?.length) return;
+
+    // ローカルのinboxと統合（idで重複除去、GAS側が新しければ追加）
+    const localInbox = JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+    const localIds = new Set(localInbox.map(i=>String(i.id)));
+    const newItems = json.inbox.filter(i => !localIds.has(String(i.id)));
+    if(newItems.length){
+      const merged = [...newItems, ...localInbox]
+        .sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))
+        .slice(0,200);
+      localStorage.setItem('fleet_inbox', JSON.stringify(merged));
+      renderInbox();
+      // バッジ更新
+      const unread = merged.filter(i=>i.status==='未確認').length;
+      const badge = document.getElementById('inbox-badge');
+      if(badge) badge.textContent = unread ? String(unread) : '';
+    }
+  }catch(e){ console.log('inbox sync error:', e); }
 }
 async function syncToSheet(){
   setSyncStatus('保存中...','');
@@ -2703,6 +2732,8 @@ function deleteInboxItem(id){
   const filtered=inbox.filter(i=>i.id!==id);
   localStorage.setItem('fleet_inbox',JSON.stringify(filtered));
   renderInbox();
+  // GASにも削除を反映
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'deleteInbox',id})}).catch(()=>{});
 }
 
 function openInboxFilePreview(inboxId, fileIdx){
@@ -2767,6 +2798,7 @@ function registerFromInbox(id){
     saveCompanies();
     item.status='登録済';
     localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
     renderInbox(); renderCompanyNav();
     alert(`✅ 「${item.name}」を${item.companyName}に登録しました。\n担当営業所は委託会社管理ページで設定してください。`);
   } else {
@@ -2790,6 +2822,7 @@ function registerFromInbox(id){
     saveLocal();
     item.status='登録済';
     localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
     renderInbox(); renderDrivers(currentOfficeFilter); renderDashboard();
     alert(`✅ 「${item.name}」をドライバー管理に登録しました。\n区分・担当営業所をドライバー管理ページで設定してください。`);
   }
@@ -2801,6 +2834,8 @@ function markInboxRead(id){
   if(item)item.status='確認済';
   localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
   renderInbox();
+  // GASにも反映
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id,status:'確認済'})}).catch(()=>{});
 }
 
 // ====== 委託会社管理 ======
