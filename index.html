@@ -850,6 +850,22 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   </div>
 </div>
 
+<!-- File Preview Modal -->
+<div id="file-preview-modal" style="display:none" class="modal-bg" onclick="closeModal('file-preview-modal')">
+  <div class="modal" style="max-width:900px;max-height:92vh" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <span class="modal-title" id="file-preview-title">ファイルプレビュー</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <a id="file-preview-dl" href="#" download style="font-size:11px;color:#4a90e2;text-decoration:none;padding:4px 10px;border:1px solid #4a90e2;border-radius:5px">⬇ ダウンロード</a>
+        <button class="modal-close" onclick="closeModal('file-preview-modal')">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" style="padding:0;background:#333;display:flex;align-items:center;justify-content:center;min-height:400px" id="file-preview-body">
+      <!-- コンテンツはJSで挿入 -->
+    </div>
+  </div>
+</div>
+
 <div id="office-modal" style="display:none" class="modal-bg">
   <div class="modal modal-sm" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title">営業所を追加</span><button class="modal-close" onclick="closeModal('office-modal')">✕</button></div>
@@ -1955,6 +1971,30 @@ function handleFiles(files, bufKey){
   });
 }
 
+function openFilePreview(url, name, dataUrl){
+  const body = document.getElementById('file-preview-body');
+  const title = document.getElementById('file-preview-title');
+  const dlLink = document.getElementById('file-preview-dl');
+  if(!body) return;
+
+  title.textContent = name;
+  const isPdf = name.match(/\.pdf$/i);
+  const isImg = name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  const src = dataUrl || url;
+
+  dlLink.href = src;
+  dlLink.download = name;
+
+  if(isPdf){
+    body.innerHTML = `<iframe src="${src}" style="width:100%;height:70vh;border:none;display:block"></iframe>`;
+  } else if(isImg){
+    body.innerHTML = `<img src="${src}" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px">`;
+  } else {
+    body.innerHTML = `<div style="color:#fff;padding:24px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📎</div><div>${name}</div><div style="margin-top:12px"><a href="${src}" download="${name}" style="color:#4a90e2">ダウンロードして確認</a></div></div>`;
+  }
+  document.getElementById('file-preview-modal').style.display = 'flex';
+}
+
 function renderFilePreview(bufKey){
   const previewEl = document.getElementById(bufKey + '-preview');
   if(!previewEl) return;
@@ -1962,10 +2002,10 @@ function renderFilePreview(bufKey){
   previewEl.innerHTML = files.map((f, i) => {
     const isImg = f.type?.startsWith('image/');
     const isPdf = f.type === 'application/pdf';
-    return `<div class="file-thumb">
-      ${isImg ? `<img src="${f.dataUrl}" alt="${f.name}">` : `<span style="font-size:18px">${isPdf?'📄':'📎'}</span>`}
-      <button class="file-thumb-del" onclick="removeModalFile('${bufKey}',${i})">×</button>
-      <div class="file-thumb-name">${f.name}</div>
+    return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreview('','${esc(f.name)}',modalFiles['${bufKey}'][${i}]?.dataUrl||'')" title="${esc(f.name)}">
+      ${isImg ? `<img src="${f.dataUrl}" alt="${esc(f.name)}">` : `<span style="font-size:18px">${isPdf?'📄':'📎'}</span>`}
+      <button class="file-thumb-del" onclick="event.stopPropagation();removeModalFile('${bufKey}',${i})">×</button>
+      <div class="file-thumb-name">${esc(f.name)}</div>
     </div>`;
   }).join('');
 }
@@ -2041,10 +2081,10 @@ function renderFileMgr(){
             </div>
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
-            ${files.map((f,i) => `<div class="file-thumb" title="${f.name}">
-              ${f.url ? `<a href="${f.url}" target="_blank">${f.name.match(/\.(jpg|jpeg|png|gif)$/i)?`<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:18px">📄</span>'}</a>` : '<span style="font-size:18px">📎</span>'}
-              <div class="file-thumb-name">${f.name}</div>
-              <button class="file-thumb-del" onclick="deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
+            ${files.map((f,i) => `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreview('${f.url||''}','${esc(f.name)}','')" title="${esc(f.name)}">
+              ${f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`}
+              <div class="file-thumb-name">${esc(f.name)}</div>
+              <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
             </div>`).join('')}
           </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
         </div>`;
@@ -2078,10 +2118,10 @@ function renderFileMgr(){
             <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||""}')">📎 書類追加</button>
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
-            ${files.map((f,i) => `<div class="file-thumb" title="${f.name}">
-              ${f.url ? `<a href="${f.url}" target="_blank">${f.name.match(/\.(jpg|jpeg|png|gif)$/i)?`<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">`:'<span style="font-size:18px">📄</span>'}</a>` : '<span style="font-size:18px">📎</span>'}
-              <div class="file-thumb-name">${f.name}</div>
-              <button class="file-thumb-del" onclick="deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
+            ${files.map((f,i) => `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreview('${f.url||''}','${esc(f.name)}','')" title="${esc(f.name)}">
+              ${f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`}
+              <div class="file-thumb-name">${esc(f.name)}</div>
+              <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
             </div>`).join('')}
           </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
         </div>`;
