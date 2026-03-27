@@ -1823,7 +1823,8 @@ function initSelfForm(){
     document.getElementById('self-form-screen').style.display='block';
     const sfOffices=JSON.parse(localStorage.getItem('fleet_offices')||'["西成","浜寺","藤井寺","大阪西"]');
     document.getElementById('sf-office').innerHTML='<option value="">選択してください</option>'+sfOffices.map(o=>`<option>${o}</option>`).join('');
-    sfSetMode('update');
+    // ★ let sfMode宣言より後に実行されるようsetTimeoutで遅延
+    setTimeout(()=>sfSetMode('update'), 0);
     // 自動ログインが後から app-screen を表示しても self-form-screen を守るため監視
     const observer = new MutationObserver(() => {
       const appEl = document.getElementById('app-screen');
@@ -1836,7 +1837,7 @@ function initSelfForm(){
   }
 }
 
-let sfMode = 'update'; // 'update' or 'new'
+let sfMode = 'update'; // 'update' or 'new'  ※ initSelfFormより後に宣言されているため、initSelfForm内のsfSetModeの効果が上書きされる問題を下記で対処
 
 function sfSetMode(mode){
   sfMode = mode;
