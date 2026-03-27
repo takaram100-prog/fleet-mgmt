@@ -935,8 +935,8 @@ function isOsakaVehicle(v){const o=v.owner||'',u=v.vehicleUser||'';return COMPAN
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ====== ログイン ======
-function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncFromSheet();}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
-function doLogout(){document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('pw-input').value='';document.getElementById('login-err').textContent='';}
+function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){localStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncFromSheet();}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
+function doLogout(){localStorage.removeItem('fleet_session');document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('pw-input').value='';document.getElementById('login-err').textContent='';}
 function changePw(){const o=document.getElementById('pw-old').value,n=document.getElementById('pw-new').value,n2=document.getElementById('pw-new2').value,msg=document.getElementById('pw-msg');if(o!==PASSWORD){msg.style.color='#e53935';msg.textContent='現在のパスワードが違います';return;}if(!n){msg.style.color='#e53935';msg.textContent='新しいパスワードを入力';return;}if(n!==n2){msg.style.color='#e53935';msg.textContent='確認用が一致しません';return;}PASSWORD=n;localStorage.setItem('fleet_pw',n);['pw-old','pw-new','pw-new2'].forEach(id=>document.getElementById(id).value='');msg.style.color='#43a047';msg.textContent='変更しました';}
 
 // ====== 営業所 ======
@@ -2940,6 +2940,17 @@ function renderAll(){
 function renderSettingsAll(){renderSettingsOffices();generateQR();renderInbox();}
 setTodayDate();
 initSelfForm();
+
+// ====== 自動ログイン（リロード時にセッション維持）======
+(function(){
+  const SESSION_KEY = 'fleet_session';
+  if(localStorage.getItem(SESSION_KEY) === 'ok'){
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='block';
+    renderAll();
+    syncFromSheet();
+  }
+})();
 </script>
 </body>
 </html>
