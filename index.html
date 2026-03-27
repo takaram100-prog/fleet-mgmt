@@ -1981,52 +1981,67 @@ function openFilePreview(url, name, dataUrl){
   const isPdf = name.match(/\.pdf$/i);
   const isImg = name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
 
-  // ローカルdataUrl優先。なければURLを使用
+  // dataUrl優先（ローカル保存 or 既存データに含まれている場合）
   const src = dataUrl || url;
+  const hasDriveUrl = url && url.includes('drive.google.com');
 
-  // Google DriveのURLを埋め込み用に変換
-  // https://drive.google.com/file/d/FILE_ID/view → https://drive.google.com/file/d/FILE_ID/preview
-  let embedSrc = src;
-  if(src && src.includes('drive.google.com')){
-    embedSrc = src.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
-    // drive.google.comのexportリンクはそのまま
-  }
-
-  dlLink.href = src || '#';
-  dlLink.download = name;
-  if(src && src.includes('drive.google.com')){
-    dlLink.target = '_blank';
-    dlLink.removeAttribute('download');
+  // ダウンロードリンク設定
+  if(src && src.startsWith('data:')){
+    dlLink.href = src; dlLink.download = name; dlLink.removeAttribute('target');
+  } else if(hasDriveUrl){
+    dlLink.href = url; dlLink.target = '_blank'; dlLink.removeAttribute('download');
+    dlLink.textContent = '⬇ Google Driveで開く';
+  } else {
+    dlLink.href = src||'#'; dlLink.download = name;
   }
 
   if(isPdf){
     if(src && src.startsWith('data:')){
-      // dataURLのPDF → blobに変換してiframeで表示
+      // dataURL → blobに変換してiframeで表示（完全オフライン対応）
       try{
-        const byteStr = atob(src.split(',')[1]);
+        const b64 = src.split(',')[1];
+        const byteStr = atob(b64);
         const bytes = new Uint8Array(byteStr.length);
         for(let i=0;i<byteStr.length;i++) bytes[i]=byteStr.charCodeAt(i);
         const blob = new Blob([bytes],{type:'application/pdf'});
         const blobUrl = URL.createObjectURL(blob);
         body.innerHTML = `<iframe src="${blobUrl}" style="width:100%;height:70vh;border:none;display:block"></iframe>`;
       }catch(e){
-        body.innerHTML = `<div style="color:#fff;padding:24px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="margin-bottom:12px">${name}</div><a href="${src}" download="${name}" style="color:#4a90e2;padding:8px 16px;border:1px solid #4a90e2;border-radius:6px">⬇ ダウンロード</a></div>`;
+        body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="margin-bottom:16px">${name}</div><a href="${src}" download="${name}" style="color:#4a90e2;padding:8px 16px;border:1px solid #4a90e2;border-radius:6px">⬇ ダウンロード</a></div>`;
       }
-    } else if(embedSrc && embedSrc.includes('drive.google.com')){
-      // Google Drive → /preview URLでiframe表示
-      body.innerHTML = `<iframe src="${embedSrc}" style="width:100%;height:70vh;border:none;display:block" allow="autoplay"></iframe>`;
-    } else if(embedSrc){
-      body.innerHTML = `<iframe src="${embedSrc}" style="width:100%;height:70vh;border:none;display:block"></iframe>`;
     } else {
-      body.innerHTML = `<div style="color:#fff;padding:24px;text-align:center"><div style="font-size:48px">📄</div><div>${name}</div></div>`;
+      // Drive URLの場合は直接開くリンクのみ表示（iframe埋め込みは不可）
+      const openUrl = hasDriveUrl ? url : (src||'');
+      body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center">
+        <div style="font-size:64px;margin-bottom:16px">📄</div>
+        <div style="font-size:14px;margin-bottom:8px">${name}</div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:20px">PDFはブラウザの制限によりアプリ内で直接表示できません</div>
+        ${openUrl ? `<a href="${openUrl}" target="_blank" style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">🔗 別タブで開く</a>` : ''}
+      </div>`;
     }
   } else if(isImg){
-    const imgSrc = src || '';
-    body.innerHTML = `<img src="${imgSrc}" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px" onerror="this.style.display='none';this.nextSibling.style.display='block'" ><div style="display:none;color:#fff;padding:24px;text-align:center"><div style="font-size:48px">🖼️</div><div>${name}</div><div style="margin-top:12px"><a href="${imgSrc}" target="_blank" style="color:#4a90e2">別タブで開く</a></div></div>`;
+    const imgSrc = src||'';
+    body.innerHTML = `<img src="${imgSrc}" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px"
+      onerror="this.style.display='none';document.getElementById('img-fallback').style.display='block'">
+      <div id="img-fallback" style="display:none;color:#fff;padding:32px;text-align:center">
+        <div style="font-size:48px">🖼️</div><div>${name}</div>
+        ${hasDriveUrl?`<div style="margin-top:12px"><a href="${url}" target="_blank" style="color:#4a90e2">別タブで開く</a></div>`:''}
+      </div>`;
   } else {
-    body.innerHTML = `<div style="color:#fff;padding:24px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📎</div><div style="margin-bottom:12px">${name}</div>${src?`<a href="${src}" ${src.includes('drive.google.com')?'target="_blank"':'download="'+name+'"'} style="color:#4a90e2;padding:8px 16px;border:1px solid #4a90e2;border-radius:6px">⬇ ${src.includes('drive.google.com')?'Google Driveで開く':'ダウンロード'}</a>`:'ファイルなし'}</div>`;
+    const openUrl = hasDriveUrl ? url : src;
+    body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center">
+      <div style="font-size:48px;margin-bottom:12px">📎</div>
+      <div style="margin-bottom:16px">${name}</div>
+      ${openUrl?`<a href="${openUrl}" ${hasDriveUrl?'target="_blank"':'download="'+name+'"'} style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">
+        ${hasDriveUrl?'🔗 Google Driveで開く':'⬇ ダウンロード'}</a>`:''}
+    </div>`;
   }
   document.getElementById('file-preview-modal').style.display = 'flex';
+}
+
+function openFilePreviewFromAttached(url, name, dataUrl){
+  // dataUrlが存在すればそれを使い、なければurlを使う
+  openFilePreview(url||'', name, dataUrl||'');
 }
 
 function renderFilePreview(bufKey){
@@ -2059,6 +2074,8 @@ async function uploadFilesToDrive(files, folder, subFolder){
   if(!files || !files.length) return [];
   const results = [];
   for(const f of files){
+    // dataUrlは必ずresultsに保持（Driveが使えなくてもプレビュー可能にする）
+    const entry = {name:f.name, dataUrl:f.dataUrl||'', type:f.type||'', uploadedAt:new Date().toISOString()};
     try{
       const res = await fetch(API_URL, {
         method:'POST',
@@ -2071,8 +2088,9 @@ async function uploadFilesToDrive(files, folder, subFolder){
         })
       });
       const data = await res.json();
-      if(data.fileId) results.push({name:f.name, fileId:data.fileId, url:data.url, uploadedAt:f.uploadedAt});
+      if(data.fileId){ entry.fileId = data.fileId; entry.url = data.url; }
     }catch(e){ console.error('Upload error:', e); }
+    results.push(entry);
   }
   return results;
 }
@@ -2115,11 +2133,14 @@ function renderFileMgr(){
             </div>
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
-            ${files.map((f,i) => `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreview('${f.url||''}','${esc(f.name)}','')" title="${esc(f.name)}">
-              ${f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`}
+            ${files.map((f,i) => {
+              const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
+              const previewDataUrl = f.dataUrl ? f.dataUrl.substring(0,30)+'...' : '';
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
+              ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
-            </div>`).join('')}
+            </div>`;}).join('')}
           </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
         </div>`;
       }).join('');
@@ -2152,11 +2173,13 @@ function renderFileMgr(){
             <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||""}')">📎 書類追加</button>
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
-            ${files.map((f,i) => `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreview('${f.url||''}','${esc(f.name)}','')" title="${esc(f.name)}">
-              ${f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`}
+            ${files.map((f,i) => {
+              const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
+              ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
-            </div>`).join('')}
+            </div>`;}).join('')}
           </div>` : `<div style="padding:10px 14px;font-size:11px;color:#bbb">書類・写真が登録されていません</div>`}
         </div>`;
       }).join('');
