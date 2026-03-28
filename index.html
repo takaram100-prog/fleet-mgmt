@@ -320,6 +320,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </select>
       </div>
 
+      <!-- 新規登録：営業所選択（未定あり） -->
+      <div class="self-form-group" id="sf-new-office-group" style="display:none">
+        <label class="self-form-label">営業所 *</label>
+        <select id="sf-new-office" class="self-form-select">
+          <option value="">選択してください</option>
+          <option value="未定">未定（後で設定）</option>
+        </select>
+      </div>
+
       <!-- 新規登録：登録番号（任意） -->
       <div class="self-form-group" id="sf-regcode-group" style="display:none">
         <label class="self-form-label">登録番号（委託会社の方のみ）</label>
@@ -349,8 +358,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="sf-new-fields" style="display:none">
         <div class="self-form-group">
           <label class="self-form-label">生年月日 *</label>
-          <input type="text" id="sf-birth" class="self-form-input" placeholder="例：1990-01-23 または 1990/1/23" inputmode="numeric">
-          <div style="font-size:11px;color:#888;margin-top:4px">西暦で入力してください（例：1990-01-23）</div>
+          <input type="text" id="sf-birth" class="self-form-input" placeholder="19900123" inputmode="numeric">
+          <div style="font-size:11px;color:#888;margin-top:4px">西暦8桁で入力（例：19900123）</div>
         </div>
         <div class="self-form-group">
           <label class="self-form-label">電話番号 *</label>
@@ -359,6 +368,31 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="self-form-group">
           <label class="self-form-label">住所</label>
           <input type="text" id="sf-addr" class="self-form-input" placeholder="〒000-0000　大阪府...">
+        </div>
+      </div>
+
+      <!-- 共通：車両情報 -->
+      <div class="self-form-group" id="sf-vehicle-group">
+        <label class="self-form-label">車両ナンバー *</label>
+        <input type="text" id="sf-plate" class="self-form-input" placeholder="堺 480 り 5560（番号のみでもOK）">
+      </div>
+      <!-- 新規のみ：車種・色 -->
+      <div id="sf-vehicle-detail-group" style="display:none">
+        <div class="self-form-group">
+          <label class="self-form-label">車種名 *</label>
+          <input type="text" id="sf-v-model" class="self-form-input" placeholder="スズキ キャリイ">
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="self-form-group" style="flex:1">
+            <label class="self-form-label">車体色 *</label>
+            <input type="text" id="sf-v-color" class="self-form-input" placeholder="白">
+          </div>
+          <div class="self-form-group" style="flex:1">
+            <label class="self-form-label">車種分類 *</label>
+            <select id="sf-v-kind" class="self-form-select">
+              <option>軽四</option><option>軽バン</option><option>軽トラ</option><option>普通車</option>
+            </select>
+          </div>
         </div>
       </div>
 
@@ -1999,6 +2033,7 @@ function initSelfForm(){
     document.getElementById('self-form-screen').style.display='block';
     const sfOffices=JSON.parse(localStorage.getItem('fleet_offices')||'["西成","浜寺","藤井寺","大阪西"]');
     document.getElementById('sf-office').innerHTML='<option value="">選択してください</option>'+sfOffices.map(o=>`<option>${o}</option>`).join('');
+    document.getElementById('sf-new-office').innerHTML='<option value="">選択してください</option><option value="未定">未定（後で設定）</option>'+sfOffices.map(o=>`<option>${o}</option>`).join('');
     sfSetMode('update');
     // 自動ログインが後から app-screen を表示しても self-form-screen を守るため監視
     const observer = new MutationObserver(() => {
@@ -2022,8 +2057,10 @@ function sfSetMode(mode){
   document.getElementById('sf-mode-new-label').style.borderColor = isNew ? '#4a90e2' : '#ddd';
   document.getElementById('sf-mode-new-label').style.color = isNew ? '#4a90e2' : '#888';
   document.getElementById('sf-office-group').style.display = isNew ? 'none' : 'block';
+  document.getElementById('sf-new-office-group').style.display = isNew ? 'block' : 'none';
   document.getElementById('sf-regcode-group').style.display = isNew ? 'block' : 'none';
   document.getElementById('sf-new-fields').style.display = isNew ? 'block' : 'none';
+  document.getElementById('sf-vehicle-detail-group').style.display = isNew ? 'block' : 'none';
   // 提出書類は常に表示
   document.getElementById('sf-docs-group').style.display = 'block';
   document.getElementById('sf-subtitle').textContent = isNew ? '新規登録フォーム' : '書類提出フォーム';
@@ -2088,6 +2125,10 @@ async function submitSelfForm(){
 
   if(!name){errEl.textContent='氏名を入力してください';return;}
 
+  // 共通：車両ナンバー取得
+  const plate = document.getElementById('sf-plate')?.value?.trim()||'';
+  if(!plate){errEl.textContent='車両ナンバーを入力してください';return;}
+
   let payload={};
 
   if(sfMode==='new'){
@@ -2096,9 +2137,17 @@ async function submitSelfForm(){
     const birthRaw=document.getElementById('sf-birth').value;
     const birth=normalizeBirthDate(birthRaw);
     const tel=document.getElementById('sf-tel').value.trim();
+    const newOffice=document.getElementById('sf-new-office')?.value||'';
+    if(!newOffice){errEl.textContent='営業所を選択してください';return;}
     if(!birth){errEl.textContent='生年月日を入力してください';return;}
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)){errEl.textContent='生年月日の形式が正しくありません（例：1990-01-23）';return;}
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)){errEl.textContent='生年月日の形式が正しくありません（例：19900123）';return;}
     if(!tel){errEl.textContent='電話番号を入力してください';return;}
+    const vModel=document.getElementById('sf-v-model')?.value?.trim()||'';
+    const vColor=document.getElementById('sf-v-color')?.value?.trim()||'';
+    const vKind=document.getElementById('sf-v-kind')?.value||'';
+    if(!vModel){errEl.textContent='車種名を入力してください';return;}
+    if(!vColor){errEl.textContent='車体色を入力してください';return;}
+    if(!vKind){errEl.textContent='車種分類を選択してください';return;}
     // 登録番号がある場合のみ委託会社を検索
     let companyId=null, companyName='';
     if(regcode){
@@ -2110,8 +2159,10 @@ async function submitSelfForm(){
     payload={
       action:'submitForm', mode:'new',
       name, kana, birth, tel,
+      office: newOffice,
       addr:document.getElementById('sf-addr').value,
       regcode, companyId, companyName,
+      plate, vModel, vColor, vKind,
       note, doctype:'新規登録',
       timestamp:new Date().toISOString(),
       files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
@@ -2127,6 +2178,7 @@ async function submitSelfForm(){
     payload={
       action:'submitForm', mode:'update',
       office, name, kana,
+      plate: plate,
       doctype:selectedDocs.join('・'), note,
       timestamp:new Date().toISOString(),
       files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
@@ -2197,6 +2249,10 @@ async function submitSelfForm(){
     birth:payload.birth||'',
     tel:payload.tel||'',
     addr:payload.addr||'',
+    plate:payload.plate||'',
+    vModel:payload.vModel||'',
+    vColor:payload.vColor||'',
+    vKind:payload.vKind||'',
     licenseExp:payload.licenseExp||'',
     licenseType:payload.licenseType||'',
     licenseCond:payload.licenseCond||'',
@@ -2214,8 +2270,10 @@ async function submitSelfForm(){
 
 function resetSelfForm(){
   sfFiles=[];
-  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-addr','sf-note'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-addr','sf-note','sf-plate','sf-v-model','sf-v-color'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['sf-doc-license','sf-doc-shaken','sf-doc-jibai','sf-doc-nin','sf-doc-health','sf-doc-other'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
+  const sfNewOffice=document.getElementById('sf-new-office');if(sfNewOffice)sfNewOffice.value='';
+  const sfVKind=document.getElementById('sf-v-kind');if(sfVKind)sfVKind.value='軽四';
   document.getElementById('sf-err').textContent='';
   document.getElementById('sf-submit').disabled=false;
   document.getElementById('sf-submit').textContent='送信する';
@@ -3188,6 +3246,7 @@ function renderInbox(){
           </div>
           <div style="font-size:10px;color:#888;margin-top:2px">${new Date(item.timestamp).toLocaleString('ja-JP')}${item.note?'　'+esc(item.note):''}</div>
           ${isNew?`<div style="font-size:10px;color:#4a90e2;margin-top:2px">生年月日：${item.birth||'—'}　電話：${item.tel||'—'}</div>`:''}
+          ${item.plate?`<div style="font-size:10px;color:#555;margin-top:2px">🚗 ${esc(item.plate)}${item.vModel?' '+esc(item.vModel):''}${item.vColor?' '+esc(item.vColor):''}</div>`:''}
           ${filesHTML}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
@@ -3367,7 +3426,18 @@ function saveInboxFilesToDriver(inboxId){
   // 登録済ドライバーとの名前マッチ
   const autoTarget = drivers.find(d=>d.name===item.name) || companies.flatMap(co=>co.drivers||[]).find(d=>d.name===item.name);
   const driverAutoVal = autoTarget ? 'driver:'+autoTarget.id : (item._registeredId ? item._registeredKind+':'+item._registeredId : '');
-  const vehicleAutoVal = item._registeredVehicleId ? 'vehicle:'+item._registeredVehicleId : '';
+
+  // 車両ナンバー部分一致マッチ（5560 → 堺 480 り 5560 にマッチ）
+  let vehicleAutoVal = item._registeredVehicleId ? 'vehicle:'+item._registeredVehicleId : '';
+  if(!vehicleAutoVal && item.plate){
+    const plateQ = item.plate.replace(/\s/g,'');
+    const allV = [...vehicles, ...companies.flatMap(c=>c.vehicles||[])];
+    const matchV = allV.find(v=>{
+      const vp = (v.plate||'').replace(/\s/g,'');
+      return vp === plateQ || vp.includes(plateQ) || plateQ.includes(vp);
+    });
+    if(matchV) vehicleAutoVal = 'vehicle:'+matchV.id;
+  }
 
   // 各ファイルごとのカスケードピッカーを構築
   const filesHtml = files.map((f,i)=>{
@@ -3565,6 +3635,21 @@ function registerFromInbox(id){
   if(item.office){
     const sel=modal.querySelector('#reg-office');
     if(sel) sel.value=item.office;
+  }
+
+  // QRフォームから車両情報がある場合はプリフィル＋外注を自動選択
+  const hasVehicleData = item.plate || item.vModel || item.vColor;
+  if(hasVehicleData && !isCompany){
+    setTimeout(()=>{
+      const typeEl=document.getElementById('reg-type');
+      const vSection=document.getElementById('reg-vehicle-section');
+      if(typeEl){typeEl.value='外注（個人）';}
+      if(vSection){vSection.style.display='block';}
+      if(item.plate) { const el=document.getElementById('reg-v-plate'); if(el) el.value=item.plate; }
+      if(item.vModel) { const el=document.getElementById('reg-v-model'); if(el) el.value=item.vModel; }
+      if(item.vColor) { const el=document.getElementById('reg-v-color'); if(el) el.value=item.vColor; }
+      if(item.vKind) { const el=document.getElementById('reg-v-kind'); if(el) el.value=item.vKind; }
+    },30);
   }
 }
 
