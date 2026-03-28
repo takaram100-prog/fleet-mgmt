@@ -2094,13 +2094,6 @@ function openFilePreviewFromAttached(url, name, dataUrl){
   openFilePreview(url||'', name, dataUrl||'');
 }
 
-// 書類・写真管理のサムネイルクリック（dataUrlをonclickに直接入れると壊れるのでキーで参照）
-function openFileMgrPreview(fkey){
-  const f = window._fmgrFiles && window._fmgrFiles[fkey];
-  if(!f) return;
-  openFilePreview(f.url||'', f.name||'', f.dataUrl||'');
-}
-
 function renderFilePreview(bufKey){
   const previewEl = document.getElementById(bufKey + '-preview');
   if(!previewEl) return;
@@ -2131,8 +2124,17 @@ async function uploadFilesToDrive(files, folder, subFolder){
   if(!files || !files.length) return [];
   const results = [];
   for(const f of files){
-    // dataUrlは必ずresultsに保持（Driveが使えなくてもプレビュー可能にする）
-    const entry = {name:f.name, dataUrl:f.dataUrl||'', type:f.type||'', uploadedAt:new Date().toISOString()};
+    // FileオブジェクトはdataUrlを持っていないのでFileReaderで読む
+    let dataUrl = f.dataUrl || '';
+    if(!dataUrl && (f instanceof File || f instanceof Blob)){
+      dataUrl = await new Promise(resolve => {
+        const reader = new FileReader();
+        reader.onload = e => resolve(e.target.result);
+        reader.onerror = () => resolve('');
+        reader.readAsDataURL(f);
+      });
+    }
+    const entry = {name:f.name, dataUrl:dataUrl, type:f.type||'', uploadedAt:new Date().toISOString()};
     try{
       const res = await fetch(API_URL, {
         method:'POST',
@@ -2141,7 +2143,7 @@ async function uploadFilesToDrive(files, folder, subFolder){
           folder, subFolder,
           fileName: f.name,
           mimeType: f.type,
-          dataUrl: f.dataUrl
+          dataUrl: dataUrl
         })
       });
       const data = await res.json();
@@ -2221,11 +2223,7 @@ function renderFileMgr(){
             ${files.map((f,i) => {
               const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
               const previewDataUrl = f.dataUrl ? f.dataUrl.substring(0,30)+'...' : '';
-              // グローバル配列にファイル情報を保持してインデックスで参照
-              if(!window._fmgrFiles) window._fmgrFiles = {};
-              const fkey = 'driver_' + d.id + '_' + i;
-              window._fmgrFiles[fkey] = f;
-              return `<div class="file-thumb" style="cursor:pointer" onclick="openFileMgrPreview('${fkey}')" title="${esc(f.name)}">
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
               ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
@@ -2268,10 +2266,7 @@ function renderFileMgr(){
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
             ${files.map((f,i) => {
               const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
-              if(!window._fmgrFiles) window._fmgrFiles = {};
-              const fkey = 'vehicle_' + v.id + '_' + i;
-              window._fmgrFiles[fkey] = f;
-              return `<div class="file-thumb" style="cursor:pointer" onclick="openFileMgrPreview('${fkey}')" title="${esc(f.name)}">
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
               ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
