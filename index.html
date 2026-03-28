@@ -942,7 +942,8 @@ async function syncInboxFromSheet(){
     // ローカルのinboxと統合（idで重複除去、GAS側が新しければ追加）
     const localInbox = JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
     const localIds = new Set(localInbox.map(i=>String(i.id)));
-    const newItems = json.inbox.filter(i => !localIds.has(String(i.id)));
+    const deletedIds=new Set(JSON.parse(localStorage.getItem('fleet_inbox_deleted')||'[]'));
+    const newItems = json.inbox.filter(i => !localIds.has(String(i.id)) && !deletedIds.has(String(i.id)));
     if(newItems.length){
       const merged = [...newItems, ...localInbox]
         .sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))
@@ -2752,6 +2753,7 @@ function renderInbox(){
 
     return `<div style="padding:10px 12px;border-bottom:1px solid #f0f0f0;${item.status==='未確認'?'background:#fffde7':''}">
       <div style="display:flex;align-items:flex-start;gap:8px">
+        <input type="checkbox" class="inbox-check" data-inbox-id="${item.id}" onchange="inboxUpdateBulkBar()" style="width:16px;height:16px;cursor:pointer;flex-shrink:0;margin-top:3px">
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
             ${esc(item.name)}
@@ -2774,10 +2776,21 @@ function renderInbox(){
     </div>`;
   };
 
+  // ★ 一括操作バー
+  const bulkBarHTML = '<div id="inbox-bulk-bar" style="display:none;padding:8px 12px;background:#e3f2fd;border-radius:6px;margin-bottom:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">' +
+    '<span style="font-size:12px;font-weight:600;color:#1565c0" id="inbox-bulk-count">0件選択中</span>' +
+    '<button class="btn btn-sm btn-primary" onclick="inboxBulkSave()" style="font-size:11px">💾 一括振り分け</button>' +
+    '<button class="btn btn-sm btn-danger" onclick="inboxBulkDelete()" style="font-size:11px">🗑 一括削除</button>' +
+    '<button class="btn btn-sm" onclick="inboxBulkClearSelection()" style="font-size:11px">選択解除</button>' +
+    '<label style="margin-left:auto;font-size:11px;cursor:pointer;color:#888"><input type="checkbox" onchange="inboxToggleAll(this.checked)" style="margin-right:4px">全選択</label>' +
+  '</div>';
+
   const list = currentTab==='registered' ? registered : pending;
-  el.innerHTML = tabsHTML + (list.length
+  el.innerHTML = tabsHTML + bulkBarHTML + (list.length
     ? list.map(renderItem).join('')
     : `<div style="padding:16px;text-align:center;color:#888;font-size:12px">${currentTab==='registered'?'登録済みのデータはありません':'未確認・確認済みのデータはありません'}</div>`);
+  // 一括バーの初期表示制御
+  inboxUpdateBulkBar();
 }
 
 function inboxSetTab(tab){
@@ -2786,13 +2799,125 @@ function inboxSetTab(tab){
   renderInbox();
 }
 
+// ★ 一括操作関数群
+function inboxGetSelectedIds(){
+  return Array.from(document.querySelectorAll('.inbox-check:checked')).map(cb=>Number(cb.dataset.inboxId));
+}
+
+function inboxUpdateBulkBar(){
+  const selected = inboxGetSelectedIds();
+  const bar = document.getElementById('inbox-bulk-bar');
+  const countEl = document.getElementById('inbox-bulk-count');
+  if(bar) bar.style.display = selected.length > 0 ? 'flex' : 'none';
+  if(countEl) countEl.textContent = selected.length + '件選択中';
+}
+
+function inboxToggleAll(checked){
+  document.querySelectorAll('.inbox-check').forEach(cb=>{cb.checked=checked;});
+  inboxUpdateBulkBar();
+}
+
+function inboxBulkClearSelection(){
+  document.querySelectorAll('.inbox-check').forEach(cb=>{cb.checked=false;});
+  inboxUpdateBulkBar();
+}
+
+function inboxBulkDelete(){
+  const ids = inboxGetSelectedIds();
+  if(!ids.length){alert('削除する項目を選択してください');return;}
+  if(!confirm(ids.length+'件を一括削除しますか？'))return;
+  let inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const deletedIds=JSON.parse(localStorage.getItem('fleet_inbox_deleted')||'[]');
+  ids.forEach(id=>{
+    inbox=inbox.filter(i=>i.id!==id);
+    deletedIds.push(String(id));
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'deleteInbox',id})}).catch(()=>{});
+  });
+  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  localStorage.setItem('fleet_inbox_deleted',JSON.stringify(deletedIds));
+  renderInbox();
+  alert('✅ '+ids.length+'件を削除しました');
+}
+
+function inboxBulkSave(){
+  const ids = inboxGetSelectedIds();
+  if(!ids.length){alert('振り分ける項目を選択してください');return;}
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const items = ids.map(id=>inbox.find(i=>i.id===id)).filter(Boolean);
+  const totalFiles = items.reduce((s,item)=>{
+    const files=(item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
+    return s+files.length;
+  },0);
+
+  // 全ドライバー・車両リスト
+  const allTargets = [
+    ...drivers.map(d=>({id:d.id,label:'👤 '+d.name,kind:'driver'})),
+    ...companies.flatMap(co=>(co.drivers||[]).map(d=>({id:d.id,label:'👤 '+d.name+'（'+co.name+'）',kind:'driver'}))),
+    ...vehicles.map(v=>({id:v.id,label:'🚗 '+v.plate,kind:'vehicle'})),
+    ...companies.flatMap(co=>(co.vehicles||[]).map(v=>({id:v.id,label:'🚗 '+v.plate+'（'+co.name+'）',kind:'vehicle'})))
+  ];
+  const targetOpts = allTargets.map(t=>'<option value="'+t.kind+':'+t.id+'">'+t.label+'</option>').join('');
+
+  const namesHtml = items.map(item=>'<span style="font-size:11px;padding:2px 7px;background:#eaf2ff;border-radius:99px;color:#1565c0">'+item.name+'</span>').join(' ');
+
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg';
+  modal.style.display = 'flex';
+  modal.innerHTML = '<div class="modal modal-sm" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">📎 一括振り分け（'+ids.length+'件）</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+namesHtml+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-bottom:10px">合計 '+totalFiles+' ファイル</div>'+
+      '<div class="form-group"><label>振り分け先（全ファイル共通）</label><select id="inbox-bulk-target" style="width:100%;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:6px"><option value="">— 選択してください —</option>'+targetOpts+'</select></div>'+
+    '</div>'+
+    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxBulkSave('+JSON.stringify(ids)+',document.getElementById(\'inbox-bulk-target\').value);this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
+  '</div>';
+  document.body.appendChild(modal);
+}
+
+function execInboxBulkSave(ids, targetVal){
+  if(!targetVal){alert('振り分け先を選択してください');return;}
+  const [kind,id] = targetVal.split(':');
+  let target = null;
+  if(kind==='driver'){
+    target = drivers.find(x=>String(x.id)===String(id));
+    if(!target) companies.forEach(co=>{if(!target) target=(co.drivers||[]).find(x=>String(x.id)===String(id));});
+  } else {
+    target = vehicles.find(x=>String(x.id)===String(id));
+    if(!target) companies.forEach(co=>{if(!target) target=(co.vehicles||[]).find(x=>String(x.id)===String(id));});
+  }
+  if(!target){alert('振り分け先が見つかりません');return;}
+  if(!Array.isArray(target.attachedFiles)) target.attachedFiles=[];
+
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  let savedCount = 0;
+  ids.forEach(inboxId=>{
+    const item=inbox.find(i=>i.id===inboxId);
+    if(!item) return;
+    const files=(item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
+    files.forEach(f=>{
+      target.attachedFiles.push({name:f.name, type:f.type||'', url:f.url||'', fileId:f.fileId||'', dataUrl:f.dataUrl||'', uploadedAt:item.timestamp});
+      savedCount++;
+    });
+    item.status='登録済';
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:inboxId,status:'登録済'})}).catch(()=>{});
+  });
+  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  saveLocal(); saveCompanies();
+  alert('✅ '+savedCount+'件のファイルを保存しました');
+  renderInbox(); renderFileMgr();
+}
+
 function deleteInboxItem(id){
   if(!confirm('この受信データを削除しますか？'))return;
   const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
   const filtered=inbox.filter(i=>i.id!==id);
   localStorage.setItem('fleet_inbox',JSON.stringify(filtered));
+  // ★ 削除済みIDリストに追加（復活防止）
+  const deletedIds=JSON.parse(localStorage.getItem('fleet_inbox_deleted')||'[]');
+  deletedIds.push(String(id));
+  localStorage.setItem('fleet_inbox_deleted',JSON.stringify(deletedIds));
   renderInbox();
-  // GASにも削除を反映
   fetch(API_URL,{method:'POST',body:JSON.stringify({action:'deleteInbox',id})}).catch(()=>{});
 }
 
