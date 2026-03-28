@@ -207,7 +207,11 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 }
 /* ===== セルフ入力フォーム（スマホ専用ページ） ===== */
 #self-form-screen{display:none;min-height:100vh;background:#f0f4ff;padding:16px;position:fixed;inset:0;z-index:999;overflow-y:auto}
-.self-form-card{background:#fff;border-radius:16px;padding:24px 20px;max-width:480px;margin:0 auto;box-shadow:0 2px 16px rgba(74,144,226,.12)}
+.self-form-card{background:#fff;border-radius:16px;padding:24px 20px 80px;max-width:480px;margin:0 auto;box-shadow:0 2px 16px rgba(74,144,226,.12)}
+.sf-sending-overlay{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1100;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+.sf-sending-spinner{width:48px;height:48px;border:5px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:sf-spin .8s linear infinite}
+.sf-sending-text{color:#fff;font-size:15px;font-weight:600}
+@keyframes sf-spin{to{transform:rotate(360deg)}}
 .self-form-logo{text-align:center;margin-bottom:20px}
 .self-form-logo-title{font-size:17px;font-weight:700;color:#1a1a1a;margin-bottom:3px}
 .self-form-logo-sub{font-size:12px;color:#888}
@@ -1823,8 +1827,7 @@ function initSelfForm(){
     document.getElementById('self-form-screen').style.display='block';
     const sfOffices=JSON.parse(localStorage.getItem('fleet_offices')||'["西成","浜寺","藤井寺","大阪西"]');
     document.getElementById('sf-office').innerHTML='<option value="">選択してください</option>'+sfOffices.map(o=>`<option>${o}</option>`).join('');
-    // ★ let sfMode宣言より後に実行されるようsetTimeoutで遅延
-    setTimeout(()=>sfSetMode('update'), 0);
+    sfSetMode('update');
     // 自動ログインが後から app-screen を表示しても self-form-screen を守るため監視
     const observer = new MutationObserver(() => {
       const appEl = document.getElementById('app-screen');
@@ -1837,7 +1840,7 @@ function initSelfForm(){
   }
 }
 
-let sfMode = 'update'; // 'update' or 'new'  ※ initSelfFormより後に宣言されているため、initSelfForm内のsfSetModeの効果が上書きされる問題を下記で対処
+let sfMode = 'update'; // 'update' or 'new'
 
 function sfSetMode(mode){
   sfMode = mode;
@@ -1919,7 +1922,7 @@ async function submitSelfForm(){
       regcode, companyId, companyName,
       note, doctype:'新規登録',
       timestamp:new Date().toISOString(),
-      files:[] // 後でDriveアップロード後に設定
+      files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
     };
   } else {
     // 書類更新モード
@@ -1934,15 +1937,21 @@ async function submitSelfForm(){
       office, name, kana,
       doctype:selectedDocs.join('・'), note,
       timestamp:new Date().toISOString(),
-      files:[] // 後でDriveアップロード後に設定
+      files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
     };
   }
 
   document.getElementById('sf-submit').disabled=true;
   document.getElementById('sf-submit').textContent='送信中...';
 
-  // ファイルをGoogle Driveにアップロードしてからsubmitする
+  // 送信中オーバーレイ表示（操作ブロック）
+  const overlay=document.createElement('div');
+  overlay.className='sf-sending-overlay';
+  overlay.innerHTML='<div class="sf-sending-spinner"></div><div class="sf-sending-text">送信中...</div>';
+  document.body.appendChild(overlay);
+
   try{
+    // ファイルをGoogle Driveにアップロードしてからsubmit
     const uploadedFiles=[];
     const folderName=payload.office||'新規登録';
     const subFolderName=name||'未設定';
@@ -1961,17 +1970,21 @@ async function submitSelfForm(){
         });
         const data=await res.json();
         if(data.ok){
-          uploadedFiles.push({name:f.name,type:f.type||'',url:data.url,fileId:data.fileId,dataUrl:f.dataUrl});
-        } else {
-          uploadedFiles.push({name:f.name,type:f.type||'',dataUrl:f.dataUrl});
+          uploadedFiles.push({name:f.name,type:f.type||'',url:data.url,fileId:data.fileId});
+        }else{
+          uploadedFiles.push({name:f.name,type:f.type||''});
         }
       }catch(e){
-        uploadedFiles.push({name:f.name,type:f.type||'',dataUrl:f.dataUrl});
+        uploadedFiles.push({name:f.name,type:f.type||''});
       }
     }
     payload.files=uploadedFiles;
     await fetch(API_URL,{method:'POST',body:JSON.stringify(payload)});
   }catch(e){}
+  finally{
+    // オーバーレイ除去
+    if(overlay.parentNode) overlay.parentNode.removeChild(overlay);
+  }
 
   const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
   inbox.unshift({
