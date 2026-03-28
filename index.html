@@ -923,8 +923,8 @@ async function syncFromSheet(){
     // drivers/vehicles取得
     const res=await fetch(API_URL+'?action=getAll');const json=await res.json();
     if(json.ok){
-      if(json.data.drivers?.length){drivers=json.data.drivers.map(d=>{['license','other','sub','offices','otherDocs','leave','attachedFiles'].forEach(k=>{if(typeof d[k]==='string')try{d[k]=JSON.parse(d[k]);}catch(e){d[k]=Array.isArray(d[k])?[]:{};} });if(!d.license)d.license={};if(!d.other)d.other={};if(!d.sub)d.sub={};return d;});}
-      if(json.data.vehicles?.length){vehicles=json.data.vehicles.map(v=>{['shaken','jibai','nin','attachedFiles'].forEach(k=>{if(typeof v[k]==='string')try{v[k]=JSON.parse(v[k]);}catch(e){v[k]=Array.isArray(v[k])?[]:{};} });if(!v.shaken)v.shaken={};if(!v.jibai)v.jibai={};if(!v.nin)v.nin={};return v;});}
+      if(json.data.drivers?.length){drivers=json.data.drivers.map(d=>{['license','other','sub','offices','otherDocs','leave','attachedFiles'].forEach(k=>{if(typeof d[k]==='string')try{d[k]=JSON.parse(d[k]);}catch(e){d[k]=['offices','otherDocs','attachedFiles'].includes(k)?[]:{};} });if(!Array.isArray(d.attachedFiles))d.attachedFiles=[];if(!Array.isArray(d.offices))d.offices=typeof d.offices==='string'?[d.offices]:[];if(!d.license)d.license={};if(!d.other)d.other={};if(!d.sub)d.sub={};return d;});}
+      if(json.data.vehicles?.length){vehicles=json.data.vehicles.map(v=>{['shaken','jibai','nin','attachedFiles'].forEach(k=>{if(typeof v[k]==='string')try{v[k]=JSON.parse(v[k]);}catch(e){v[k]=k==='attachedFiles'?[]:{};} });if(!Array.isArray(v.attachedFiles))v.attachedFiles=[];if(!v.shaken)v.shaken={};if(!v.jibai)v.jibai={};if(!v.nin)v.nin={};return v;});}
       saveLocal();renderAll();
     }
     // inbox取得（GASから）
@@ -2221,7 +2221,7 @@ function renderFileMgr(){
       return true;
     });
     if(officeFilter) allDrivers = allDrivers.filter(d =>
-      d.office === officeFilter || (d.offices||[]).includes(officeFilter)
+      d.office === officeFilter || (Array.isArray(d.offices) ? d.offices : []).includes(officeFilter)
     );
 
     if(allDrivers.length){
@@ -2251,7 +2251,9 @@ function renderFileMgr(){
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
             ${files.map((f,i) => {
-              const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
+              const fid = f.fileId || (f.url && f.url.match(/\/d\/([a-zA-Z0-9_-]+)/) ? f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1] : '');
+              const thumbSrc = f.dataUrl || (fid && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120' : '');
+              const thumb = thumbSrc && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${thumbSrc}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
               const previewDataUrl = f.dataUrl ? f.dataUrl.substring(0,30)+'...' : '';
               return `<div class="file-thumb" style="cursor:pointer" onclick="openAttachedFilePreview('driver',${d.id},${i},'${d._company||""}')" title="${esc(f.name)}">
               ${thumb}
@@ -2272,7 +2274,7 @@ function renderFileMgr(){
     ];
     if(search) allVehicles = allVehicles.filter(v => v.plate?.toLowerCase().includes(search));
     if(officeFilter) allVehicles = allVehicles.filter(v =>
-      v.office === officeFilter || (v.offices||[]).includes(officeFilter)
+      v.office === officeFilter || (Array.isArray(v.offices) ? v.offices : []).includes(officeFilter)
     );
 
     if(allVehicles.length){
@@ -2295,7 +2297,9 @@ function renderFileMgr(){
           </div>
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
             ${files.map((f,i) => {
-              const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
+              const fid = f.fileId || (f.url && f.url.match(/\/d\/([a-zA-Z0-9_-]+)/) ? f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1] : '');
+              const thumbSrc = f.dataUrl || (fid && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120' : '');
+              const thumb = thumbSrc && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${thumbSrc}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
               return `<div class="file-thumb" style="cursor:pointer" onclick="openAttachedFilePreview('vehicle',${v.id},${i},'${v._company||""}')" title="${esc(f.name)}">
               ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
@@ -2763,7 +2767,7 @@ function renderInbox(){
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
           ${isNew&&item.status!=='登録済'?`<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`:''}
           ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
-          ${(item.files||[]).some(f=>typeof f==='object'&&f.dataUrl)?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
+          ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">🗑 削除</button>
         </div>
       </div>
@@ -2808,27 +2812,79 @@ function saveInboxFilesToDriver(inboxId){
   const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
   const item=inbox.find(i=>i.id===inboxId);
   if(!item) return;
-  const files = (item.files||[]).filter(f=>typeof f==='object'&&f.dataUrl);
+  // Drive URLまたはdataUrlがあるファイルを対象
+  const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.dataUrl||f.fileId));
   if(!files.length){alert('保存できる添付ファイルがありません');return;}
 
-  // 対象ドライバーを検索（名前一致）
-  const target = drivers.find(d=>d.name===item.name) ||
-    companies.flatMap(c=>c.drivers||[]).find(d=>d.name===item.name);
+  // 全ドライバー・車両のリストを構築
+  const allTargets = [
+    ...drivers.map(d=>({id:d.id,label:'👤 '+d.name,kind:'driver'})),
+    ...companies.flatMap(co=>(co.drivers||[]).map(d=>({id:d.id,label:'👤 '+d.name+'（'+co.name+'）',kind:'driver'}))),
+    ...vehicles.map(v=>({id:v.id,label:'🚗 '+v.plate,kind:'vehicle'})),
+    ...companies.flatMap(co=>(co.vehicles||[]).map(v=>({id:v.id,label:'🚗 '+v.plate+'（'+co.name+'）',kind:'vehicle'})))
+  ];
 
-  if(!target){
-    alert(`「${item.name}」がドライバー管理に見つかりません。\n先に登録してから保存してください。`);
-    return;
+  // 名前一致で候補を自動選択
+  const autoTarget = drivers.find(d=>d.name===item.name) || companies.flatMap(co=>co.drivers||[]).find(d=>d.name===item.name);
+  const autoVal = autoTarget ? 'driver:'+autoTarget.id : '';
+
+  const targetOpts = allTargets.map(t=>'<option value="'+t.kind+':'+t.id+'"'+(t.kind+':'+t.id===autoVal?' selected':'')+'>'+t.label+'</option>').join('');
+
+  // モーダルで振り分け先を選択
+  const modal = document.createElement('div');
+  modal.className = 'modal-bg';
+  modal.style.display = 'flex';
+  modal.innerHTML = '<div class="modal modal-sm" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">📎 写真・書類の振り分け</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body">'+
+      '<div style="font-size:12px;color:#888;margin-bottom:10px">'+item.name+'の添付ファイル '+files.length+'件</div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+files.map(f=>{
+        const icon = f.name.match(/\.pdf$/i)?'📄':f.name.match(/\.(jpg|jpeg|png|gif)$/i)?'🖼️':'📎';
+        return '<span style="font-size:11px;padding:3px 8px;background:#eaf2ff;border-radius:99px;color:#1565c0">'+icon+' '+f.name+'</span>';
+      }).join('')+'</div>'+
+      '<div class="form-group" style="margin-bottom:12px"><label>振り分け先</label><select id="inbox-save-target" style="width:100%;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:6px"><option value="">— 選択してください —</option>'+targetOpts+'</select></div>'+
+    '</div>'+
+    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxSave('+inboxId+',document.getElementById(\'inbox-save-target\').value);this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
+  '</div>';
+  document.body.appendChild(modal);
+}
+
+function execInboxSave(inboxId, targetVal){
+  if(!targetVal){alert('振り分け先を選択してください');return;}
+  const [kind,id] = targetVal.split(':');
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===inboxId);
+  if(!item) return;
+  const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.dataUrl||f.fileId));
+
+  let target = null;
+  if(kind==='driver'){
+    target = drivers.find(x=>String(x.id)===String(id));
+    if(!target) companies.forEach(co=>{if(!target) target=(co.drivers||[]).find(x=>String(x.id)===String(id));});
+  } else {
+    target = vehicles.find(x=>String(x.id)===String(id));
+    if(!target) companies.forEach(co=>{if(!target) target=(co.vehicles||[]).find(x=>String(x.id)===String(id));});
   }
+  if(!target){alert('振り分け先が見つかりません');return;}
 
-  if(!confirm(`「${item.name}」の添付ファイル${files.length}件をドライバー管理に保存しますか？`))return;
-
-  if(!target.attachedFiles) target.attachedFiles=[];
+  if(!Array.isArray(target.attachedFiles)) target.attachedFiles=[];
   files.forEach(f=>{
-    target.attachedFiles.push({name:f.name, dataUrl:f.dataUrl, type:f.type||'', uploadedAt:item.timestamp});
+    target.attachedFiles.push({
+      name:f.name, type:f.type||'',
+      url:f.url||'', fileId:f.fileId||'',
+      dataUrl:f.dataUrl||'',
+      uploadedAt:item.timestamp
+    });
   });
   saveLocal(); saveCompanies();
-  alert(`✅ ${files.length}件を「${item.name}」の書類として保存しました。`);
-  renderFileMgr();
+
+  // ステータスを更新
+  item.status='登録済';
+  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
+
+  alert('✅ '+files.length+'件を保存しました');
+  renderInbox(); renderFileMgr();
 }
 
 function registerFromInbox(id){
