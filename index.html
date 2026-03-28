@@ -2205,102 +2205,131 @@ function resetSelfForm(){
 }
 
 // ====== 振り分け先リスト共通ヘルパー ======
-function buildAllTargets(){
-  // ドライバー（自社）
-  const selfDrivers = drivers.filter(d=>!d.status||d.status==='在籍').map(d => {
-    const off = (Array.isArray(d.offices)&&d.offices.length?d.offices:d.office?[d.office]:[]).join('・')||'未設定';
-    return {id:d.id, kind:'driver', name:d.name, office:off, company:'', label:`${d.name}（${off}）`, search:`${d.name} ${d.kana||''} ${off} ドライバー 自社`};
+function getCascadeData(){
+  const sd = drivers.filter(d=>!d.status||d.status==='在籍').map(d=>{
+    const off=(Array.isArray(d.offices)&&d.offices.length?d.offices:d.office?[d.office]:[]).join('・')||'未設定';
+    return {id:d.id,kind:'driver',name:d.name,office:off,group:off};
   });
-  // ドライバー（委託会社）
-  const coDrivers = companies.flatMap(c=>(c.drivers||[]).map(d=>{
-    const off = (d.offices||[]).join('・')||'未設定';
-    return {id:d.id, kind:'driver', name:d.name, office:off, company:c.name, label:`${d.name}（${c.name} / ${off}）`, search:`${d.name} ${d.kana||''} ${off} ${c.name} ドライバー 委託`};
-  }));
-  // 車両（自社）
-  const selfVehicles = vehicles.map(v => {
-    const off = v.office||'未設定';
-    const dr = v.driver||'';
-    return {id:v.id, kind:'vehicle', name:v.plate, office:off, company:'', driver:dr, label:`${v.plate}（${off}${dr?' / '+dr:''})`, search:`${v.plate} ${v.model||''} ${off} ${dr} 車両 自社`};
-  });
-  // 車両（委託会社）
-  const coVehicles = companies.flatMap(c=>(c.vehicles||[]).map(v=>{
-    const off = (v.offices||[]).join('・')||'未設定';
-    return {id:v.id, kind:'vehicle', name:v.plate, office:off, company:c.name, label:`${v.plate}（${c.name} / ${off}）`, search:`${v.plate} ${v.model||''} ${off} ${c.name} 車両 委託`};
-  }));
-  return {selfDrivers, coDrivers, selfVehicles, coVehicles, all:[...selfDrivers,...coDrivers,...selfVehicles,...coVehicles]};
-}
-
-function buildTargetOptgroups(selectedVal){
-  const t = buildAllTargets();
-  let html = '';
-  // 営業所別にグループ化
-  const driverOffices = [...new Set([...t.selfDrivers,...t.coDrivers].map(d=>d.office))];
-  const vehicleOffices = [...new Set([...t.selfVehicles,...t.coVehicles].map(v=>v.office))];
-  // ドライバー（営業所別）
-  driverOffices.forEach(off=>{
-    const items = [...t.selfDrivers,...t.coDrivers].filter(d=>d.office===off);
-    if(!items.length) return;
-    html += `<optgroup label="👤 ドライバー（${off}）">`;
-    items.forEach(d=>{
-      const val = d.kind+':'+d.id;
-      const sel = val===selectedVal?' selected':'';
-      const co = d.company ? ' ['+d.company+']' : '';
-      html += `<option value="${val}" data-search="${esc(d.search)}"${sel}>👤 ${d.name}${co}</option>`;
+  const sv = vehicles.map(v=>({id:v.id,kind:'vehicle',name:v.plate,office:v.office||'未設定',group:v.office||'未設定',driver:v.driver||''}));
+  const cd=[],cv=[];
+  companies.forEach(c=>{
+    (c.drivers||[]).forEach(d=>{
+      const off=(d.offices||[]).join('・')||'未設定';
+      cd.push({id:d.id,kind:'driver',name:d.name,office:off,group:c.name,company:c.name});
     });
-    html += '</optgroup>';
-  });
-  // 車両（営業所別）
-  vehicleOffices.forEach(off=>{
-    const items = [...t.selfVehicles,...t.coVehicles].filter(v=>v.office===off);
-    if(!items.length) return;
-    html += `<optgroup label="🚗 車両（${off}）">`;
-    items.forEach(v=>{
-      const val = v.kind+':'+v.id;
-      const sel = val===selectedVal?' selected':'';
-      const co = v.company ? ' ['+v.company+']' : '';
-      html += `<option value="${val}" data-search="${esc(v.search)}"${sel}>🚗 ${v.name}${co}</option>`;
+    (c.vehicles||[]).forEach(v=>{
+      const off=(v.offices||[]).join('・')||'未設定';
+      cv.push({id:v.id,kind:'vehicle',name:v.plate,office:off,group:c.name,company:c.name});
     });
-    html += '</optgroup>';
   });
-  return html;
+  return {
+    'ドライバー（自社）':sd, '車両（自社）':sv,
+    '委託ドライバー':cd, '委託車両':cv
+  };
 }
 
-function buildTargetPickerHTML(selectId, selectedVal, extraStyle){
-  const uid = selectId || ('tp-'+Date.now());
-  const opts = buildTargetOptgroups(selectedVal||'');
-  const sStyle = extraStyle || 'width:100%;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:6px';
-  return `<input type="text" placeholder="🔍 氏名・車両番号・営業所・会社名で検索..." oninput="filterTargetPicker(this,'${uid}')" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;margin-bottom:6px">
-<select id="${uid}" style="${sStyle}"><option value="">— 振り分け先を選択 —</option>${opts}</select>`;
+function buildCascadeHTML(prefix, defaultVal){
+  const selS='padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;width:100%';
+  return `<div style="display:flex;flex-direction:column;gap:6px" id="${prefix}-wrap">
+    <select id="${prefix}-cat" style="${selS}" onchange="cascadeCatChange('${prefix}')">
+      <option value="">① カテゴリを選択</option>
+      <option value="ドライバー（自社）">👤 ドライバー（自社）</option>
+      <option value="車両（自社）">🚗 車両（自社）</option>
+      <option value="委託ドライバー">👤 委託ドライバー</option>
+      <option value="委託車両">🚗 委託車両</option>
+    </select>
+    <select id="${prefix}-grp" style="${selS}" onchange="cascadeGrpChange('${prefix}')" disabled>
+      <option value="">② 営業所・委託会社を選択</option>
+    </select>
+    <select id="${prefix}-dtl" style="${selS}" disabled>
+      <option value="">③ 対象を選択</option>
+    </select>
+  </div>`;
 }
 
-function filterTargetPicker(input, selectId){
-  const q = (input.value||'').toLowerCase();
-  const sel = document.getElementById(selectId);
-  if(!sel) return;
-  const opts = sel.querySelectorAll('option[data-search]');
-  const groups = sel.querySelectorAll('optgroup');
-  if(!q){ opts.forEach(o=>o.style.display=''); groups.forEach(g=>g.style.display=''); return; }
-  const groupVisible = new Map();
-  groups.forEach(g=>groupVisible.set(g, false));
-  opts.forEach(o=>{
-    const s = (o.dataset.search||'').toLowerCase();
-    const match = q.split(/\s+/).every(w=>s.includes(w));
-    o.style.display = match ? '' : 'none';
-    if(match && o.parentElement.tagName==='OPTGROUP') groupVisible.set(o.parentElement, true);
+function cascadeCatChange(prefix){
+  const cat=document.getElementById(prefix+'-cat').value;
+  const grpSel=document.getElementById(prefix+'-grp');
+  const dtlSel=document.getElementById(prefix+'-dtl');
+  grpSel.innerHTML='<option value="">② 営業所・委託会社を選択</option>';
+  dtlSel.innerHTML='<option value="">③ 対象を選択</option>';
+  dtlSel.disabled=true;
+  if(!cat){grpSel.disabled=true;return;}
+  const data=getCascadeData()[cat]||[];
+  const groups=[...new Set(data.map(d=>d.group))].sort();
+  groups.forEach(g=>{
+    const o=document.createElement('option');o.value=g;
+    const isCo=cat.includes('委託');
+    o.textContent=(isCo?'🏢 ':'📍 ')+g;
+    grpSel.appendChild(o);
   });
-  groups.forEach(g=>g.style.display = groupVisible.get(g) ? '' : 'none');
+  grpSel.disabled=false;
+}
+
+function cascadeGrpChange(prefix){
+  const cat=document.getElementById(prefix+'-cat').value;
+  const grp=document.getElementById(prefix+'-grp').value;
+  const dtlSel=document.getElementById(prefix+'-dtl');
+  dtlSel.innerHTML='<option value="">③ 対象を選択</option>';
+  if(!grp){dtlSel.disabled=true;return;}
+  const data=(getCascadeData()[cat]||[]).filter(d=>d.group===grp);
+  data.forEach(d=>{
+    const o=document.createElement('option');
+    o.value=d.kind+':'+d.id;
+    const icon=d.kind==='driver'?'👤':'🚗';
+    const extra=d.kind==='vehicle'&&d.driver?' / '+d.driver:'';
+    o.textContent=icon+' '+d.name+(d.office!==grp?' ('+d.office+')':'')+extra;
+    dtlSel.appendChild(o);
+  });
+  dtlSel.disabled=false;
+  if(data.length===1) dtlSel.value=data[0].kind+':'+data[0].id;
+}
+
+function getCascadeVal(prefix){
+  return document.getElementById(prefix+'-dtl')?.value||'';
+}
+
+// 自動選択ヘルパー（名前でマッチ）
+function cascadeAutoSelect(prefix, kindVal){
+  if(!kindVal) return;
+  const [kind,id]=kindVal.split(':');
+  const allData=getCascadeData();
+  for(const [cat,items] of Object.entries(allData)){
+    const found=items.find(d=>d.kind===kind&&String(d.id)===String(id));
+    if(found){
+      document.getElementById(prefix+'-cat').value=cat;
+      cascadeCatChange(prefix);
+      document.getElementById(prefix+'-grp').value=found.group;
+      cascadeGrpChange(prefix);
+      document.getElementById(prefix+'-dtl').value=kindVal;
+      break;
+    }
+  }
 }
 
 // 簡易版（inline select用、検索なし）
 function buildTargetSimpleOpts(selectedVal){
-  const t = buildAllTargets();
-  return t.all.map(d=>{
-    const val=d.kind+':'+d.id;
-    const sel=val===selectedVal?' selected':'';
-    const icon=d.kind==='driver'?'👤':'🚗';
-    const co=d.company?' ['+d.company+']':'';
-    return `<option value="${val}"${sel}>${icon} ${d.name}（${d.office}）${co}</option>`;
-  }).join('');
+  const data=getCascadeData();
+  let html='';
+  const cats=[
+    ['ドライバー（自社）','👤'],['車両（自社）','🚗'],
+    ['委託ドライバー','👤'],['委託車両','🚗']
+  ];
+  cats.forEach(([cat,icon])=>{
+    const items=data[cat]||[];
+    if(!items.length) return;
+    const groups=[...new Set(items.map(d=>d.group))].sort();
+    groups.forEach(g=>{
+      html+=`<optgroup label="${icon} ${cat}（${g}）">`;
+      items.filter(d=>d.group===g).forEach(d=>{
+        const val=d.kind+':'+d.id;
+        const sel=val===selectedVal?' selected':'';
+        html+=`<option value="${val}"${sel}>${icon} ${d.name}</option>`;
+      });
+      html+='</optgroup>';
+    });
+  });
+  return html;
 }
 
 // ====== ファイル管理 ======
@@ -3127,6 +3156,7 @@ function renderInbox(){
             <span style="font-size:10px;color:#888">${isNew?'🆕 新規 '+(item.companyName||'社員/外注'):esc(item.office)}</span>
             <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:99px">${esc(item.doctype)}</span>
             ${item.status==='未確認'?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:99px">未確認</span>':''}
+            ${item.status==='登録完了'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">👤 登録完了</span>':''}
             ${item.status==='登録済'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">✅ 登録済</span>':''}
           </div>
           <div style="font-size:10px;color:#888;margin-top:2px">${new Date(item.timestamp).toLocaleString('ja-JP')}${item.note?'　'+esc(item.note):''}</div>
@@ -3134,9 +3164,9 @@ function renderInbox(){
           ${filesHTML}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
-          ${isNew&&item.status!=='登録済'?`<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`:''}
-          ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
-          ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
+          ${isNew&&item.status!=='登録完了'&&item.status!=='登録済'?`<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`:''}
+          ${item.status==='未確認'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
+          ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))&&item.status!=='登録済'?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">🗑 削除</button>
         </div>
       </div>
@@ -3216,7 +3246,6 @@ function inboxBulkSave(){
     return s+files.length;
   },0);
 
-  const pickerHTML = buildTargetPickerHTML('inbox-bulk-target','');
   const namesHtml = items.map(item=>'<span style="font-size:11px;padding:2px 7px;background:#eaf2ff;border-radius:99px;color:#1565c0">'+item.name+'</span>').join(' ');
 
   const modal = document.createElement('div');
@@ -3226,10 +3255,10 @@ function inboxBulkSave(){
     '<div class="modal-header"><span class="modal-title">📎 一括振り分け（'+ids.length+'件）</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
     '<div class="modal-body">'+
       '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+namesHtml+'</div>'+
-      '<div style="font-size:11px;color:#888;margin-bottom:10px">合計 '+totalFiles+' ファイル</div>'+
-      '<div class="form-group"><label>振り分け先</label>'+pickerHTML+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-bottom:10px">合計 '+totalFiles+' ファイル → 全て同じ先に振り分け</div>'+
+      '<div class="form-group"><label>振り分け先</label>'+buildCascadeHTML('ibk','')+'</div>'+
     '</div>'+
-    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxBulkSave('+JSON.stringify(ids)+',document.getElementById(\'inbox-bulk-target\').value);this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
+    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxBulkSave('+JSON.stringify(ids)+',getCascadeVal(\'ibk\'));this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
   '</div>';
   document.body.appendChild(modal);
 }
@@ -3299,28 +3328,91 @@ function saveInboxFilesToDriver(inboxId){
   const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.dataUrl||f.fileId));
   if(!files.length){alert('保存できる添付ファイルがありません');return;}
 
-  // 名前一致で候補を自動選択
+  // 登録済ドライバーとの名前マッチ
   const autoTarget = drivers.find(d=>d.name===item.name) || companies.flatMap(co=>co.drivers||[]).find(d=>d.name===item.name);
-  const autoVal = autoTarget ? 'driver:'+autoTarget.id : '';
+  const autoVal = autoTarget ? 'driver:'+autoTarget.id : (item._registeredId ? item._registeredKind+':'+item._registeredId : '');
 
-  const pickerHTML = buildTargetPickerHTML('inbox-save-target', autoVal);
+  // 各ファイルごとのカスケードピッカーを構築
+  const filesHtml = files.map((f,i)=>{
+    const icon = f.name?.match(/\.pdf$/i)?'📄':f.name?.match(/\.(jpg|jpeg|png|gif)$/i)?'🖼️':'📎';
+    const fid = f.fileId||'';
+    const isImg = f.name?.match(/\.(jpg|jpeg|png|gif)$/i);
+    const thumbSrc = fid && isImg ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w60' : '';
+    const thumb = thumbSrc ? `<img src="${thumbSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0">` :
+      `<div style="width:40px;height:40px;border-radius:4px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:18px">${icon}</div>`;
+    return `<div style="padding:10px;background:#f9fbff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+        ${thumb}
+        <div style="flex:1;min-width:0;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon} ${esc(f.name||'file')}</div>
+      </div>
+      ${buildCascadeHTML('isp-'+i, autoVal)}
+    </div>`;
+  }).join('');
 
   const modal = document.createElement('div');
   modal.className = 'modal-bg';
   modal.style.display = 'flex';
-  modal.innerHTML = '<div class="modal" style="max-width:500px" onclick="event.stopPropagation()">'+
-    '<div class="modal-header"><span class="modal-title">📎 写真・書類の振り分け</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
-    '<div class="modal-body">'+
-      '<div style="font-size:12px;color:#888;margin-bottom:10px">'+esc(item.name)+'の添付ファイル '+files.length+'件</div>'+
-      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+files.map(f=>{
-        const icon = f.name.match(/\.pdf$/i)?'📄':f.name.match(/\.(jpg|jpeg|png|gif)$/i)?'🖼️':'📎';
-        return '<span style="font-size:11px;padding:3px 8px;background:#eaf2ff;border-radius:99px;color:#1565c0">'+icon+' '+esc(f.name)+'</span>';
-      }).join('')+'</div>'+
-      '<div class="form-group" style="margin-bottom:12px"><label>振り分け先</label>'+pickerHTML+'</div>'+
-    '</div>'+
-    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxSave('+inboxId+',document.getElementById(\'inbox-save-target\').value);this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
-  '</div>';
+  modal.innerHTML = `<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
+    <div class="modal-header"><span class="modal-title">📎 写真・書類の振り分け</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
+      <div style="font-size:12px;margin-bottom:10px"><strong>${esc(item.name)}</strong> の添付ファイル ${files.length}件</div>
+      ${files.length>1?`<div style="font-size:11px;color:#4a90e2;margin-bottom:10px;padding:8px 10px;background:#e3f2fd;border-radius:6px">💡 ファイルごとに異なる振り分け先を選択できます（免許証→ドライバー、車検証→車両 など）</div>`:''}
+      ${filesHtml}
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="this.closest('.modal-bg').remove()">キャンセル</button>
+      <button class="btn btn-primary" onclick="execInboxSavePerFile(${inboxId},${files.length});this.closest('.modal-bg').remove()">保存する</button>
+    </div>
+  </div>`;
   document.body.appendChild(modal);
+
+  // 自動選択を適用
+  setTimeout(()=>{
+    for(let i=0;i<files.length;i++){
+      if(autoVal) cascadeAutoSelect('isp-'+i, autoVal);
+    }
+  },50);
+}
+
+function execInboxSavePerFile(inboxId, fileCount){
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===inboxId);
+  if(!item) return;
+  const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.dataUrl||f.fileId));
+
+  let savedCount=0, skippedCount=0;
+  for(let i=0;i<Math.min(files.length,fileCount);i++){
+    const val = getCascadeVal('isp-'+i);
+    if(!val){ skippedCount++; continue; }
+    const [kind,id] = val.split(':');
+    let target = null;
+    if(kind==='driver'){
+      target = drivers.find(x=>String(x.id)===String(id));
+      if(!target) companies.forEach(co=>{if(!target) target=(co.drivers||[]).find(x=>String(x.id)===String(id));});
+    } else {
+      target = vehicles.find(x=>String(x.id)===String(id));
+      if(!target) companies.forEach(co=>{if(!target) target=(co.vehicles||[]).find(x=>String(x.id)===String(id));});
+    }
+    if(!target){ skippedCount++; continue; }
+    if(!Array.isArray(target.attachedFiles)) target.attachedFiles=[];
+    const f = files[i];
+    target.attachedFiles.push({name:f.name,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||'',uploadedAt:item.timestamp});
+    savedCount++;
+  }
+
+  saveLocal(); saveCompanies();
+
+  // ステータス更新: 登録完了→登録済、それ以外→登録済
+  if(savedCount>0){
+    item.status='登録済';
+    localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
+  }
+
+  let msg = `✅ ${savedCount}件を保存しました。`;
+  if(skippedCount) msg += `\n⚠️ ${skippedCount}件は振り分け先が未選択のためスキップしました。`;
+  alert(msg);
+  renderInbox(); renderFileMgr();
 }
 
 function execInboxSave(inboxId, targetVal){
@@ -3366,14 +3458,17 @@ function registerFromInbox(id){
   const item=inbox.find(i=>i.id===id);
   if(!item)return;
 
+  let newId = null; // 登録されたドライバーのID
+
   if(item.companyId && item.companyName){
     // 委託会社ドライバーとして登録
     if(!confirm(`「${item.name}」を委託会社「${item.companyName}」のドライバーとして登録しますか？`))return;
     const c=companies.find(x=>x.id==item.companyId);
     if(!c){alert('委託会社が見つかりません');return;}
     if(!c.drivers)c.drivers=[];
+    newId = Date.now();
     c.drivers.push({
-      id:Date.now(),
+      id:newId,
       name:item.name,
       kana:item.kana||'',
       offices:[],
@@ -3383,16 +3478,18 @@ function registerFromInbox(id){
       license:{exp:item.licenseExp||'',type:item.licenseType||'普通自動車',cond:item.licenseCond||''},
     });
     saveCompanies();
-    item.status='登録済';
+    item.status='登録完了';
+    item._registeredId=newId;
+    item._registeredKind='driver';
     localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
-    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録完了'})}).catch(()=>{});
     renderInbox(); renderCompanyNav();
-    alert(`✅ 「${item.name}」を${item.companyName}に登録しました。\n担当営業所は委託会社管理ページで設定してください。`);
   } else {
     // 社員・外注として通常登録
     if(!confirm(`「${item.name}」を社員／外注ドライバーとして登録しますか？\n（区分は登録後にドライバー管理で変更できます）`))return;
+    newId = Date.now();
     const newDriver={
-      id:Date.now(),
+      id:newId,
       name:item.name,
       kana:item.kana||'',
       type:'社員',
@@ -3407,12 +3504,38 @@ function registerFromInbox(id){
     };
     drivers.push(newDriver);
     saveLocal();
+    item.status='登録完了';
+    item._registeredId=newId;
+    item._registeredKind='driver';
+    localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録完了'})}).catch(()=>{});
+    renderInbox(); renderDrivers(currentOfficeFilter); renderDashboard();
+  }
+
+  // 添付ファイルがあれば振り分けモーダルを案内
+  const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
+  if(files.length){
+    alert(`✅ 「${item.name}」をドライバーとして登録しました。\n\n続けて「💾 保存」ボタンで添付ファイルを振り分けてください。\n両方完了すると「登録済」フォルダに移動します。`);
+  } else {
+    // ファイルなし → そのまま登録済に
     item.status='登録済';
     localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
     fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
-    renderInbox(); renderDrivers(currentOfficeFilter); renderDashboard();
-    alert(`✅ 「${item.name}」をドライバー管理に登録しました。\n区分・担当営業所をドライバー管理ページで設定してください。`);
+    renderInbox();
+    alert(`✅ 「${item.name}」を登録しました。\n担当営業所をドライバー管理ページで設定してください。`);
   }
+}
+
+// 登録直後の自動振り分けモーダル（現在は直接呼ばれないが互換性のため残す）
+function openAutoSaveModal(item, files, newDriverId){
+  // saveInboxFilesToDriverを直接呼ぶ
+  saveInboxFilesToDriver(item.id);
+}
+
+function execAutoSave(inboxId, targetVal){
+  // 旧互換: execInboxSaveに委譲
+  if(!targetVal){alert('振り分け先を選択してください');return;}
+  execInboxSave(inboxId, targetVal);
 }
 
 function markInboxRead(id){
