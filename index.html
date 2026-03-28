@@ -2059,20 +2059,14 @@ function openFilePreview(url, name, dataUrl){
       }catch(e){
         body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="margin-bottom:16px">${name}</div><a href="${src}" download="${name}" style="color:#4a90e2;padding:8px 16px;border:1px solid #4a90e2;border-radius:6px">⬇ ダウンロード</a></div>`;
       }
-    } else if(hasDriveUrl){
-      // Drive URLをpreview形式に変換してiframeで表示
-      const previewUrl = url.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
-      body.innerHTML = `<div style="width:100%;height:70vh;display:flex;flex-direction:column">
-        <iframe src="${previewUrl}" style="width:100%;flex:1;border:none;display:block" allowfullscreen></iframe>
-        <div style="text-align:center;padding:8px">
-          <a href="${url}" target="_blank" style="color:#aaa;font-size:11px;text-decoration:none">🔗 Google Driveで開く</a>
-        </div>
-      </div>`;
     } else {
+      // Drive URLの場合は直接開くリンクのみ表示（iframe埋め込みは不可）
+      const openUrl = hasDriveUrl ? url : (src||'');
       body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center">
         <div style="font-size:64px;margin-bottom:16px">📄</div>
         <div style="font-size:14px;margin-bottom:8px">${name}</div>
-        <div style="font-size:12px;color:#aaa">ファイルを表示できません</div>
+        <div style="font-size:12px;color:#aaa;margin-bottom:20px">PDFはブラウザの制限によりアプリ内で直接表示できません</div>
+        ${openUrl ? `<a href="${openUrl}" target="_blank" style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">🔗 別タブで開く</a>` : ''}
       </div>`;
     }
   } else if(isImg){
@@ -2098,6 +2092,13 @@ function openFilePreview(url, name, dataUrl){
 function openFilePreviewFromAttached(url, name, dataUrl){
   // dataUrlが存在すればそれを使い、なければurlを使う
   openFilePreview(url||'', name, dataUrl||'');
+}
+
+// 書類・写真管理のサムネイルクリック（dataUrlをonclickに直接入れると壊れるのでキーで参照）
+function openFileMgrPreview(fkey){
+  const f = window._fmgrFiles && window._fmgrFiles[fkey];
+  if(!f) return;
+  openFilePreview(f.url||'', f.name||'', f.dataUrl||'');
 }
 
 function renderFilePreview(bufKey){
@@ -2220,7 +2221,11 @@ function renderFileMgr(){
             ${files.map((f,i) => {
               const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
               const previewDataUrl = f.dataUrl ? f.dataUrl.substring(0,30)+'...' : '';
-              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
+              // グローバル配列にファイル情報を保持してインデックスで参照
+              if(!window._fmgrFiles) window._fmgrFiles = {};
+              const fkey = 'driver_' + d.id + '_' + i;
+              window._fmgrFiles[fkey] = f;
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFileMgrPreview('${fkey}')" title="${esc(f.name)}">
               ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('driver',${d.id},${i},'${d._company||''}')">×</button>
@@ -2263,7 +2268,10 @@ function renderFileMgr(){
           ${files.length ? `<div style="padding:10px 14px;display:flex;flex-wrap:wrap;gap:6px">
             ${files.map((f,i) => {
               const thumb = f.dataUrl && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.dataUrl}" style="width:100%;height:100%;object-fit:cover">` : f.url && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? `<img src="${f.url}" style="width:100%;height:100%;object-fit:cover">` : `<span style="font-size:18px">${f.name.match(/\.pdf$/i)?'📄':'📎'}</span>`;
-              return `<div class="file-thumb" style="cursor:pointer" onclick="openFilePreviewFromAttached(${JSON.stringify(f.url||'')},${JSON.stringify(f.name)},${JSON.stringify(f.dataUrl||'')})" title="${esc(f.name)}">
+              if(!window._fmgrFiles) window._fmgrFiles = {};
+              const fkey = 'vehicle_' + v.id + '_' + i;
+              window._fmgrFiles[fkey] = f;
+              return `<div class="file-thumb" style="cursor:pointer" onclick="openFileMgrPreview('${fkey}')" title="${esc(f.name)}">
               ${thumb}
               <div class="file-thumb-name">${esc(f.name)}</div>
               <button class="file-thumb-del" onclick="event.stopPropagation();deleteAttachedFile('vehicle',${v.id},${i},'${v._company||''}')">×</button>
