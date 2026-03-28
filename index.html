@@ -374,7 +374,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <!-- 共通：車両情報 -->
       <div class="self-form-group" id="sf-vehicle-group">
         <label class="self-form-label">車両ナンバー *</label>
-        <input type="text" id="sf-plate" class="self-form-input" placeholder="堺 480 り 5560（番号のみでもOK）">
+        <input type="text" id="sf-plate" class="self-form-input" placeholder="堺 480 り 5560">
       </div>
       <!-- 新規のみ：車種・色 -->
       <div id="sf-vehicle-detail-group" style="display:none">
@@ -2148,14 +2148,8 @@ async function submitSelfForm(){
     if(!vModel){errEl.textContent='車種名を入力してください';return;}
     if(!vColor){errEl.textContent='車体色を入力してください';return;}
     if(!vKind){errEl.textContent='車種分類を選択してください';return;}
-    // 登録番号がある場合のみ委託会社を検索
+    // 登録番号はそのまま送信（管理画面側で照合する）
     let companyId=null, companyName='';
-    if(regcode){
-      const companies=JSON.parse(localStorage.getItem('fleet_companies')||'[]');
-      const company=companies.find(c=>c.regCode===regcode);
-      if(!company){errEl.textContent='登録番号が見つかりません。正しい番号を入力してください';return;}
-      companyId=company.id; companyName=company.name;
-    }
     payload={
       action:'submitForm', mode:'new',
       name, kana, birth, tel,
@@ -3262,6 +3256,7 @@ function renderInbox(){
           })()}
           ${item.status==='未確認'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
           ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))&&item.status!=='登録済'?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
+          ${item.status==='登録済'?`<button class="btn btn-sm" onclick="restoreInboxItem(${item.id})" style="font-size:10px">🔄 復元</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">🗑 削除</button>
         </div>
       </div>
@@ -3402,6 +3397,20 @@ function deleteInboxItem(id){
   localStorage.setItem('fleet_inbox_deleted',JSON.stringify(deletedIds));
   renderInbox();
   fetch(API_URL,{method:'POST',body:JSON.stringify({action:'deleteInbox',id})}).catch(()=>{});
+}
+
+function restoreInboxItem(id){
+  if(!confirm('この項目を未確認に戻しますか？\n登録済のドライバー・車両データは削除されません。'))return;
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===id);
+  if(!item) return;
+  item.status='未確認';
+  delete item._registeredId;
+  delete item._registeredKind;
+  delete item._registeredVehicleId;
+  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id,status:'未確認'})}).catch(()=>{});
+  renderInbox();
 }
 
 function openInboxFilePreview(inboxId, fileIdx){
@@ -3571,9 +3580,21 @@ function registerFromInbox(id){
   const item=inbox.find(i=>i.id===id);
   if(!item)return;
 
-  const isCompany = item.companyId && item.companyName;
+  // regcodeがある場合は管理側で委託会社を解決
+  let isCompany = !!(item.companyId && item.companyName);
+  if(!isCompany && item.regcode){
+    const rc = (item.regcode||'').toUpperCase();
+    const co = companies.find(c=>(c.regCode||'').toUpperCase()===rc);
+    if(co){
+      item.companyId = co.id;
+      item.companyName = co.name;
+      isCompany = true;
+      localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+    }
+  }
   const officeOpts = offices.filter(o=>o!=='集荷'&&o!=='本社').map(o=>`<option value="${o}">${o}</option>`).join('');
   const typeOpts = '<option value="社員">社員</option><option value="外注（個人）">外注（個人）</option>';
+  const hasPlate = !!(item.plate);
 
   const modal = document.createElement('div');
   modal.className = 'modal-bg';
@@ -3585,11 +3606,12 @@ function registerFromInbox(id){
         <strong>${esc(item.name)}</strong> ${isCompany?'（'+esc(item.companyName)+'）':''}
         ${item.birth?'<br>生年月日：'+item.birth:''}
         ${item.tel?'　電話：'+item.tel:''}
+        ${item.plate?'<br>🚗 '+esc(item.plate)+(item.vModel?' '+esc(item.vModel):'')+(item.vColor?' '+esc(item.vColor):''):''}
       </div>
       ${isCompany?'<div style="font-size:11px;color:#888;margin-bottom:10px">委託会社「'+esc(item.companyName)+'」のドライバーとして登録します</div>':''}
       ${!isCompany?`<div class="form-group" style="margin-bottom:12px">
         <label style="font-size:11px;color:#666;font-weight:500">区分</label>
-        <select id="reg-type" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" onchange="document.getElementById('reg-vehicle-section').style.display=this.value==='外注（個人）'?'block':'none'">${typeOpts}</select>
+        <select id="reg-type" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">${typeOpts}</select>
       </div>`:''}
       <div class="form-group" style="margin-bottom:12px">
         <label style="font-size:11px;color:#666;font-weight:500">担当営業所 *</label>
@@ -3599,30 +3621,30 @@ function registerFromInbox(id){
         </select>
         ${item.office?`<div style="font-size:10px;color:#4a90e2;margin-top:4px">送信元の営業所：${esc(item.office)}</div>`:''}
       </div>
-      ${!isCompany?`<div id="reg-vehicle-section" style="display:none;background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px;margin-bottom:12px">
-        <div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:10px">🚗 車両情報（外注ドライバーの持込車両）</div>
-        <div style="font-size:10px;color:#888;margin-bottom:10px">車検証・保険書類の保存先として車両を同時登録します。後からドライバー管理・車両管理で変更できます。</div>
+      <div id="reg-vehicle-section" style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px;margin-bottom:12px">
+        <div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:10px">🚗 車両情報</div>
+        <div style="font-size:10px;color:#888;margin-bottom:10px">書類の保存先として車両を同時登録します（社員の場合も登録可）</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div class="form-group" style="grid-column:1/-1">
-            <label style="font-size:11px;color:#666;font-weight:500">車両番号（ナンバー）*</label>
-            <input type="text" id="reg-v-plate" placeholder="堺 480 り 5560" style="width:100%;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">
+            <label style="font-size:11px;color:#666;font-weight:500">車両番号（ナンバー）</label>
+            <input type="text" id="reg-v-plate" value="${esc(item.plate||'')}" placeholder="堺 480 り 5560" style="width:100%;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">
           </div>
           <div class="form-group">
             <label style="font-size:11px;color:#666;font-weight:500">車種名</label>
-            <input type="text" id="reg-v-model" placeholder="スズキ キャリイ" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
+            <input type="text" id="reg-v-model" value="${esc(item.vModel||'')}" placeholder="スズキ キャリイ" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
           </div>
           <div class="form-group">
             <label style="font-size:11px;color:#666;font-weight:500">車体色</label>
-            <input type="text" id="reg-v-color" placeholder="白" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
+            <input type="text" id="reg-v-color" value="${esc(item.vColor||'')}" placeholder="白" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
           </div>
           <div class="form-group">
             <label style="font-size:11px;color:#666;font-weight:500">車種分類</label>
             <select id="reg-v-kind" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
-              <option>軽四</option><option>軽バン</option><option>軽トラ</option><option>普通車</option>
+              <option${item.vKind==='軽四'?' selected':''}>軽四</option><option${item.vKind==='軽バン'?' selected':''}>軽バン</option><option${item.vKind==='軽トラ'?' selected':''}>軽トラ</option><option${item.vKind==='普通車'?' selected':''}>普通車</option>
             </select>
           </div>
         </div>
-      </div>`:''}
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="this.closest('.modal-bg').remove()">キャンセル</button>
@@ -3636,19 +3658,11 @@ function registerFromInbox(id){
     const sel=modal.querySelector('#reg-office');
     if(sel) sel.value=item.office;
   }
-
-  // QRフォームから車両情報がある場合はプリフィル＋外注を自動選択
-  const hasVehicleData = item.plate || item.vModel || item.vColor;
-  if(hasVehicleData && !isCompany){
+  // 車両データがあれば外注を自動選択
+  if(hasPlate && !isCompany){
     setTimeout(()=>{
       const typeEl=document.getElementById('reg-type');
-      const vSection=document.getElementById('reg-vehicle-section');
-      if(typeEl){typeEl.value='外注（個人）';}
-      if(vSection){vSection.style.display='block';}
-      if(item.plate) { const el=document.getElementById('reg-v-plate'); if(el) el.value=item.plate; }
-      if(item.vModel) { const el=document.getElementById('reg-v-model'); if(el) el.value=item.vModel; }
-      if(item.vColor) { const el=document.getElementById('reg-v-color'); if(el) el.value=item.vColor; }
-      if(item.vKind) { const el=document.getElementById('reg-v-kind'); if(el) el.value=item.vKind; }
+      if(typeEl) typeEl.value='外注（個人）';
     },30);
   }
 }
@@ -3661,12 +3675,7 @@ function execRegisterFromInbox(id){
   const selectedOffice = document.getElementById('reg-office')?.value||'';
   if(!selectedOffice){alert('営業所を選択してください');return;}
   const selectedType = document.getElementById('reg-type')?.value||'社員';
-
-  // 外注の場合、車両番号の入力チェック
-  if(selectedType==='外注（個人）'){
-    const plate = document.getElementById('reg-v-plate')?.value?.trim()||'';
-    if(!plate){alert('外注ドライバーの車両番号を入力してください');return;}
-  }
+  const regPlate = document.getElementById('reg-v-plate')?.value?.trim()||'';
 
   let newId = null;
   let newVehicleId = null;
@@ -3711,32 +3720,30 @@ function execRegisterFromInbox(id){
     };
     drivers.push(newDriver);
 
-    // 外注の場合は車両も同時登録
-    if(selectedType==='外注（個人）'){
-      const plate = document.getElementById('reg-v-plate')?.value?.trim()||'';
-      if(plate){
-        newVehicleId = Date.now()+1;
-        const newVehicle = {
-          id: newVehicleId,
-          plate: plate,
-          model: document.getElementById('reg-v-model')?.value||'',
-          kind: document.getElementById('reg-v-kind')?.value||'軽四',
-          type: '持込',
-          office: selectedOffice,
-          driver: item.name,
-          driverId: String(newId),
-          color: document.getElementById('reg-v-color')?.value||'白',
-          owner: item.name,
-          vehicleUser: item.name,
-          sub: '',
-          note: '',
-          shaken:{exp:''},
-          jibai:{exp:''},
-          nin:{exp:''},
-          attachedFiles:[]
-        };
-        vehicles.push(newVehicle);
-      }
+    // 車両番号があれば車両も同時登録
+    if(regPlate){
+      newVehicleId = Date.now()+1;
+      const vType = selectedType==='外注（個人）' ? '持込' : '社有';
+      const newVehicle = {
+        id: newVehicleId,
+        plate: regPlate,
+        model: document.getElementById('reg-v-model')?.value||'',
+        kind: document.getElementById('reg-v-kind')?.value||'軽四',
+        type: vType,
+        office: selectedOffice,
+        driver: item.name,
+        driverId: String(newId),
+        color: document.getElementById('reg-v-color')?.value||'白',
+        owner: item.name,
+        vehicleUser: item.name,
+        sub: '',
+        note: '',
+        shaken:{exp:''},
+        jibai:{exp:''},
+        nin:{exp:''},
+        attachedFiles:[]
+      };
+      vehicles.push(newVehicle);
     }
 
     saveLocal();
@@ -3752,8 +3759,7 @@ function execRegisterFromInbox(id){
   const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
   let msg = `✅ 「${item.name}」を${selectedOffice}営業所のドライバーとして登録しました。`;
   if(newVehicleId){
-    const plate = document.getElementById('reg-v-plate')?.value?.trim()||'';
-    msg += `\n🚗 車両「${plate}」も同時に登録しました。`;
+    msg += `\n🚗 車両「${regPlate}」も同時に登録しました。`;
   }
   if(files.length){
     msg += `\n\n続けて「💾 保存」ボタンで添付ファイルを振り分けてください。`;
