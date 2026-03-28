@@ -937,28 +937,14 @@ async function syncInboxFromSheet(){
   try{
     const res = await fetch(API_URL+'?action=getInbox');
     const json = await res.json();
-    if(!json.ok) return;
+    if(!json.ok || !json.inbox?.length) return;
 
-    // ローカルのinboxを取得
+    // ローカルのinboxと統合（idで重複除去、GAS側が新しければ追加）
     const localInbox = JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
-
-    // GAS側のtimestampをキーにしたMap
-    const gasMap = new Map();
-    (json.inbox||[]).forEach(i => gasMap.set(i.timestamp, i));
-
-    // ローカルにしかない削除済み・編集済みを保持しつつ、GASの新しいデータを追加
-    // GASのIDはtimestampベース、ローカルはDate.now()ベースなのでtimestampで照合
-    const localTimestamps = new Set(localInbox.map(i=>i.timestamp));
-    const newFromGas = (json.inbox||[]).filter(i => !localTimestamps.has(i.timestamp));
-
-    // 新規のGASデータにIDを付与（ローカルIDと衝突しないよう）
-    newFromGas.forEach(i => {
-      if(!i.id) i.id = new Date(i.timestamp).getTime() || Date.now();
-      if(!i.status) i.status = '未確認';
-    });
-
-    if(newFromGas.length){
-      const merged = [...newFromGas, ...localInbox]
+    const localIds = new Set(localInbox.map(i=>String(i.id)));
+    const newItems = json.inbox.filter(i => !localIds.has(String(i.id)));
+    if(newItems.length){
+      const merged = [...newItems, ...localInbox]
         .sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp))
         .slice(0,200);
       localStorage.setItem('fleet_inbox', JSON.stringify(merged));
@@ -967,8 +953,6 @@ async function syncInboxFromSheet(){
       const unread = merged.filter(i=>i.status==='未確認').length;
       const badge = document.getElementById('inbox-badge');
       if(badge) badge.textContent = unread ? String(unread) : '';
-    } else {
-      renderInbox();
     }
   }catch(e){ console.log('inbox sync error:', e); }
 }
@@ -2075,14 +2059,20 @@ function openFilePreview(url, name, dataUrl){
       }catch(e){
         body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="margin-bottom:16px">${name}</div><a href="${src}" download="${name}" style="color:#4a90e2;padding:8px 16px;border:1px solid #4a90e2;border-radius:6px">⬇ ダウンロード</a></div>`;
       }
+    } else if(hasDriveUrl){
+      // Drive URLをpreview形式に変換してiframeで表示
+      const previewUrl = url.replace(/\/view(\?.*)?$/, '/preview').replace(/\/edit(\?.*)?$/, '/preview');
+      body.innerHTML = `<div style="width:100%;height:70vh;display:flex;flex-direction:column">
+        <iframe src="${previewUrl}" style="width:100%;flex:1;border:none;display:block" allowfullscreen></iframe>
+        <div style="text-align:center;padding:8px">
+          <a href="${url}" target="_blank" style="color:#aaa;font-size:11px;text-decoration:none">🔗 Google Driveで開く</a>
+        </div>
+      </div>`;
     } else {
-      // Drive URLの場合は直接開くリンクのみ表示（iframe埋め込みは不可）
-      const openUrl = hasDriveUrl ? url : (src||'');
       body.innerHTML = `<div style="color:#fff;padding:32px;text-align:center">
         <div style="font-size:64px;margin-bottom:16px">📄</div>
         <div style="font-size:14px;margin-bottom:8px">${name}</div>
-        <div style="font-size:12px;color:#aaa;margin-bottom:20px">PDFはブラウザの制限によりアプリ内で直接表示できません</div>
-        ${openUrl ? `<a href="${openUrl}" target="_blank" style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">🔗 別タブで開く</a>` : ''}
+        <div style="font-size:12px;color:#aaa">ファイルを表示できません</div>
       </div>`;
     }
   } else if(isImg){
@@ -2695,16 +2685,10 @@ function renderInbox(){
         ${(item.files||[]).map((f,fi)=>{
           const fname = typeof f==='string' ? f : f.name;
           const fdataUrl = typeof f==='object' ? (f.dataUrl||'') : '';
-          const furl = typeof f==='object' ? (f.url||'') : '';
           const isImg = fname.match(/\.(jpg|jpeg|png|gif)$/i);
           const isPdf = fname.match(/\.pdf$/i);
           if(fdataUrl && isImg){
-            return `<img src="${fdataUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;cursor:pointer" onclick="openInboxFilePreview(${item.id},${fi})" title="${esc(fname)}">`;
-          }
-          if(furl){
-            return `<a href="${esc(furl)}" target="_blank" style="display:flex;align-items:center;gap:3px;padding:2px 6px;background:#f0f4ff;border-radius:4px;font-size:10px;color:#4a90e2;cursor:pointer;border:1px solid #c5d8f8;text-decoration:none">
-              ${isPdf?'📄':'📎'} ${esc(fname)}
-            </a>`;
+            return `<img src="${fdataUrl}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;cursor:pointer" onclick="openFilePreviewFromAttached('','${esc(fname)}','${fdataUrl.substring(0,30)}');openInboxFilePreview(${item.id},${fi})" title="${esc(fname)}">`;
           }
           return `<div onclick="openInboxFilePreview(${item.id},${fi})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;background:#f0f4ff;border-radius:4px;font-size:10px;color:#4a90e2;cursor:pointer;border:1px solid #c5d8f8">
             ${isPdf?'📄':'📎'} ${esc(fname)}
@@ -2766,15 +2750,7 @@ function openInboxFilePreview(inboxId, fileIdx){
   if(!f) return;
   const fname = typeof f==='string' ? f : f.name;
   const fdataUrl = typeof f==='object' ? (f.dataUrl||'') : '';
-  const furl = typeof f==='object' ? (f.url||'') : '';
-  // dataUrlがあればそれを優先、なければDrive URLで開く
-  if(fdataUrl){
-    openFilePreviewFromAttached('', fname, fdataUrl);
-  } else if(furl){
-    window.open(furl, '_blank');
-  } else {
-    alert('このファイルはプレビューできません（URLなし）');
-  }
+  openFilePreviewFromAttached('', fname, fdataUrl);
 }
 
 function saveInboxFilesToDriver(inboxId){
