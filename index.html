@@ -3232,7 +3232,8 @@ function renderInbox(){
         <div style="flex:1;min-width:0">
           <div style="font-size:12px;font-weight:600;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
             ${esc(item.name)}
-            <span style="font-size:10px;color:#888">${isNew?'🆕 新規 '+(item.companyName||'社員/外注'):esc(item.office)}</span>
+            <span style="font-size:10px;color:#888">${isNew?'🆕 新規 '+(item.companyName?esc(item.companyName):'社員/外注'):esc(item.office)}</span>
+            ${item.regcode?`<span style="font-size:10px;background:#f3e5f5;color:#6a1b9a;padding:1px 5px;border-radius:99px">📋 ${esc(item.regcode)}</span>`:''}
             <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:99px">${esc(item.doctype)}</span>
             ${item.status==='未確認'?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:99px">未確認</span>':''}
             ${item.status==='登録完了'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">👤 登録完了</span>':''}
@@ -3592,8 +3593,10 @@ function registerFromInbox(id){
       localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
     }
   }
+  const hasRegcode = !!(item.regcode);
   const officeOpts = offices.filter(o=>o!=='集荷'&&o!=='本社').map(o=>`<option value="${o}">${o}</option>`).join('');
   const typeOpts = '<option value="社員">社員</option><option value="外注（個人）">外注（個人）</option>';
+  const companyOpts = companies.map(c=>`<option value="${c.id}"${item.companyId==c.id?' selected':''}>${c.name}${c.regCode?' ('+c.regCode+')':''}</option>`).join('');
   const hasPlate = !!(item.plate);
 
   const modal = document.createElement('div');
@@ -3603,16 +3606,39 @@ function registerFromInbox(id){
     <div class="modal-header"><span class="modal-title">👤 ドライバー登録</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
     <div class="modal-body" style="max-height:75vh;overflow-y:auto">
       <div style="padding:10px 14px;background:#e3f2fd;border-radius:8px;margin-bottom:14px;font-size:12px">
-        <strong>${esc(item.name)}</strong> ${isCompany?'（'+esc(item.companyName)+'）':''}
+        <strong>${esc(item.name)}</strong>
         ${item.birth?'<br>生年月日：'+item.birth:''}
         ${item.tel?'　電話：'+item.tel:''}
         ${item.plate?'<br>🚗 '+esc(item.plate)+(item.vModel?' '+esc(item.vModel):'')+(item.vColor?' '+esc(item.vColor):''):''}
+        ${hasRegcode?'<br>📋 登録番号：<strong>'+esc(item.regcode)+'</strong>'+(isCompany?' → '+esc(item.companyName):' <span style="color:#e65100">（未照合）</span>'):''}
       </div>
-      ${isCompany?'<div style="font-size:11px;color:#888;margin-bottom:10px">委託会社「'+esc(item.companyName)+'」のドライバーとして登録します</div>':''}
-      ${!isCompany?`<div class="form-group" style="margin-bottom:12px">
-        <label style="font-size:11px;color:#666;font-weight:500">区分</label>
-        <select id="reg-type" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">${typeOpts}</select>
-      </div>`:''}
+
+      ${isCompany?`
+        <div style="background:#e8f5e9;border:1px solid #a5d6a7;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#2e7d32">
+          🏢 委託会社「<strong>${esc(item.companyName)}</strong>」のドライバーとして登録します
+        </div>
+      `:`
+        ${hasRegcode&&!isCompany?`
+          <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:#e65100">
+            ⚠️ 登録番号「${esc(item.regcode)}」に一致する委託会社が見つかりませんでした。<br>
+            下のリストから委託会社を選択するか、区分を変更してください。
+          </div>
+          <div class="form-group" style="margin-bottom:12px">
+            <label style="font-size:11px;color:#666;font-weight:500">委託会社</label>
+            <select id="reg-company" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" onchange="document.getElementById('reg-type-wrap').style.display=this.value?'none':'block'">
+              <option value="">委託会社なし（自社ドライバー）</option>
+              ${companyOpts}
+            </select>
+          </div>
+        `:''}
+        <div id="reg-type-wrap" ${hasRegcode?'style="display:none"':''}>
+          <div class="form-group" style="margin-bottom:12px">
+            <label style="font-size:11px;color:#666;font-weight:500">区分</label>
+            <select id="reg-type" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">${typeOpts}</select>
+          </div>
+        </div>
+      `}
+
       <div class="form-group" style="margin-bottom:12px">
         <label style="font-size:11px;color:#666;font-weight:500">担当営業所 *</label>
         <select id="reg-office" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">
@@ -3621,9 +3647,10 @@ function registerFromInbox(id){
         </select>
         ${item.office?`<div style="font-size:10px;color:#4a90e2;margin-top:4px">送信元の営業所：${esc(item.office)}</div>`:''}
       </div>
+
       <div id="reg-vehicle-section" style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:12px;margin-bottom:12px">
         <div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:10px">🚗 車両情報</div>
-        <div style="font-size:10px;color:#888;margin-bottom:10px">書類の保存先として車両を同時登録します（社員の場合も登録可）</div>
+        <div style="font-size:10px;color:#888;margin-bottom:10px">書類の保存先として車両を同時登録できます</div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
           <div class="form-group" style="grid-column:1/-1">
             <label style="font-size:11px;color:#666;font-weight:500">車両番号（ナンバー）</label>
@@ -3640,7 +3667,7 @@ function registerFromInbox(id){
           <div class="form-group">
             <label style="font-size:11px;color:#666;font-weight:500">車種分類</label>
             <select id="reg-v-kind" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px">
-              <option${item.vKind==='軽四'?' selected':''}>軽四</option><option${item.vKind==='軽バン'?' selected':''}>軽バン</option><option${item.vKind==='軽トラ'?' selected':''}>軽トラ</option><option${item.vKind==='普通車'?' selected':''}>普通車</option>
+              <option${(item.vKind||'')==='軽四'?' selected':''}>軽四</option><option${(item.vKind||'')==='軽バン'?' selected':''}>軽バン</option><option${(item.vKind||'')==='軽トラ'?' selected':''}>軽トラ</option><option${(item.vKind||'')==='普通車'?' selected':''}>普通車</option>
             </select>
           </div>
         </div>
@@ -3658,8 +3685,8 @@ function registerFromInbox(id){
     const sel=modal.querySelector('#reg-office');
     if(sel) sel.value=item.office;
   }
-  // 車両データがあれば外注を自動選択
-  if(hasPlate && !isCompany){
+  // 車両データがあれば外注を自動選択（非委託の場合）
+  if(hasPlate && !isCompany && !hasRegcode){
     setTimeout(()=>{
       const typeEl=document.getElementById('reg-type');
       if(typeEl) typeEl.value='外注（個人）';
@@ -3677,10 +3704,22 @@ function execRegisterFromInbox(id){
   const selectedType = document.getElementById('reg-type')?.value||'社員';
   const regPlate = document.getElementById('reg-v-plate')?.value?.trim()||'';
 
+  // 委託会社の判定（モーダル内のreg-companyセレクトがある場合はそちらを優先）
+  let isCompany = !!(item.companyId && item.companyName);
+  const regCompanyEl = document.getElementById('reg-company');
+  if(regCompanyEl && regCompanyEl.value){
+    const co = companies.find(c=>c.id==regCompanyEl.value);
+    if(co){
+      item.companyId = co.id;
+      item.companyName = co.name;
+      isCompany = true;
+    }
+  }
+
   let newId = null;
   let newVehicleId = null;
 
-  if(item.companyId && item.companyName){
+  if(isCompany){
     const c=companies.find(x=>x.id==item.companyId);
     if(!c){alert('委託会社が見つかりません');return;}
     if(!c.drivers)c.drivers=[];
@@ -3695,10 +3734,32 @@ function execRegisterFromInbox(id){
       addr:item.addr||'',
       license:{exp:item.licenseExp||'',type:item.licenseType||'普通自動車',cond:item.licenseCond||''},
     });
+
+    // 委託会社車両も登録
+    if(regPlate){
+      if(!c.vehicles) c.vehicles=[];
+      newVehicleId = Date.now()+1;
+      c.vehicles.push({
+        id: newVehicleId,
+        plate: regPlate,
+        model: document.getElementById('reg-v-model')?.value||'',
+        kind: document.getElementById('reg-v-kind')?.value||'軽四',
+        color: document.getElementById('reg-v-color')?.value||'白',
+        offices: [selectedOffice],
+        driverId: String(newId),
+        driver: item.name,
+        owner: item.name,
+        vehicleUser: item.name,
+        shaken:{exp:''},jibai:{exp:''},nin:{exp:''},
+        attachedFiles:[]
+      });
+    }
+
     saveCompanies();
     item.status='登録完了';
     item._registeredId=newId;
     item._registeredKind='driver';
+    item._registeredVehicleId=newVehicleId||null;
     localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
     fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録完了'})}).catch(()=>{});
     renderInbox(); renderCompanyNav();
@@ -3756,8 +3817,9 @@ function execRegisterFromInbox(id){
     renderInbox(); renderDrivers(currentOfficeFilter); renderVehicles(currentOfficeFilter); renderDashboard();
   }
 
+  const where = isCompany ? item.companyName : selectedOffice+'営業所';
   const files = (item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
-  let msg = `✅ 「${item.name}」を${selectedOffice}営業所のドライバーとして登録しました。`;
+  let msg = `✅ 「${item.name}」を${where}のドライバーとして登録しました。`;
   if(newVehicleId){
     msg += `\n🚗 車両「${regPlate}」も同時に登録しました。`;
   }
