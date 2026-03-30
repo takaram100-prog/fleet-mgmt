@@ -1855,7 +1855,7 @@ function openMailSendModal(taskId){
     </div>
     <div class="modal-footer">
       <button class="btn" onclick="this.closest('.modal-bg').remove()">キャンセル</button>
-      <button class="btn btn-primary" id="ms-send-btn" onclick="execMailSend('${taskId}');this.closest('.modal-bg').remove()">📧 送信する</button>
+      <button class="btn btn-primary" id="ms-send-btn" onclick="execMailSend('${taskId}')">📧 送信する</button>
     </div>
   </div>`;
   document.body.appendChild(modal);
@@ -1926,26 +1926,73 @@ async function execMailSend(taskId){
     if(src==='pdf'&&t.genPdfs[idx]) checkedFiles.push({...t.genPdfs[idx],isPdf:true});
   });
 
-  const attachments=checkedFiles.filter(f=>f.fileId).map(f=>f.fileId);
-  const genPdfTypes=checkedFiles.filter(f=>f.isPdf).map(f=>({type:f.type,office:f.office}));
+  const attachments=checkedFiles.filter(f=>f.fileId&&!f.isPdf).map(f=>f.fileId);
+  const pdfRequests=checkedFiles.filter(f=>f.isPdf);
 
+  // Step1: PDFを先にフロントエンドから生成（書類生成と同じデータを使う）
+  if(pdfRequests.length){
+    const sendBtn=document.getElementById('ms-send-btn');
+    if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='PDF生成中...';}
+    for(const pdfReq of pdfRequests){
+      try{
+        const pdfOffice=pdfReq.office||t.office;
+        const dateStr=new Date().toISOString().slice(0,10);
+        // 営業所のドライバー・車両（書類生成と同じフィルタ）
+        const offD=drivers.filter(d=>belongsToOffice(d,pdfOffice)&&(!d.status||d.status==='在籍'));
+        const offV=vehicles.filter(v=>belongsToOffice(v,pdfOffice));
+        // 委託会社ドライバー・車両も追加
+        const coD=[],coV=[];
+        companies.forEach(c=>{
+          (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(pdfOffice))coD.push({...d,type:'外注',subCompany:c.name});});
+          (c.vehicles||[]).forEach(v=>{if((v.offices||[]).includes(pdfOffice))coV.push({...v,sub:c.name});});
+        });
+        let docType='';
+        if(pdfReq.type==='現況届') docType='genkyo';
+        else if(pdfReq.type==='雇用証明書') docType='koyou';
+        else if(pdfReq.type==='報告書') docType='houkoku';
+        if(!docType) continue;
+
+        const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+          action:'generatePdf',
+          docType, office:pdfOffice, dateStr,
+          drivers:[...offD,...coD],
+          vehicles:[...offV,...coV]
+        })});
+        const json=await res.json();
+        if(json.ok&&json.fileId){
+          attachments.push(json.fileId);
+        } else {
+          console.error('PDF生成エラー:',pdfReq.type,json.error);
+        }
+      }catch(e){
+        console.error('PDF生成通信エラー:',e);
+      }
+    }
+  }
+
+  // Step2: メール送信（fileIdのみ）
   try{
+    const sendBtn=document.getElementById('ms-send-btn');
+    if(sendBtn){sendBtn.disabled=true;sendBtn.textContent='送信中...';}
     const res=await fetch(API_URL,{method:'POST',body:JSON.stringify({
       action:'sendMail',
       to, cc, subject, body,
       attachments,
-      genPdfTypes,
       office:t.office
     })});
     const json=await res.json();
     if(json.ok){
       t.status='sent';t.sentAt=new Date().toISOString();
       saveMailTasks();renderMailTasks();
-      alert('✅ メールを送信しました');
+      document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
+      alert('✅ メールを送信しました（添付 '+attachments.length+'件）');
     } else {
+      if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='📧 送信する';}
       alert('❌ 送信エラー: '+(json.error||'不明なエラー'));
     }
   }catch(e){
+    const sendBtn=document.getElementById('ms-send-btn');
+    if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='📧 送信する';}
     alert('❌ 通信エラー: '+e.message);
   }
 }
