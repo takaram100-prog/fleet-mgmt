@@ -34,7 +34,7 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f5f
 @media(min-width:768px){.storage-grid{grid-template-columns:repeat(2,1fr)}}
 @media(min-width:1100px){.storage-grid{grid-template-columns:repeat(3,1fr)}}
 @media(min-width:1400px){.storage-grid{grid-template-columns:repeat(4,1fr)}}
-.storage-grid>div{min-height:140px}
+.storage-grid>div{min-height:140px;min-width:0;overflow:hidden}
 .nav-add-btn{width:20px;height:20px;border:1px solid #ddd;border-radius:4px;background:transparent;cursor:pointer;color:#888;font-size:14px;display:flex;align-items:center;justify-content:center}
 .nav-add-btn:hover{background:#f5f5f5}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#666;transition:all .15s;margin:1px 6px;font-size:12px}
@@ -3933,7 +3933,7 @@ function renderStorage(){
       }
 
       // 展開状態
-      let cardHtml='<div style="background:#eaeae8;border:2px solid #888;border-radius:10px;padding:14px 16px">';
+      let cardHtml='<div style="background:#eaeae8;border:2px solid #888;border-radius:10px;padding:14px 16px;overflow:hidden">';
       cardHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">';
       cardHtml+='<div style="display:flex;align-items:center;gap:10px">';
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
