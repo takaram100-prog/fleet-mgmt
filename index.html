@@ -459,7 +459,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
         <div class="nav-item" onclick="showPage('filemgr',this)" data-page="filemgr"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h5l1.5 2H13v7H1z"/><path d="M5 9h4M7 7v4"/></svg>書類・写真管理</div>
         <div class="nav-item" onclick="showPage('storage',this)" data-page="storage"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 2h10v10H2z"/><path d="M2 5h10M5 5v7"/><circle cx="9" cy="8.5" r="1.5"/></svg>データ保管</div>
-        <div class="nav-item" onclick="showPage('mail',this)" data-page="mail"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>メール送信 <span id="mail-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
+        <div class="nav-item" onclick="showPage('mail',this)" data-page="mail"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>メール <span id="mail-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span><span id="inbox-nav-badge" style="background:#fb8c00;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
         <div class="nav-item" onclick="showPage('print',this)" data-page="print"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="10" height="7" rx="1"/><path d="M4 5V3a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/><path d="M4 9h6M4 11h4"/></svg>印刷一覧</div>
         <div class="nav-item" onclick="showPage('history',this)" data-page="history"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="7" cy="7" r="5.5"/><path d="M7 4v3.5l2.5 1.5"/></svg>提出履歴</div>
         <div class="nav-item" onclick="showPage('archive',this)" data-page="archive"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="4" width="12" height="9" rx="1"/><path d="M1 4l2-3h8l2 3"/><path d="M5 8h4"/></svg>アーカイブ</div>
@@ -566,17 +566,35 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-mail" class="page">
         <div class="topbar">
-          <h1>📧 メール送信</h1>
-          <div style="display:flex;gap:6px;align-items:center">
+          <h1>📧 メール</h1>
+          <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions">
             <button class="btn btn-sm btn-primary" onclick="openCreateMailTask()">＋ タスク追加</button>
           </div>
         </div>
         <div class="content">
-          <div style="display:flex;border-bottom:1px solid #e0e0e0;margin-bottom:12px" id="mail-tabs">
-            <div onclick="mailSetTab('pending')" class="filter-chip active" data-tab="pending" style="cursor:pointer;padding:7px 14px;font-size:12px">未送信 <span id="mail-pending-count" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:10px;margin-left:2px"></span></div>
-            <div onclick="mailSetTab('sent')" class="filter-chip" data-tab="sent" style="cursor:pointer;padding:7px 14px;font-size:12px">送信済</div>
+          <!-- メイン タブ: 送信 / 受信ボックス -->
+          <div style="display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:12px" id="mail-main-tabs">
+            <div onclick="mailMainTab('send')" class="filter-chip active" data-mtab="send" style="cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600">📤 送信タスク <span id="mail-pending-count" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:10px;margin-left:2px"></span></div>
+            <div onclick="mailMainTab('inbox')" class="filter-chip" data-mtab="inbox" style="cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600">📥 受信ボックス <span id="inbox-badge" style="display:inline-block;padding:1px 7px;border-radius:99px;background:#e53935;color:#fff;font-size:10px;margin-left:4px"></span></div>
           </div>
-          <div id="mail-task-list"></div>
+
+          <!-- 送信タスク セクション -->
+          <div id="mail-send-section">
+            <div style="display:flex;gap:8px;margin-bottom:10px" id="mail-tabs">
+              <div onclick="mailSetTab('pending')" class="filter-chip active" data-tab="pending" style="cursor:pointer;padding:5px 12px;font-size:11px">未送信</div>
+              <div onclick="mailSetTab('sent')" class="filter-chip" data-tab="sent" style="cursor:pointer;padding:5px 12px;font-size:11px">送信済</div>
+            </div>
+            <div id="mail-task-list"></div>
+          </div>
+
+          <!-- 受信ボックス セクション -->
+          <div id="mail-inbox-section" style="display:none">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+              <div style="font-size:12px;color:#888">QRフォームからの受信データ</div>
+              <button class="btn btn-sm" onclick="syncInboxFromSheet().then(()=>{renderInbox();alert('✅ 受信ボックスを更新しました')})">🔄 受信更新</button>
+            </div>
+            <div id="inbox-list"></div>
+          </div>
         </div>
       </div>
 
@@ -668,13 +686,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
                 <button class="btn btn-sm btn-primary" onclick="printQR()">🖨️ QRコードを印刷</button>
                 <div style="font-size:10px;color:#888;margin-top:6px">※ 営業所に貼り出してご利用ください</div>
               </div>
-            </div>
-            <div style="margin-top:14px;padding-top:12px;border-top:1px solid #dde6ff">
-              <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div style="font-size:12px;font-weight:600;color:#555">📥 受信ボックス <span id="inbox-badge" style="display:inline-block;padding:1px 7px;border-radius:99px;background:#e53935;color:#fff;font-size:10px;margin-left:4px"></span></div>
-                <button class="btn btn-sm" onclick="renderInbox()">🔄 更新</button>
-              </div>
-              <div id="inbox-list" style="max-height:300px;overflow-y:auto"></div>
             </div>
           </div>
 
@@ -1580,8 +1591,21 @@ function genTekigoOsakaXml(office,dateStr){
 // ====== メール送信タスク ======
 let mailTasks = JSON.parse(localStorage.getItem('fleet_mail_tasks')||'[]');
 let mailCurrentTab = 'pending';
+let mailMainSection = 'send';
 
 function saveMailTasks(){localStorage.setItem('fleet_mail_tasks',JSON.stringify(mailTasks));}
+
+function mailMainTab(section){
+  mailMainSection=section;
+  document.querySelectorAll('#mail-main-tabs .filter-chip').forEach(c=>c.classList.remove('active'));
+  document.querySelector('#mail-main-tabs [data-mtab="'+section+'"]')?.classList.add('active');
+  document.getElementById('mail-send-section').style.display=section==='send'?'block':'none';
+  document.getElementById('mail-inbox-section').style.display=section==='inbox'?'block':'none';
+  // タスク追加ボタンは送信タブのみ
+  document.getElementById('mail-topbar-actions').style.display=section==='send'?'flex':'none';
+  if(section==='inbox') renderInbox();
+  if(section==='send') renderMailTasks();
+}
 
 function mailSetTab(tab){
   mailCurrentTab=tab;
@@ -2290,7 +2314,7 @@ function showPage(name,el){
   if(name==='drivers')renderDrivers(null);
   if(name==='documents'){setTodayDate();renderDocPage();}
   if(name==='print'){rebuildPrintSelect();renderPrint();}
-  if(name==='mail')renderMailTasks();
+  if(name==='mail'){renderMailTasks();renderInbox();}
   if(name==='history')renderHistory();
   if(name==='filemgr')renderFileMgr();
   if(name==='storage')renderStorage();
@@ -3678,6 +3702,8 @@ function renderInbox(){
   const unread=inbox.filter(i=>i.status==='未確認').length;
   const badge=document.getElementById('inbox-badge');
   if(badge)badge.textContent=unread?String(unread):'';
+  const navBadge=document.getElementById('inbox-nav-badge');
+  if(navBadge)navBadge.textContent=unread?String(unread):'';
   const el=document.getElementById('inbox-list');
   if(!el)return;
   if(!inbox.length){el.innerHTML='<div style="padding:16px;text-align:center;color:#888;font-size:12px">受信したフォームはありません</div>';return;}
@@ -5193,12 +5219,13 @@ function renderAll(){
   renderOfficeNav();
   try{renderCompanyNav();}catch(e){console.error('renderCompanyNav error:',e);}
   renderDashboard();renderVehicles(null);renderDrivers(null);renderDocPage();renderArchive();
-  // メールバッジ更新
+  // メール・受信バッジ更新
   const mailPending=mailTasks.filter(t=>t.status==='pending').length;
   const mailBadge=document.getElementById('mail-badge');
   if(mailBadge) mailBadge.textContent=mailPending?String(mailPending):'';
+  renderInbox(); // 受信バッジ更新
 }
-function renderSettingsAll(){renderSettingsOffices();generateQR();renderInbox();loadAiSettings();renderMailSettings();}
+function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings();renderMailSettings();}
 setTodayDate();
 initSelfForm();
 
