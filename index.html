@@ -1040,6 +1040,7 @@ const COMPANY={name:'大阪急配株式会社',repName:'川村　知弘',repKana
 const TODAY_STR=new Date().toISOString().slice(0,10);
 let PASSWORD=localStorage.getItem('fleet_pw')||'1234';
 let offices=JSON.parse(localStorage.getItem('fleet_offices')||'["西成","浜寺","藤井寺","大阪西","集荷(横持込)","本社"]');
+let docExclude=JSON.parse(localStorage.getItem('fleet_doc_exclude')||'["集荷(横持込)","本社"]');
 let vehicles=JSON.parse(localStorage.getItem('fleet_vehicles')||'[]');
 let drivers=JSON.parse(localStorage.getItem('fleet_drivers')||'[]');
 let unassignedFiles=JSON.parse(localStorage.getItem('fleet_unassigned')||'[]'); // 未分類ファイル
@@ -1047,7 +1048,16 @@ let contractors=JSON.parse(localStorage.getItem('fleet_companies')||localStorage
 let currentOfficeFilter=null,vSortCol=null,vSortDir=1,dSortCol=null,dSortDir=1;
 let editingVehicleId=null,editingDriverId=null;
 
-function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));}
+function isDocTarget(office){return !docExclude.includes(office);}
+function getDocOffices(){return offices.filter(o=>isDocTarget(o));}
+function toggleDocExclude(office){
+  if(docExclude.includes(office)) docExclude=docExclude.filter(o=>o!==office);
+  else docExclude.push(office);
+  localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));
+  renderSettingsOffices();renderDocPage();
+}
+
+function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));}
 function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};const p=plate.trim().replace(/\s+/g,' ').split(' ');if(p.length>=4)return{chiiki:p[0],bunrui:p[1],kana:p[2],num:p[3]};const m=plate.match(/^([^\d]+?)(\d{3})\s*([あ-ん])\s*(\d+)/);if(m)return{chiiki:m[1].trim(),bunrui:m[2],kana:m[3],num:m[4]};return{chiiki:plate,bunrui:'',kana:'',num:''};}
 
 // ====== 同期 ======
@@ -1185,7 +1195,6 @@ function renderSettingsOffices(){
       return offs.includes(o);
     });
     const offV=vehicles.filter(v=>v.office===o);
-    // 委託会社のドライバー・車両も確認
     let coD=[],coV=[];
     companies.forEach(c=>{
       (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(o))coD.push({...d,_co:c.name});});
@@ -1195,11 +1204,13 @@ function renderSettingsOffices(){
     const dNames=[...offD.map(d=>d.name+(d.status&&d.status!=='在籍'?' ('+d.status+')':'')),...coD.map(d=>d.name+' ['+d._co+']')];
     const vNames=[...offV.map(v=>v.plate),...coV.map(v=>v.plate+' ['+v._co+']')];
     const detailId='office-detail-'+o.replace(/[^a-zA-Z0-9]/g,'_');
+    const isDoc=isDocTarget(o);
     return `<div class="office-row" style="flex-wrap:wrap">
       <div style="flex:1;cursor:pointer" onclick="document.getElementById('${detailId}').style.display=document.getElementById('${detailId}').style.display==='none'?'block':'none'">
         <div>${o} <span style="font-size:10px;color:#aaa">▼</span></div>
         <div style="font-size:11px;color:#888">車両 ${totalV}台 / D ${totalD}名</div>
       </div>
+      <button class="btn btn-sm" style="font-size:10px;${isDoc?'background:#e8f5e9;color:#2e7d32;border-color:#a5d6a7':'background:#f5f5f5;color:#aaa;border-color:#ddd'}" onclick="toggleDocExclude('${o}')">${isDoc?'📋 書類生成 ON':'📋 書類生成 OFF'}</button>
       <button class="btn btn-sm btn-danger" onclick="deleteOffice('${o}')">削除</button>
       <div id="${detailId}" style="display:none;width:100%;margin-top:6px;padding:8px 10px;background:#f9fbff;border-radius:6px;font-size:11px;color:#555">
         ${dNames.length?'<div style="margin-bottom:4px"><span style="color:#888;font-weight:500">ドライバー：</span>'+dNames.join('、 ')+'</div>':''}
@@ -1222,40 +1233,145 @@ function renderSettingsOffices(){
     (c.vehicles||[]).forEach(v=>{(v.offices||[]).forEach(o=>{if(o&&!allOfficeNames.has(o)){if(!orphanedOffices.has(o))orphanedOffices.set(o,{drivers:[],vehicles:[]});orphanedOffices.get(o).vehicles.push(v.plate+' ['+c.name+']');}});});
   });
   if(orphanedOffices.size){
-    let orphanHtml='<div style="margin-top:12px;padding:10px 14px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px"><div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:8px">⚠️ 営業所リストにない営業所に紐づいたデータがあります</div>';
+    const migrateOpts=offices.map(o=>`<option value="${o}">${o}</option>`).join('');
+    let orphanHtml='<div style="margin-top:12px;padding:10px 14px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px"><div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:8px">⚠️ 営業所リストにない旧営業所名が残っています</div>';
+    let idx=0;
     orphanedOffices.forEach((data,offName)=>{
-      orphanHtml+=`<div style="padding:6px 0;border-bottom:1px solid #ffe0b2;font-size:11px">
-        <strong style="color:#e65100">${esc(offName)}</strong>
-        ${data.drivers.length?'<br>ドライバー：'+data.drivers.join('、 '):''}
-        ${data.vehicles.length?'<br>車両：'+data.vehicles.join('、 '):''}
+      const selId='orphan-migrate-'+idx;
+      orphanHtml+=`<div style="padding:8px 0;border-bottom:1px solid #ffe0b2;font-size:11px">
+        <strong style="color:#e65100">${esc(offName)}</strong>　D ${data.drivers.length}名 / 車両 ${data.vehicles.length}台
+        ${data.drivers.length?'<br><span style="color:#888">'+data.drivers.join('、 ')+'</span>':''}
+        <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+          <select id="${selId}" style="flex:1;padding:5px 8px;font-size:11px;border:1px solid #ddd;border-radius:4px">
+            <option value="">移行先を選択</option>
+            <option value="__remove__">紐づけ解除（空にする）</option>
+            ${migrateOpts}
+          </select>
+          <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="migrateOrphan('${esc(offName)}','${selId}')">移行</button>
+        </div>
       </div>`;
+      idx++;
     });
-    orphanHtml+='<div style="font-size:10px;color:#888;margin-top:8px">該当ドライバー・車両の営業所を変更するか、「＋ 営業所を追加」で営業所を追加してください</div></div>';
+    orphanHtml+='</div>';
     document.getElementById('settings-office-list').innerHTML+=orphanHtml;
   }
+}
+function migrateOrphan(oldName, selId){
+  const newVal=document.getElementById(selId)?.value||'';
+  if(!newVal){alert('移行先を選択してください');return;}
+  const newOffice=newVal==='__remove__'?'':newVal;
+  let count=0;
+  drivers.forEach(d=>{
+    if(d.office===oldName){d.office=newOffice;count++;}
+    if(Array.isArray(d.offices)){
+      const idx=d.offices.indexOf(oldName);
+      if(idx>=0){if(newOffice&&!d.offices.includes(newOffice))d.offices[idx]=newOffice;else d.offices.splice(idx,1);count++;}
+    }
+  });
+  vehicles.forEach(v=>{
+    if(v.office===oldName){v.office=newOffice;count++;}
+  });
+  companies.forEach(c=>{
+    (c.drivers||[]).forEach(d=>{if(Array.isArray(d.offices)){const idx=d.offices.indexOf(oldName);if(idx>=0){if(newOffice&&!d.offices.includes(newOffice))d.offices[idx]=newOffice;else d.offices.splice(idx,1);count++;}}});
+    (c.vehicles||[]).forEach(v=>{if(Array.isArray(v.offices)){const idx=v.offices.indexOf(oldName);if(idx>=0){if(newOffice&&!v.offices.includes(newOffice))v.offices[idx]=newOffice;else v.offices.splice(idx,1);count++;}}});
+  });
+  saveLocal();saveCompanies();renderAll();renderSettingsOffices();
+  alert(`✅ 「${oldName}」→「${newOffice||'(解除)'}」に${count}件移行しました。`);
 }
 function openOfficeModal(){document.getElementById('office-name-input').value='';document.getElementById('office-modal').style.display='flex';setTimeout(()=>document.getElementById('office-name-input').focus(),50);}
 function saveOffice(){const n=document.getElementById('office-name-input').value.trim();if(!n||offices.includes(n)){alert(n?'既に存在します':'営業所名を入力');return;}offices.push(n);saveLocal();closeModal('office-modal');renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();renderDocPage();}
 function deleteOffice(name){
-  // 車両・ドライバーが登録されている場合は削除不可
-  const vc=vehicles.filter(v=>v.office===name).length;
-  const dc=drivers.filter(d=>{
-    const offs=Array.isArray(d.offices)?d.offices:d.office?[d.office]:[];
-    return offs.includes(name);
-  }).length;
-  // 委託会社のドライバー・車両も確認
+  // 車両・ドライバーの紐づきを確認
+  const affectedD=drivers.filter(d=>belongsToOffice(d,name));
+  const affectedV=vehicles.filter(v=>belongsToOffice(v,name));
   let ccD=0,ccV=0;
   companies.forEach(c=>{
     (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(name))ccD++;});
     (c.vehicles||[]).forEach(v=>{if((v.offices||[]).includes(name))ccV++;});
   });
-  const totalV=vc+ccV, totalD=dc+ccD;
+  const totalV=affectedV.length+ccV, totalD=affectedD.length+ccD;
+
   if(totalV>0||totalD>0){
-    alert(`「${name}」には車両 ${totalV}台・ドライバー ${totalD}名が登録されています。\n先に車両・ドライバーの営業所を変更してから削除してください。`);
+    // 移行先を選択するモーダルを表示
+    const otherOffices=offices.filter(o=>o!==name);
+    if(!otherOffices.length){alert('移行先の営業所がありません。先に新しい営業所を追加してください。');return;}
+    const opts=otherOffices.map(o=>`<option value="${o}">${o}</option>`).join('');
+    const modal=document.createElement('div');
+    modal.className='modal-bg';modal.style.display='flex';
+    modal.innerHTML=`<div class="modal modal-sm" onclick="event.stopPropagation()">
+      <div class="modal-header"><span class="modal-title">営業所「${esc(name)}」の削除</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+      <div class="modal-body">
+        <div style="padding:10px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;font-size:12px;color:#e65100;margin-bottom:14px">
+          ⚠️ 「${esc(name)}」には車両 ${totalV}台・ドライバー ${totalD}名が紐づいています。
+        </div>
+        <div class="form-group" style="margin-bottom:12px">
+          <label style="font-size:11px;color:#666;font-weight:500">紐づいているデータの移行先</label>
+          <select id="migrate-office-select" style="width:100%;padding:8px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px">
+            <option value="">営業所を選択</option>
+            <option value="__remove__">営業所を空にする（紐づけ解除のみ）</option>
+            ${opts}
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" onclick="this.closest('.modal-bg').remove()">キャンセル</button>
+        <button class="btn btn-danger" onclick="execDeleteOffice('${esc(name)}');this.closest('.modal-bg').remove()">移行して削除</button>
+      </div>
+    </div>`;
+    document.body.appendChild(modal);
     return;
   }
+
   if(!confirm(`「${name}」を削除しますか？`))return;
-  offices=offices.filter(o=>o!==name);saveLocal();renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();if(currentOfficeFilter===name){currentOfficeFilter=null;renderVehicles(null);}renderDocPage();
+  offices=offices.filter(o=>o!==name);docExclude=docExclude.filter(o=>o!==name);
+  saveLocal();renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();if(currentOfficeFilter===name){currentOfficeFilter=null;renderVehicles(null);}renderDocPage();
+}
+
+function execDeleteOffice(name){
+  const migrateTo=document.getElementById('migrate-office-select')?.value||'';
+  if(!migrateTo){alert('移行先を選択してください');return;}
+  const newOffice=migrateTo==='__remove__'?'':migrateTo;
+
+  // ドライバーの移行
+  drivers.forEach(d=>{
+    if(d.office===name) d.office=newOffice;
+    if(Array.isArray(d.offices)){
+      const idx=d.offices.indexOf(name);
+      if(idx>=0){
+        if(newOffice&&!d.offices.includes(newOffice)) d.offices[idx]=newOffice;
+        else d.offices.splice(idx,1);
+      }
+    }
+  });
+  // 車両の移行
+  vehicles.forEach(v=>{
+    if(v.office===name) v.office=newOffice;
+  });
+  // 委託会社の移行
+  companies.forEach(c=>{
+    (c.drivers||[]).forEach(d=>{
+      if(Array.isArray(d.offices)){
+        const idx=d.offices.indexOf(name);
+        if(idx>=0){
+          if(newOffice&&!d.offices.includes(newOffice)) d.offices[idx]=newOffice;
+          else d.offices.splice(idx,1);
+        }
+      }
+    });
+    (c.vehicles||[]).forEach(v=>{
+      if(Array.isArray(v.offices)){
+        const idx=v.offices.indexOf(name);
+        if(idx>=0){
+          if(newOffice&&!v.offices.includes(newOffice)) v.offices[idx]=newOffice;
+          else v.offices.splice(idx,1);
+        }
+      }
+    });
+  });
+
+  offices=offices.filter(o=>o!==name);docExclude=docExclude.filter(o=>o!==name);
+  saveLocal();saveCompanies();renderAll();renderSettingsOffices();
+  alert(`✅ 「${name}」を削除しました。${newOffice?'紐づきデータを「'+newOffice+'」に移行しました。':'紐づけを解除しました。'}`);
 }
 function rebuildOfficeSelects(){['v-office'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;sel.innerHTML=offices.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');});}
 
@@ -1307,7 +1423,7 @@ function setTodayDate(){document.getElementById('doc-date').value=new Date().toI
 function getDocDate(){return document.getElementById('doc-date').value||new Date().toISOString().slice(0,10);}
 
 function renderDocPage(){
-  const targetOffices=offices.filter(o=>o!=='集荷(横持込)'&&o!=='本社');
+  const targetOffices=getDocOffices();
   document.getElementById('doc-office-cards').innerHTML=targetOffices.map(office=>{
     const offD=drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
     const offV=vehicles.filter(v=>belongsToOffice(v,office));
@@ -1785,7 +1901,7 @@ function saveBulk(){
 // ====== 印刷一覧 ======
 function renderPrint(){
   const office=document.getElementById('print-office').value;
-  const targetOffices=office?[office]:offices.filter(o=>o!=='集荷(横持込)'&&o!=='本社');
+  const targetOffices=office?[office]:getDocOffices();
   const today=TODAY_STR.replace(/-/g,'/');
   const html=targetOffices.map(off=>{
     const offD=drivers.filter(d=>belongsToOffice(d,off)&&(!d.status||d.status==='在籍'));
@@ -1944,7 +2060,7 @@ function rebuildPrintSelect(){
   const sel=document.getElementById('print-office');
   if(!sel)return;
   const cur=sel.value;
-  sel.innerHTML='<option value="">全営業所</option>'+offices.filter(o=>o!=='集荷(横持込)'&&o!=='本社').map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');
+  sel.innerHTML='<option value="">全営業所</option>'+getDocOffices().map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');
 }
 function filterOffice(office,el){currentOfficeFilter=office;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-vehicles').classList.add('active');document.getElementById('vehicle-office-label').textContent='— '+office;renderVehicles(office);}
 function filterVehicleChip(o){currentOfficeFilter=o==='全て'?null:o;renderVehicles(currentOfficeFilter);}
