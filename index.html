@@ -3918,13 +3918,13 @@ function renderStorage(){
       const plateStr=cv?cv.plate:'車両未割当';
 
       if(!expanded){
-        return '<div style="background:#fff;border:2px solid #ccc;border-radius:10px;padding:10px 14px;cursor:pointer;display:flex;align-items:flex-start;justify-content:space-between;height:100%;box-sizing:border-box;overflow:hidden" onclick="storageToggleExpand(\''+key+'\')">'+
+        return '<div style="background:#f0f0ee;border:2px solid #999;border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;height:100%;box-sizing:border-box;overflow:hidden" onclick="storageToggleExpand(\''+key+'\')">'+
           '<div style="display:flex;align-items:center;gap:10px">'+
-            '<div style="width:32px;height:32px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:11px">'+typeIcon+'</div>'+
-            '<div><div style="font-weight:500;font-size:14px">'+d.name+'</div>'+
-            '<div style="font-size:11px;color:#888">'+(d.type||'')+' ・ '+plateStr+'</div></div>'+
+            '<div style="width:32px;height:32px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:11px;flex-shrink:0">'+typeIcon+'</div>'+
+            '<div style="min-width:0"><div style="font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+'</div>'+
+            '<div style="font-size:11px;color:#777;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d.type||'')+' ・ '+plateStr+'</div></div>'+
           '</div>'+
-          '<div style="display:flex;gap:4px;align-items:center">'+
+          '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end;margin-top:auto">'+
             expBadge(d.license?.exp)+
             '<span style="font-size:10px;color:'+(af.length?'#888':'#e53935')+'">添付 '+af.length+'</span>'+
             '<span style="font-size:11px;color:#aaa;margin-left:4px">▶</span>'+
@@ -3933,7 +3933,7 @@ function renderStorage(){
       }
 
       // 展開状態
-      let cardHtml='<div class="storage-card-expanded" style="background:#fff;border:2px solid #aaa;border-radius:10px;padding:14px 16px">';
+      let cardHtml='<div class="storage-card-expanded" style="background:#eaeae8;border:2px solid #888;border-radius:10px;padding:14px 16px">';
       cardHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">';
       cardHtml+='<div style="display:flex;align-items:center;gap:10px">';
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
@@ -3967,7 +3967,7 @@ function renderStorage(){
 
       // 搭乗車両
       if(cv){
-        cardHtml+='<div style="padding:8px 10px;background:#f5f5f3;color:#555;border-radius:8px;font-size:11px">';
+        cardHtml+='<div style="padding:8px 10px;background:#ddddd9;color:#444;border-radius:8px;font-size:11px">';
         cardHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">';
         cardHtml+='<div><span style="font-size:10px;color:#888">搭乗車両</span> <strong>'+cv.plate+'</strong> <span style="color:#aaa">'+(cv.model||'')+'</span></div>';
         cardHtml+='<div style="display:flex;gap:3px">';
@@ -4007,9 +4007,9 @@ function renderStorage(){
     html+='<div class="storage-grid">';
     html+=unassignedVehicles.map(v=>{
       var vaf=v.attachedFiles||[];
-      return '<div style="background:#fff;border:2px solid #ccc;border-radius:10px;padding:10px 14px;display:flex;align-items:flex-start;justify-content:space-between;height:100%;box-sizing:border-box;overflow:hidden">'+
-        '<div><strong>'+v.plate+'</strong> <span style="font-size:11px;color:#888">'+(v.model||'')+' ・ '+(v._offices.join('・')||v.office||'未設定')+'</span></div>'+
-        '<div style="display:flex;gap:4px;align-items:center">'+
+      return '<div style="background:#f0f0ee;border:2px solid #999;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;height:100%;box-sizing:border-box;overflow:hidden">'+
+        '<div><strong style="font-size:14px">'+v.plate+'</strong> <span style="font-size:11px;color:#777">'+(v.model||'')+'</span><div style="font-size:11px;color:#888;margin-top:2px">'+(v._offices.join('・')||v.office||'未設定')+'</div></div>'+
+        '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end;margin-top:auto">'+
           expBadge(minExp([v.shaken?.exp,v.jibai?.exp,v.nin?.exp]))+
           '<span style="font-size:10px;color:#888">添付 '+vaf.length+'</span>'+
         '</div>'+
