@@ -573,21 +573,23 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="topbar">
           <h1>📧 メール</h1>
           <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions">
-            <button class="btn btn-sm btn-primary" onclick="openCreateMailTask()">＋ タスク追加</button>
+            <button class="btn btn-sm btn-primary" onclick="openCreateMailTask()">＋ データ送信</button>
           </div>
         </div>
         <div class="content">
           <!-- メイン タブ: 送信 / 受信ボックス -->
           <div style="display:flex;border-bottom:2px solid #e0e0e0;margin-bottom:12px" id="mail-main-tabs">
-            <div onclick="mailMainTab('send')" class="filter-chip active" data-mtab="send" style="cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600">📤 送信タスク <span id="mail-pending-count" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:10px;margin-left:2px"></span></div>
+            <div onclick="mailMainTab('send')" class="filter-chip active" data-mtab="send" style="cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600">📤 データ送信 <span id="mail-pending-count" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:10px;margin-left:2px"></span></div>
             <div onclick="mailMainTab('inbox')" class="filter-chip" data-mtab="inbox" style="cursor:pointer;padding:8px 16px;font-size:13px;font-weight:600">📥 受信ボックス <span id="inbox-badge" style="display:inline-block;padding:1px 7px;border-radius:99px;background:#e53935;color:#fff;font-size:10px;margin-left:4px"></span></div>
           </div>
 
-          <!-- 送信タスク セクション -->
+          <!-- データ送信 セクション -->
           <div id="mail-send-section">
-            <div style="display:flex;gap:8px;margin-bottom:10px" id="mail-tabs">
+            <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;flex-wrap:wrap" id="mail-tabs">
               <div onclick="mailSetTab('pending')" class="filter-chip active" data-tab="pending" style="cursor:pointer;padding:5px 12px;font-size:11px">未送信</div>
               <div onclick="mailSetTab('sent')" class="filter-chip" data-tab="sent" style="cursor:pointer;padding:5px 12px;font-size:11px">送信済</div>
+              <div style="flex:1"></div>
+              <button class="btn btn-sm" onclick="openBulkSendByOffice()" style="font-size:10px">📧 営業所一括送信</button>
             </div>
             <div id="mail-task-list"></div>
           </div>
@@ -1680,10 +1682,14 @@ function renderDashboard(){
   const ed=activeDrivers.filter(d=>d.license?.exp&&daysUntil(d.license.exp)<0).length;
   document.getElementById('dash-stats').innerHTML=`<div class="stat-card"><div class="stat-label">総車両数</div><div class="stat-value">${vehicles.length}</div><div class="stat-sub">社有 ${vehicles.filter(v=>v.type==='社有').length} / 持込 ${vehicles.filter(v=>v.type==='持込').length}</div></div><div class="stat-card"><div class="stat-label">車両書類 期限切れ</div><div class="stat-value" style="color:#e53935">${ev}</div><div class="stat-sub">要対応</div></div><div class="stat-card"><div class="stat-label">車両書類 30日以内</div><div class="stat-value" style="color:#fb8c00">${wv}</div><div class="stat-sub">要注意</div></div><div class="stat-card"><div class="stat-label">免許証 期限切れ</div><div class="stat-value" style="color:#e53935">${ed}</div><div class="stat-sub">要対応</div></div>`;
   let alerts=[];
-  vehicles.forEach(v=>[{l:'車検証',e:v.shaken?.exp},{l:'自賠責',e:v.jibai?.exp},{l:'任意保険',e:v.nin?.exp}].forEach(x=>{const dd=daysUntil(x.e);if(x.e&&dd!==null&&dd<=60)alerts.push({name:v.plate,doc:x.l,exp:x.e,days:dd});}));
-  activeDrivers.forEach(d=>{const dd=daysUntil(d.license?.exp);if(d.license?.exp&&dd!==null&&dd<=60)alerts.push({name:d.name,doc:'運転免許証',exp:d.license.exp,days:dd});});
+  vehicles.forEach(v=>[{l:'車検証',e:v.shaken?.exp,k:'shaken'},{l:'自賠責',e:v.jibai?.exp,k:'jibai'},{l:'任意保険',e:v.nin?.exp,k:'nin'}].forEach(x=>{const dd=daysUntil(x.e);if(x.e&&dd!==null&&dd<=60)alerts.push({name:v.plate,doc:x.l,exp:x.e,days:dd,type:'vehicle',id:v.id,docKey:x.k});}));
+  activeDrivers.forEach(d=>{const dd=daysUntil(d.license?.exp);if(d.license?.exp&&dd!==null&&dd<=60)alerts.push({name:d.name,doc:'運転免許証',exp:d.license.exp,days:dd,type:'driver',id:d.id,docKey:'license'});});
   alerts.sort((a,b)=>a.days-b.days);
-  document.getElementById('alert-list').innerHTML=alerts.length?`<table><thead><tr><th>対象</th><th>書類</th><th>期限日</th><th>状態</th></tr></thead><tbody>${alerts.map(a=>`<tr><td>${a.name}</td><td>${a.doc}</td><td>${a.exp.replace(/-/g,'/')}</td><td>${expBadge(a.exp)}</td></tr>`).join('')}</tbody></table>`:'<div style="padding:20px;text-align:center;color:#888;font-size:12px">期限アラートなし ✓</div>';
+  document.getElementById('alert-list').innerHTML=alerts.length?`<table><thead><tr><th>対象</th><th>書類</th><th>期限日</th><th>状態</th><th></th></tr></thead><tbody>${alerts.map(a=>{
+    const editClick=a.type==='vehicle'?'openVehicleModal('+a.id+')':'openDriverModal('+a.id+')';
+    const pageName=a.type==='vehicle'?'vehicles':'drivers';
+    return `<tr><td style="cursor:pointer;color:#4a90e2" onclick="${editClick}">${a.name}</td><td>${a.doc}</td><td>${a.exp.replace(/-/g,'/')}</td><td>${expBadge(a.exp)}</td><td><button class="btn btn-sm" style="font-size:10px" onclick="${editClick}">編集</button></td></tr>`;
+  }).join('')}</tbody></table>`:'<div style="padding:20px;text-align:center;color:#888;font-size:12px">期限アラートなし ✓</div>';
 }
 
 // ====== 書類生成ページ ======
@@ -1858,7 +1864,7 @@ function genTekigoOsakaXml(office,dateStr){
   const tbl=wtbl([600,7856,1000],tblRows,9456);
   return wxDoc([wp('適　合　証　明　書',{center:true,bold:true,size:28}),wp('個人情報の管理に関して、以下のとおり適合することを証明いたします。'),wp(''),wp(`日　　　付：　　${dy.y}年　${dy.m}月　${dy.d}日`),wp(`住　　　所：${COMPANY.address}`),wp(`会　社　名：${COMPANY.name}`),wp(`代表者氏名：${COMPANY.repName}　　　　印`),wp(`社　員　数：（${COMPANY.staffCount}）人`),wp(''),tbl].join(''));}
 
-// ====== メール送信タスク ======
+// ====== データ送信管理 ======
 let mailTasks = JSON.parse(localStorage.getItem('fleet_mail_tasks')||'[]');
 let mailCurrentTab = 'pending';
 let mailMainSection = 'send';
@@ -1897,7 +1903,7 @@ function renderMailTasks(){
 
   const list=mailCurrentTab==='sent'?sent:pending;
   if(!list.length){
-    el.innerHTML=`<div style="padding:24px;text-align:center;color:#888;font-size:12px">${mailCurrentTab==='sent'?'送信済みのタスクはありません':'未送信のタスクはありません'}</div>`;
+    el.innerHTML=`<div style="padding:24px;text-align:center;color:#888;font-size:12px">${mailCurrentTab==='sent'?'送信済みのデータはありません':'未送信のデータはありません'}</div>`;
     return;
   }
   el.innerHTML=list.sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).map(t=>{
@@ -1997,12 +2003,12 @@ function markMailTaskPending(id){
   if(t){t.status='pending';t.sentAt=null;saveMailTasks();renderMailTasks();}
 }
 function deleteMailTask(id){
-  if(!confirm('このタスクを削除しますか？'))return;
+  if(!confirm('このデータ送信を削除しますか？'))return;
   mailTasks=mailTasks.filter(x=>x.id!==id);
   saveMailTasks();renderMailTasks();
 }
 
-// 手動タスク追加モーダル
+// 手動データ送信追加モーダル
 function openCreateMailTask(){
   const activeDrivers=[
     ...drivers.filter(d=>!d.status||d.status==='在籍').map(d=>({id:d.id,name:d.name,type:d.type||'社員',office:(Array.isArray(d.offices)&&d.offices.length?d.offices[0]:d.office)||''})),
@@ -2013,7 +2019,7 @@ function openCreateMailTask(){
   const modal=document.createElement('div');
   modal.className='modal-bg';modal.style.display='flex';
   modal.innerHTML=`<div class="modal" style="max-width:420px" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title">＋ メールタスク追加</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
+    <div class="modal-header"><span class="modal-title">＋ ドライバー・車両データの送信</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
     <div class="modal-body">
       <div class="form-group" style="margin-bottom:12px">
         <label style="font-size:11px;color:#666;font-weight:500">種別 *</label>
@@ -2047,7 +2053,7 @@ function execCreateMailTask(){
   const dOffice=opt.dataset.office||'';
   const dName=opt.textContent.split('（')[0];
   createMailTask(type, dId, dName, dType, dOffice);
-  alert('✅ メールタスクを作成しました');
+  alert('✅ データ送信タスクを作成しました');
 }
 
 // 送信モーダル
@@ -2267,6 +2273,115 @@ async function execMailSend(taskId){
     if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='📧 送信する';}
     alert('❌ 通信エラー: '+e.message);
   }
+}
+
+// 営業所一括送信モーダル
+function openBulkSendByOffice(){
+  const settings=getMailSettings();
+  const docOffices=getDocOffices();
+  const allOffs=offices.filter(o=>!['本社','集荷(横持込)'].includes(o)||docOffices.includes(o));
+
+  const rows=allOffs.map(o=>{
+    const addr=settings[o]||'';
+    const postOffice=POST_OFFICE_MAP[o]||o+'郵便局';
+    const offD=drivers.filter(d=>belongsToOffice(d,o)&&(!d.status||d.status==='在籍'));
+    const offV=vehicles.filter(v=>belongsToOffice(v,o));
+    const coD=[];companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(o))coD.push(d);});});
+    const totalD=offD.length+coD.length;
+    const hasAddr=!!addr;
+    return '<label style="display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid '+(hasAddr?'#e0e0e0':'#ffcdd2')+';border-radius:8px;background:'+(hasAddr?'#fff':'#fff5f5')+';cursor:pointer">'+
+      '<input type="checkbox" class="bulk-office-check" value="'+o+'" '+(hasAddr?'checked':'disabled')+'>'+
+      '<div style="flex:1">'+
+        '<div style="font-size:13px;font-weight:500">'+o+'営業所 <span style="font-size:10px;color:#888;font-weight:400">→ '+postOffice+'</span></div>'+
+        '<div style="font-size:11px;color:#888">'+totalD+'名 / '+offV.length+'台'+(hasAddr?' ・ '+addr:' ・ <span style="color:#e53935">メール未設定</span>')+'</div>'+
+      '</div>'+
+    '</label>';
+  }).join('');
+
+  const modal=document.createElement('div');
+  modal.className='modal-bg';modal.style.display='flex';
+  modal.innerHTML='<div class="modal" style="max-width:520px" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">📧 営業所一括データ送信</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body" style="max-height:60vh;overflow-y:auto">'+
+      '<div style="font-size:12px;color:#555;margin-bottom:10px">送信する営業所を選択してください。各営業所の現況届・雇用証明書（社員がいる場合）・ドライバー書類・車両書類が自動添付されます。</div>'+
+      '<div style="display:flex;gap:4px;margin-bottom:10px">'+
+        '<button class="btn btn-sm" onclick="document.querySelectorAll(\'.bulk-office-check:not(:disabled)\').forEach(c=>c.checked=true)">全選択</button>'+
+        '<button class="btn btn-sm" onclick="document.querySelectorAll(\'.bulk-office-check\').forEach(c=>c.checked=false)">全解除</button>'+
+      '</div>'+
+      '<div style="display:flex;flex-direction:column;gap:6px">'+rows+'</div>'+
+    '</div>'+
+    '<div class="modal-footer">'+
+      '<button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button>'+
+      '<button class="btn btn-primary" id="bulk-send-btn" onclick="execBulkSendByOffice()">📧 一括送信</button>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+}
+
+async function execBulkSendByOffice(){
+  const checked=Array.from(document.querySelectorAll('.bulk-office-check:checked')).map(c=>c.value);
+  if(!checked.length){alert('営業所を選択してください');return;}
+  
+  const settings=getMailSettings();
+  const list=checked.map(o=>o+' → '+settings[o]).join('\n');
+  if(!confirm('以下の'+checked.length+'営業所にデータを送信します。\n\n'+list+'\n\n送信しますか？')) return;
+
+  const btn=document.getElementById('bulk-send-btn');
+  if(btn){btn.disabled=true;btn.textContent='送信中...';}
+  
+  const dateStr=getDocDate();
+  let successCount=0,errorCount=0;
+
+  for(let idx=0;idx<checked.length;idx++){
+    const office=checked[idx];
+    if(btn) btn.textContent='送信中 ('+(idx+1)+'/'+checked.length+') '+office+'...';
+    
+    const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
+    const to=settings[office];
+    const subject='【大阪急配】'+office+'営業所 書類提出 '+dateStr.replace(/-/g,'/');
+
+    const offD=drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
+    const offV=vehicles.filter(v=>belongsToOffice(v,office));
+    const coD=[],coV=[];
+    companies.forEach(c=>{
+      (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(office))coD.push({...d,type:'外注',subCompany:c.name});});
+      (c.vehicles||[]).forEach(v=>{if((v.offices||[]).includes(office))coV.push({...v,sub:c.name});});
+    });
+    const allD=[...offD,...coD];
+    const allV=[...offV,...coV];
+
+    const body=postOffice+'\nご担当者　様\n\nお世話になっております。\n大阪急配株式会社でございます。\n\n下記書類を送付いたします。\nご確認のほどよろしくお願いいたします。\n\n【営業所】'+office+'\n【従事員数】'+allD.length+'名\n【車両台数】'+allV.length+'台\n【提出日】'+dateStr.replace(/-/g,'/')+'\n\n━━━━━━━━━━━━━━━━━━\n大阪急配株式会社\n管理部\n━━━━━━━━━━━━━━━━━━';
+
+    const fileIds=[];
+    allD.forEach(d=>{(d.attachedFiles||[]).filter(f=>f.fileId).forEach(f=>{fileIds.push(f.fileId);});});
+    allV.forEach(v=>{(v.attachedFiles||[]).filter(f=>f.fileId).forEach(f=>{fileIds.push(f.fileId);});});
+
+    // PDF生成（現況届）
+    try{
+      const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'generatePdf',docType:'genkyo',office,dateStr,drivers:allD,vehicles:allV})});
+      const j=await r.json();
+      if(j.ok&&j.fileId) fileIds.push(j.fileId);
+    }catch(e){}
+
+    // 雇用証明書（社員がいれば）
+    if(allD.some(d=>d.type==='社員')){
+      try{
+        const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'generatePdf',docType:'koyou',office,dateStr,drivers:allD,vehicles:allV})});
+        const j=await r.json();
+        if(j.ok&&j.fileId) fileIds.push(j.fileId);
+      }catch(e){}
+    }
+
+    // 送信
+    try{
+      const r=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'sendMail',to,subject,body,attachments:fileIds,office})});
+      const j=await r.json();
+      if(j.ok) successCount++; else errorCount++;
+    }catch(e){errorCount++;}
+  }
+
+  document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
+  alert('✅ 一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
 }
 
 // ====== 提出履歴 ======
@@ -2673,6 +2788,22 @@ function openVehicleModal(id){
 }
 function saveVehicle(){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
+
+  // 車両番号重複チェック
+  if(!editingVehicleId){
+    const dup=vehicles.find(v=>v.plate===plate);
+    if(!dup){
+      let coDup=null;
+      companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.plate===plate)coDup=v;});});
+      if(coDup){
+        if(!confirm('⚠️ 委託会社にも同じ車両番号「'+plate+'」が登録されています。\n\nそれでも登録しますか？')) return;
+      }
+    }
+    if(dup){
+      if(!confirm('⚠️ 車両番号「'+plate+'」は既に登録されています（'+dup.office+'）。\n\nそれでも登録しますか？')) return;
+    }
+  }
+
   const obj={id:editingVehicleId||Date.now(),plate,model:document.getElementById('v-model').value,kind:document.getElementById('v-kind').value,type:document.getElementById('v-type').value,office:document.getElementById('v-office').value,driver:(drivers.find(d=>d.id==document.getElementById('v-driver').value)||{name:''}).name,driverId:document.getElementById('v-driver').value||null,color:document.getElementById('v-color').value||'白',owner:document.getElementById('v-owner').value,vehicleUser:document.getElementById('v-user').value,sub:document.getElementById('v-sub').value,note:document.getElementById('v-note').value,shaken:{exp:document.getElementById('v-shaken-exp').value,chassis:document.getElementById('v-shaken-chassis').value,type:document.getElementById('v-shaken-type').value},jibai:{exp:document.getElementById('v-jibai-exp').value,no:document.getElementById('v-jibai-no').value,company:document.getElementById('v-jibai-company').value},nin:{exp:document.getElementById('v-nin-exp').value,no:document.getElementById('v-nin-no').value,company:document.getElementById('v-nin-company').value}};
   if(editingVehicleId){const i=vehicles.findIndex(v=>v.id==editingVehicleId);if(i>=0)vehicles[i]=obj;else vehicles.push(obj);}else vehicles.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
@@ -2774,6 +2905,17 @@ function saveDriver(){
   const mei=document.getElementById('d-mei').value.trim();
   if(!sei&&!mei){alert('氏名（姓または名）は必須です');return;}
   const name=(sei+' '+mei).trim();
+
+  // 免許証2枚チェック
+  const newFiles=modalFiles['d-files']||[];
+  const existingFiles=editingDriverId?(drivers.find(d=>d.id==editingDriverId)?.attachedFiles||[]):[];
+  const allLicFiles=[
+    ...newFiles.filter(f=>(f.category||'').includes('免許')||guessFileCategory(f.name,'d-files').includes('免許')),
+    ...existingFiles.filter(f=>(f.category||'').includes('免許')||['免許','license'].some(k=>(f.name||'').toLowerCase().includes(k)))
+  ];
+  if(allLicFiles.length<2 && newFiles.length>0){
+    if(!confirm('⚠️ 免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
+  }
   const kana=(document.getElementById('d-sei-kana').value.trim()+' '+document.getElementById('d-mei-kana').value.trim()).trim();
   const type=document.getElementById('d-type').value;
   const status=document.getElementById('d-status').value;
@@ -2786,6 +2928,21 @@ function saveDriver(){
     if(n||exp)otherDocs.push({name:n,exp,note});
   });
   const selectedOffices = getSelectedOffices('d-office-checks');
+
+  // 重複チェック（営業所+氏名）
+  if(!editingDriverId){
+    const dup=drivers.find(d=>d.name===name&&selectedOffices.some(o=>belongsToOffice(d,o)));
+    if(dup){
+      if(!confirm('⚠️ 重複の可能性があります。\n「'+name+'」は既に'+((Array.isArray(dup.offices)?dup.offices:dup.office?[dup.office]:[]).join('・'))+'営業所に登録されています。\n\nそれでも登録しますか？')) return;
+    }
+    // 委託会社ドライバーも確認
+    let coDup=null;
+    companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.name===name&&selectedOffices.some(o=>(d.offices||[]).includes(o)))coDup=d;});});
+    if(coDup){
+      if(!confirm('⚠️ 委託会社にも同名のドライバー「'+name+'」が登録されています。\n\nそれでも登録しますか？')) return;
+    }
+  }
+
   const obj={id:editingDriverId||Date.now(),name,kana,type,status,
     office: selectedOffices[0]||'',
     offices: selectedOffices,
@@ -4153,6 +4310,7 @@ function renderInbox(){
           ${item.status==='未確認'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
           ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))&&item.status!=='登録済'?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">💾 保存</button>`:''}
           ${item.status==='登録済'?`<button class="btn btn-sm" onclick="restoreInboxItem(${item.id})" style="font-size:10px">🔄 復元</button>`:''}
+          ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRegistered(${item.id})" style="font-size:10px;color:#888" title="二重登録防止用">✅ 登録済にする</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">🗑 削除</button>
         </div>
       </div>
@@ -4309,6 +4467,17 @@ function restoreInboxItem(id){
   renderInbox();
 }
 
+function markInboxRegistered(id){
+  if(!confirm('この項目を「登録済」にしますか？\n（二重登録防止用）'))return;
+  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+  const item=inbox.find(i=>i.id===id);
+  if(!item) return;
+  item.status='登録済';
+  localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id,status:'登録済'})}).catch(()=>{});
+  renderInbox();
+}
+
 function openInboxFilePreview(inboxId, fileIdx){
   const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
   const item=inbox.find(i=>i.id===inboxId);
@@ -4414,7 +4583,12 @@ function execInboxSavePerFile(inboxId, fileCount){
     if(!target){ skippedCount++; continue; }
     if(!Array.isArray(target.attachedFiles)) target.attachedFiles=[];
     const f = files[i];
-    target.attachedFiles.push({name:f.name,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||'',uploadedAt:item.timestamp});
+    // カテゴリ推測＋自動リネーム
+    const catBuf=kind==='driver'?'d-files':'v-files';
+    const cat=guessFileCategory(f.name,catBuf);
+    const ownerName=kind==='driver'?(target.name||''):(target.plate||'');
+    const renamedName=cat?autoRenameFile(f.name,cat,'',ownerName):f.name;
+    target.attachedFiles.push({name:renamedName,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||'',category:cat,uploadedAt:item.timestamp});
     savedCount++;
   }
 
@@ -5112,6 +5286,18 @@ function saveCompanyDriver(){
   const mei=document.getElementById('cd-mei').value.trim();
   if(!sei&&!mei){alert('氏名は必須です');return;}
   const name=(sei+' '+mei).trim();
+
+  // 免許証2枚チェック
+  const newFiles=modalFiles['cd-files']||[];
+  const c0=companies.find(x=>x.id==currentCompanyId);
+  const existingFiles=editingCompanyDriverId?(c0?.drivers?.find(d=>d.id==editingCompanyDriverId)?.attachedFiles||[]):[];
+  const allLicFiles=[
+    ...newFiles.filter(f=>(f.category||'').includes('免許')||guessFileCategory(f.name,'cd-files').includes('免許')),
+    ...existingFiles.filter(f=>(f.category||'').includes('免許')||['免許','license'].some(k=>(f.name||'').toLowerCase().includes(k)))
+  ];
+  if(allLicFiles.length<2 && newFiles.length>0){
+    if(!confirm('⚠️ 免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
+  }
   const kana=(document.getElementById('cd-sei-kana').value.trim()+' '+document.getElementById('cd-mei-kana').value.trim()).trim();
   const selectedOffices=getSelectedOffices('cd-offices');
   if(!selectedOffices.length){alert('担当営業所を1つ以上選択してください');return;}
