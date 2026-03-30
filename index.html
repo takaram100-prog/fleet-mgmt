@@ -530,6 +530,9 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
               <option value="その他">その他</option>
             </select>
           </div>
+          <div style="margin:10px 0;display:flex;justify-content:flex-end">
+            <button class="btn btn-primary" onclick="sendMailAllOffices()" style="font-size:12px">📧 全営業所に一括メール送信</button>
+          </div>
           <div class="doc-gen-grid" id="doc-office-cards"></div>
         </div>
       </div>
@@ -5522,7 +5525,6 @@ function renderMailAttachments(office){
   const el = document.getElementById('mail-attachments');
   if(!el) return;
 
-  // ドライバーの免許証添付ファイル
   const offD = drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
   const companyDrivers = [];
   companies.forEach(c=>{
@@ -5532,34 +5534,59 @@ function renderMailAttachments(office){
   });
   const allDrivers = [...offD, ...companyDrivers];
 
+  // 車両も追加
+  const offV = vehicles.filter(v=>belongsToOffice(v,office));
+  const companyVehicles = [];
+  companies.forEach(c=>{
+    (c.vehicles||[]).forEach(v=>{
+      if((v.offices||[]).includes(office)) companyVehicles.push({...v, _company:c.name});
+    });
+  });
+  const allVehicles = [...offV, ...companyVehicles];
+
   let items = [];
 
-  // ドライバーの免許証ファイル
+  // ドライバーの添付ファイル
   allDrivers.forEach(d => {
-    const files = (d.attachedFiles||[]).filter(f => f.fileId || f.url);
-    if(files.length){
-      files.forEach(f => {
-        items.push({
-          name: `${d.name} - ${f.name}`,
-          fileId: f.fileId || '',
-          url: f.url || '',
-          type: 'driver-license'
-        });
-      });
-    }
+    (d.attachedFiles||[]).filter(f => f.fileId).forEach(f => {
+      items.push({label:'👤 '+d.name+' - '+(f.category||f.name), fileId:f.fileId, group:'driver'});
+    });
   });
 
+  // 車両の添付ファイル
+  allVehicles.forEach(v => {
+    (v.attachedFiles||[]).filter(f => f.fileId).forEach(f => {
+      items.push({label:'🚗 '+v.plate+' - '+(f.category||f.name), fileId:f.fileId, group:'vehicle'});
+    });
+  });
+
+  // 生成PDF（現況届・雇用証明書）
+  items.push({label:'📋 現況届_'+office+'.pdf', fileId:'', group:'pdf', pdfType:'genkyo'});
+  const hasEmployees = allDrivers.some(d=>d.type==='社員');
+  if(hasEmployees){
+    items.push({label:'📋 雇用証明書_'+office+'.pdf', fileId:'', group:'pdf', pdfType:'koyou'});
+  }
+
   if(!items.length){
-    el.innerHTML = '<div style="text-align:center;color:#aaa;padding:12px">添付可能なファイル（Drive保存済）がありません。<br>ドライバーの書類をDriveにアップロードしてから送信してください。</div>';
+    el.innerHTML = '<div style="text-align:center;color:#aaa;padding:12px">添付可能なファイルがありません</div>';
     return;
   }
 
-  el.innerHTML = items.map((item,i) => `
-    <div style="display:flex;align-items:center;gap:6px;padding:4px 0;${i>0?'border-top:1px solid #f0f0f0':''}">
-      <input type="checkbox" checked class="mail-attach-check" data-file-id="${item.fileId}" data-url="${item.url}" data-name="${esc(item.name)}">
-      <span style="font-size:11px">${item.name.match(/\.pdf$/i)?'📄':'🖼️'}</span>
-      <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(item.name)}</span>
-    </div>`).join('');
+  el.innerHTML = '<div style="margin-bottom:6px;font-size:10px;color:#888">👤 ドライバー書類</div>'+
+    items.filter(x=>x.group==='driver').map((item,i) => 
+      '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" checked class="mail-attach-check" data-file-id="'+item.fileId+'" data-group="'+item.group+'" data-pdf-type="">'+ 
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.label+'</span></div>'
+    ).join('')+
+    '<div style="margin:6px 0;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px">🚗 車両書類</div>'+
+    items.filter(x=>x.group==='vehicle').map(item =>
+      '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" checked class="mail-attach-check" data-file-id="'+item.fileId+'" data-group="'+item.group+'" data-pdf-type="">'+
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.label+'</span></div>'
+    ).join('')+
+    '<div style="margin:6px 0;font-size:10px;color:#888;border-top:1px solid #eee;padding-top:6px">📋 生成PDF（送信時に自動生成）</div>'+
+    items.filter(x=>x.group==='pdf').map(item =>
+      '<div style="display:flex;align-items:center;gap:6px;padding:3px 0"><input type="checkbox" checked class="mail-attach-check" data-file-id="" data-group="pdf" data-pdf-type="'+item.pdfType+'">'+
+      '<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+item.label+'</span></div>'
+    ).join('');
 }
 
 async function sendMail(){
@@ -5568,35 +5595,69 @@ async function sendMail(){
   const cc = document.getElementById('mail-cc').value.trim();
   const subject = document.getElementById('mail-subject').value.trim();
   const body = document.getElementById('mail-body').value;
-
-  // 添付ファイル取得
-  const checks = document.querySelectorAll('.mail-attach-check:checked');
-  const attachments = Array.from(checks).map(cb => ({
-    fileId: cb.dataset.fileId,
-    url: cb.dataset.url,
-    name: cb.dataset.name
-  })).filter(a => a.fileId);
+  const office = mailCurrentOffice;
 
   const btn = document.getElementById('mail-send-btn');
-  btn.disabled = true; btn.textContent = '送信中...';
+  btn.disabled = true;
 
+  // 添付ファイル収集
+  const fileIds = [];
+  const pdfTypes = [];
+  document.querySelectorAll('.mail-attach-check:checked').forEach(cb => {
+    if(cb.dataset.group==='pdf' && cb.dataset.pdfType){
+      pdfTypes.push(cb.dataset.pdfType);
+    } else if(cb.dataset.fileId){
+      fileIds.push(cb.dataset.fileId);
+    }
+  });
+
+  // Step1: PDF生成（現況届・雇用証明書等）
+  if(pdfTypes.length){
+    btn.textContent = 'PDF生成中...';
+    for(const docType of pdfTypes){
+      try{
+        const dateStr = getDocDate();
+        const offD = drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
+        const offV = vehicles.filter(v=>belongsToOffice(v,office));
+        const coD=[],coV=[];
+        companies.forEach(c=>{
+          (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(office))coD.push({...d,type:'外注',subCompany:c.name});});
+          (c.vehicles||[]).forEach(v=>{if((v.offices||[]).includes(office))coV.push({...v,sub:c.name});});
+        });
+        const res = await fetch(API_URL,{method:'POST',body:JSON.stringify({
+          action:'generatePdf', docType, office, dateStr,
+          drivers:[...offD,...coD], vehicles:[...offV,...coV]
+        })});
+        const json = await res.json();
+        if(json.ok && json.fileId){
+          fileIds.push(json.fileId);
+        } else {
+          console.error('PDF生成エラー:', docType, json.error);
+        }
+      }catch(e){
+        console.error('PDF生成通信エラー:', e);
+      }
+    }
+  }
+
+  // Step2: メール送信
+  btn.textContent = '送信中（添付'+fileIds.length+'件）...';
   try{
     const res = await fetch(API_URL, {
       method: 'POST',
       body: JSON.stringify({
         action: 'sendMail',
         to, cc, subject, body,
-        attachments,
-        office: mailCurrentOffice
+        attachments: fileIds,
+        office
       })
     });
     const json = await res.json();
     if(json.ok){
-      alert('✅ メールを送信しました！');
+      alert('✅ メールを送信しました（添付 '+fileIds.length+'件）');
       closeModal('mail-modal');
-      // 送信履歴を記録
       const tag = document.getElementById('doc-tag')?.value||'定期（3ヶ月）';
-      recordHistory(mailCurrentOffice, [{name:'メール送信_'+subject}], tag);
+      recordHistory(office, [{name:'メール送信_'+subject}], tag);
     } else {
       alert('❌ 送信エラー: '+(json.error||'不明なエラー'));
     }
@@ -5605,6 +5666,77 @@ async function sendMail(){
   }finally{
     btn.disabled = false; btn.textContent = '📧 送信する';
   }
+}
+
+// 全営業所一括送信
+async function sendMailAllOffices(){
+  const settings = getMailSettings();
+  const targetOffices = getDocOffices().filter(o => settings[o]);
+  if(!targetOffices.length){
+    alert('⚠️ メールアドレスが設定されている営業所がありません。\n設定ページでメールアドレスを登録してください。');
+    return;
+  }
+  const list = targetOffices.map(o => o+'→'+settings[o]).join('\n');
+  if(!confirm('以下の営業所にメールを一括送信します。\n\n'+list+'\n\n送信しますか？')) return;
+
+  const dateStr = getDocDate();
+  let successCount = 0, errorCount = 0;
+
+  for(const office of targetOffices){
+    const postOffice = POST_OFFICE_MAP[office]||office+'郵便局';
+    const to = settings[office];
+    const subject = '【大阪急配】'+office+'営業所 書類提出 '+dateStr.replace(/-/g,'/');
+
+    const offD = drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
+    const offV = vehicles.filter(v=>belongsToOffice(v,office));
+    const coD=[],coV=[];
+    companies.forEach(c=>{
+      (c.drivers||[]).forEach(d=>{if((d.offices||[]).includes(office))coD.push({...d,type:'外注',subCompany:c.name});});
+      (c.vehicles||[]).forEach(v=>{if((v.offices||[]).includes(office))coV.push({...v,sub:c.name});});
+    });
+    const allD=[...offD,...coD];
+    const allV=[...offV,...coV];
+    const totalDrivers = allD.length;
+
+    // 本文テンプレート
+    const body = postOffice+'\nご担当者　様\n\nお世話になっております。\n大阪急配株式会社でございます。\n\n下記書類を送付いたします。\nご確認のほどよろしくお願いいたします。\n\n【営業所】'+office+'\n【従事員数】'+totalDrivers+'名\n【車両台数】'+allV.length+'台\n【提出日】'+dateStr.replace(/-/g,'/')+'\n\n━━━━━━━━━━━━━━━━━━\n大阪急配株式会社\n管理部\n━━━━━━━━━━━━━━━━━━';
+
+    // ファイル収集
+    const fileIds = [];
+
+    // ドライバー添付ファイル
+    allD.forEach(d=>{(d.attachedFiles||[]).filter(f=>f.fileId).forEach(f=>{fileIds.push(f.fileId);});});
+    // 車両添付ファイル
+    allV.forEach(v=>{(v.attachedFiles||[]).filter(f=>f.fileId).forEach(f=>{fileIds.push(f.fileId);});});
+
+    // PDF生成
+    try{
+      const genRes = await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'generatePdf',docType:'genkyo',office,dateStr,drivers:allD,vehicles:allV})});
+      const genJson = await genRes.json();
+      if(genJson.ok && genJson.fileId) fileIds.push(genJson.fileId);
+    }catch(e){}
+
+    // 社員がいれば雇用証明書も
+    if(allD.some(d=>d.type==='社員')){
+      try{
+        const genRes = await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'generatePdf',docType:'koyou',office,dateStr,drivers:allD,vehicles:allV})});
+        const genJson = await genRes.json();
+        if(genJson.ok && genJson.fileId) fileIds.push(genJson.fileId);
+      }catch(e){}
+    }
+
+    // 送信
+    try{
+      const res = await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'sendMail',to,subject,body,attachments:fileIds,office})});
+      const json = await res.json();
+      if(json.ok) successCount++;
+      else errorCount++;
+    }catch(e){ errorCount++; }
+  }
+
+  alert('✅ 一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
+  const tag = document.getElementById('doc-tag')?.value||'定期（3ヶ月）';
+  targetOffices.forEach(o=>recordHistory(o, [{name:'一括メール送信'}], tag));
 }
 
 // ====== 初期化 ======
