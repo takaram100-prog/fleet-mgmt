@@ -769,6 +769,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
         </div>
         <div id="v-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <div id="v-existing-files" style="margin-top:8px"></div>
         <button type="button" class="ai-btn" onclick="aiReadDocument('vehicle')" id="ai-btn-vehicle"><span class="ai-icon">AI</span><span class="ai-spinner"></span> AI読み取り（車検証→自動入力）</button>
         <div class="ai-result-bar" id="ai-result-vehicle"></div>
       </div>
@@ -807,6 +808,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
         </div>
         <div id="d-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <div id="d-existing-files" style="margin-top:8px"></div>
         <button type="button" class="ai-btn" onclick="aiReadDocument('driver')" id="ai-btn-driver"><span class="ai-icon">AI</span><span class="ai-spinner"></span> AI読み取り（免許証→自動入力）</button>
         <div class="ai-result-bar" id="ai-result-driver"></div>
       </div>
@@ -893,6 +895,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div style="font-size:11px;color:#888">免許証・書類の写真・PDF（複数可）</div>
         </div>
         <div id="cd-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <div id="cd-existing-files" style="margin-top:8px"></div>
         <button type="button" class="ai-btn" onclick="aiReadDocument('company-driver')" id="ai-btn-company-driver"><span class="ai-icon">AI</span><span class="ai-spinner"></span> AI読み取り（免許証→自動入力）</button>
         <div class="ai-result-bar" id="ai-result-company-driver"></div>
       </div>
@@ -931,6 +934,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div style="font-size:11px;color:#888">車検証・保険証書の写真・PDF（複数可）</div>
         </div>
         <div id="cv-files-preview" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px"></div>
+        <div id="cv-existing-files" style="margin-top:8px"></div>
         <button type="button" class="ai-btn" onclick="aiReadDocument('company-vehicle')" id="ai-btn-company-vehicle"><span class="ai-icon">AI</span><span class="ai-spinner"></span> AI読み取り（車検証→自動入力）</button>
         <div class="ai-result-bar" id="ai-result-company-vehicle"></div>
       </div>
@@ -998,7 +1002,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
     <div class="modal-header">
       <span class="modal-title" id="file-preview-title">ファイルプレビュー</span>
       <div style="display:flex;gap:6px;align-items:center">
-        <a id="file-preview-dl" href="#" download style="font-size:11px;color:#4a90e2;text-decoration:none;padding:4px 10px;border:1px solid #4a90e2;border-radius:5px">⬇ ダウンロード</a>
+        <a id="file-preview-dl" href="#" download style="font-size:11px;color:#4a90e2;text-decoration:none;padding:4px 10px;border:1px solid #4a90e2;border-radius:5px">ダウンロード</a>
+        <a id="file-preview-open" href="#" target="_blank" style="display:none;font-size:11px;color:#888;text-decoration:none;padding:4px 10px;border:1px solid #ccc;border-radius:5px">Driveで開く</a>
         <button class="modal-close" onclick="closeModal('file-preview-modal')">✕</button>
       </div>
     </div>
@@ -1446,7 +1451,7 @@ function previewEntityDoc(kind, entityId, docKeyword){
     match=target.attachedFiles.find(f=>kws.some(k=>(f.name||'').toLowerCase().includes(k)));
   }
   if(!match) match=target.attachedFiles[0];
-  openFilePreview(match.url||'', match.name, match.dataUrl||'');
+  openFilePreview(match.url||'', match.name, match.dataUrl||'', match.fileId||'');
 }
 
 function navigateToDriver(driverName){
@@ -3055,6 +3060,7 @@ function openVehicleModal(id){
   document.getElementById('vehicle-modal').style.display='flex';
   modalFiles['v-files']=[];
   renderFilePreview('v-files');
+  renderExistingFiles('v-existing-files','vehicle',id);
 }
 function saveVehicle(){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
@@ -3144,6 +3150,7 @@ function openDriverModal(id){
     }
   }
   document.getElementById('driver-modal').style.display='flex';
+  renderExistingFiles('d-existing-files','driver',id);
   setTimeout(()=>initModalKeyNav('driver-modal'),100);
 }
 
@@ -3749,22 +3756,39 @@ function handleFiles(files, bufKey){
   });
 }
 
-function openFilePreview(url, name, dataUrl){
+function openFilePreview(url, name, dataUrl, fileId){
   const body = document.getElementById('file-preview-body');
   const title = document.getElementById('file-preview-title');
   const dlLink = document.getElementById('file-preview-dl');
+  const openLink = document.getElementById('file-preview-open');
   if(!body) return;
   title.textContent = name;
   const isPdf = name.match(/\.pdf$/i);
   const isImg = name.match(/\.(jpg|jpeg|png|gif|webp)$/i);
   const src = dataUrl || url;
   const hasDriveUrl = url && (url.includes('drive.google.com') || url.includes('docs.google.com'));
-  let driveFileId = '';
-  if(hasDriveUrl){ const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/); if(m) driveFileId = m[1]; }
-  dlLink.textContent = '⬇ ダウンロード';
-  if(src && src.startsWith('data:')){ dlLink.href = src; dlLink.download = name; dlLink.removeAttribute('target'); }
-  else if(hasDriveUrl){ dlLink.href = url; dlLink.target = '_blank'; dlLink.removeAttribute('download'); dlLink.textContent = '⬇ Google Driveで開く'; }
-  else { dlLink.href = src||'#'; dlLink.download = name; }
+  let driveFileId = fileId || '';
+  if(!driveFileId && hasDriveUrl){ const m = url.match(/\/d\/([a-zA-Z0-9_-]+)/); if(m) driveFileId = m[1]; }
+
+  // ダウンロードボタン設定
+  if(src && src.startsWith('data:')){
+    dlLink.href = src; dlLink.download = name; dlLink.removeAttribute('target');
+    dlLink.textContent = 'ダウンロード'; dlLink.style.display = '';
+    openLink.style.display = 'none';
+  } else if(driveFileId){
+    dlLink.href = 'https://drive.google.com/uc?export=download&id='+driveFileId;
+    dlLink.target = '_blank'; dlLink.removeAttribute('download');
+    dlLink.textContent = 'ダウンロード'; dlLink.style.display = '';
+    openLink.href = 'https://drive.google.com/file/d/'+driveFileId+'/view';
+    openLink.style.display = '';
+  } else if(url){
+    dlLink.href = url; dlLink.download = name; dlLink.removeAttribute('target');
+    dlLink.textContent = 'ダウンロード'; dlLink.style.display = '';
+    openLink.style.display = 'none';
+  } else {
+    dlLink.style.display = 'none';
+    openLink.style.display = 'none';
+  }
 
   if(isPdf){
     if(src && src.startsWith('data:')){
@@ -3817,13 +3841,13 @@ function openAttachedFilePreview(kind, entityId, fileIdx, companyName){
   }
   if(!target || !target.attachedFiles || !target.attachedFiles[fileIdx]) return;
   const f = target.attachedFiles[fileIdx];
-  openFilePreview(f.url||'', f.name, f.dataUrl||'');
+  openFilePreview(f.url||'', f.name, f.dataUrl||'', f.fileId||'');
 }
 
 function openUnassignedPreview(fileIdx){
   const f = unassignedFiles[fileIdx];
   if(!f) return;
-  openFilePreview(f.url||'', f.name, f.dataUrl||'');
+  openFilePreview(f.url||'', f.name, f.dataUrl||'', f.fileId||'');
 }
 
 // ファイルカテゴリ定義
@@ -3895,6 +3919,91 @@ function renderFilePreview(bufKey){
 function removeModalFile(bufKey, idx){
   if(modalFiles[bufKey]) modalFiles[bufKey].splice(idx,1);
   renderFilePreview(bufKey);
+}
+
+// 既存添付ファイルをモーダル内に表示（カテゴリ変更・削除対応）
+function renderExistingFiles(elId, kind, ownerId){
+  const el=document.getElementById(elId);
+  if(!el) return;
+  let target=null;
+  if(kind==='driver') target=drivers.find(d=>d.id==ownerId);
+  else if(kind==='vehicle') target=vehicles.find(v=>v.id==ownerId);
+  else if(kind==='cd'){
+    companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.id==ownerId)target=d;});});
+  } else if(kind==='cv'){
+    companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.id==ownerId)target=v;});});
+  }
+  if(!target||!(target.attachedFiles||[]).length){el.innerHTML='';return;}
+
+  const af=target.attachedFiles;
+  const isVehicle=kind==='vehicle'||kind==='cv';
+  const catList=isVehicle?['車検証','自賠責','任意保険','その他']:['免許証（表）','免許証（裏）','健康診断書','その他'];
+
+  let html='<div style="font-size:10px;color:#888;font-weight:500;margin-bottom:4px">登録済みファイル（'+af.length+'件）</div>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  af.forEach((f,i)=>{
+    const fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
+    const isImg=(f.name||'').match(/\.(jpg|jpeg|png|gif)$/i);
+    const thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w120':'');
+    const thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:100%;height:70px;object-fit:cover;border-radius:4px 4px 0 0">':'<div style="height:70px;display:flex;align-items:center;justify-content:center;background:#f0f0f0;border-radius:4px 4px 0 0;font-size:12px;color:#888">'+((f.name||'').match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+    const curCat=f.category||'';
+    const isCustom=curCat&&!catList.includes(curCat);
+    let catOpts=catList.map(c=>'<option value="'+c+'"'+(curCat===c?' selected':'')+'>'+c+'</option>').join('');
+    if(isCustom) catOpts+='<option value="'+curCat+'" selected>'+curCat+'</option>';
+    const catColor=curCat?(isVehicle?'#E65100':'#1565C0'):'#999';
+
+    html+='<div style="width:100px;border:1px solid #ccc;border-radius:6px;overflow:hidden;background:#fff;position:relative">';
+    html+='<div style="cursor:pointer" onclick="openAttachedFilePreview(\''+kind+'\','+ownerId+','+i+',\'\')">'+thumb+'</div>';
+    html+='<button style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();removeExistingFile(\''+kind+'\','+ownerId+','+i+',\''+elId+'\')">×</button>';
+    html+='<select style="width:100%;padding:2px;font-size:9px;border:none;border-top:1px solid #eee;background:'+catColor+';color:#fff;cursor:pointer" onchange="changeExistingFileCat(\''+kind+'\','+ownerId+','+i+',this.value,\''+elId+'\')">';
+    html+='<option value="" style="color:#333;background:#fff">分類を選択</option>'+catOpts+'</select>';
+    html+='<div style="font-size:8px;color:#888;padding:2px 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+(f.name||'')+'">'+(f.name||'')+'</div>';
+    html+='</div>';
+  });
+  html+='</div>';
+  el.innerHTML=html;
+}
+
+function removeExistingFile(kind,ownerId,idx,elId){
+  if(!confirm('この添付ファイルを削除しますか？'))return;
+  let target=null;
+  if(kind==='driver') target=drivers.find(d=>d.id==ownerId);
+  else if(kind==='vehicle') target=vehicles.find(v=>v.id==ownerId);
+  else if(kind==='cd') companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.id==ownerId)target=d;});});
+  else if(kind==='cv') companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.id==ownerId)target=v;});});
+  if(!target||!target.attachedFiles) return;
+  target.attachedFiles.splice(idx,1);
+  saveLocal();saveCompanies();
+  renderExistingFiles(elId,kind,ownerId);
+  try{renderStorage();}catch(e){}
+  try{renderDrivers(currentOfficeFilter);}catch(e){}
+  try{renderVehicles(currentOfficeFilter);}catch(e){}
+}
+
+function changeExistingFileCat(kind,ownerId,idx,newCat,elId){
+  let target=null;
+  if(kind==='driver') target=drivers.find(d=>d.id==ownerId);
+  else if(kind==='vehicle') target=vehicles.find(v=>v.id==ownerId);
+  else if(kind==='cd') companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.id==ownerId)target=d;});});
+  else if(kind==='cv') companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.id==ownerId)target=v;});});
+  if(!target||!target.attachedFiles||!target.attachedFiles[idx]) return;
+
+  // 「その他」選択時はカスタム名を入力
+  if(newCat==='その他'){
+    const customName=prompt('書類名を入力してください（例：住民票、誓約書 等）');
+    if(!customName){renderExistingFiles(elId,kind,ownerId);return;}
+    newCat='その他('+customName+')';
+  }
+
+  target.attachedFiles[idx].category=newCat;
+  const ownerName=kind==='driver'||kind==='cd'?(target.name||''):(target.plate||'');
+  if(newCat) target.attachedFiles[idx].name=autoRenameFile(target.attachedFiles[idx].name,newCat,'',ownerName);
+  saveLocal();saveCompanies();
+  renderExistingFiles(elId,kind,ownerId);
+  // 他の画面も連動更新
+  try{renderStorage();}catch(e){}
+  try{renderDrivers(currentOfficeFilter);}catch(e){}
+  try{renderVehicles(currentOfficeFilter);}catch(e){}
 }
 
 function clearModalFiles(bufKey){
@@ -4003,12 +4112,18 @@ function applyCatChange(kind,ownerId,fileIdx,newCat){
   }
   if(!target||!target.attachedFiles||!target.attachedFiles[fileIdx]) return;
   target.attachedFiles[fileIdx].category=newCat;
-  // 自動リネーム
   const ownerName=kind==='driver'?(target.name||''):(target.plate||'');
   if(newCat){
     target.attachedFiles[fileIdx].name=autoRenameFile(target.attachedFiles[fileIdx].name,newCat,'',ownerName);
   }
   saveLocal();saveCompanies();renderStorage();
+  // 他の画面も連動更新
+  try{renderDrivers(currentOfficeFilter);}catch(e){}
+  try{renderVehicles(currentOfficeFilter);}catch(e){}
+  // 開いているモーダルの既存ファイル表示も更新
+  const modalKind=kind==='driver'?'driver':'vehicle';
+  const elId=kind==='driver'?'d-existing-files':'v-existing-files';
+  try{renderExistingFiles(elId,modalKind,ownerId);}catch(e){}
 }
 
 let storageOfficeFilter='';
@@ -5047,7 +5162,8 @@ function openInboxFilePreview(inboxId, fileIdx){
   const fname = typeof f==='string' ? f : f.name;
   const fdataUrl = typeof f==='object' ? (f.dataUrl||'') : '';
   const furl = typeof f==='object' ? (f.url||'') : '';
-  openFilePreview(furl, fname, fdataUrl);
+  const fFileId = typeof f==='object' ? (f.fileId||'') : '';
+  openFilePreview(furl, fname, fdataUrl, fFileId);
 }
 
 function saveInboxFilesToDriver(inboxId){
