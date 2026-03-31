@@ -32,9 +32,8 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f5f
 .nav-group-body.collapsed{max-height:0!important;overflow:hidden}
 .storage-grid{display:grid;grid-template-columns:1fr;gap:8px}
 @media(min-width:768px){.storage-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:1100px){.storage-grid{grid-template-columns:repeat(3,1fr)}}
-@media(min-width:1400px){.storage-grid{grid-template-columns:repeat(4,1fr)}}
-.storage-grid>div{min-height:180px;min-width:0;overflow:hidden}
+@media(min-width:1200px){.storage-grid{grid-template-columns:repeat(3,1fr)}}
+.storage-grid>div{min-height:220px;min-width:0;overflow:hidden}
 .nav-add-btn{width:20px;height:20px;border:1px solid #ddd;border-radius:4px;background:transparent;cursor:pointer;color:#888;font-size:14px;display:flex;align-items:center;justify-content:center}
 .nav-add-btn:hover{background:#f5f5f5}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#666;transition:all .15s;margin:1px 6px;font-size:12px}
@@ -3816,6 +3815,79 @@ async function uploadFilesToDrive(files, folder, subFolder){
 }
 
 // ★ データ管理ページのレンダー
+// カテゴリ変更ピッカー
+function openCatPicker(kind, ownerId, fileIdx, labelEl){
+  // 既存ピッカーを閉じる
+  document.querySelectorAll('.cat-picker-popup').forEach(e=>e.remove());
+
+  const driverCats=['免許証（表）','免許証（裏）','健康診断書','その他'];
+  const vehicleCats=['車検証','自賠責','任意保険','その他'];
+  const cats=kind==='driver'?driverCats:vehicleCats;
+
+  const popup=document.createElement('div');
+  popup.className='cat-picker-popup';
+  popup.style.cssText='position:fixed;z-index:9999;background:#fff;border:1px solid #aaa;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.2);padding:4px 0;min-width:140px';
+
+  const rect=labelEl.getBoundingClientRect();
+  popup.style.left=Math.min(rect.left, window.innerWidth-160)+'px';
+  popup.style.top=(rect.bottom+4)+'px';
+
+  cats.forEach(cat=>{
+    const btn=document.createElement('div');
+    btn.textContent=cat;
+    btn.style.cssText='padding:7px 14px;font-size:12px;cursor:pointer;white-space:nowrap';
+    btn.onmouseenter=()=>btn.style.background='#f0f4ff';
+    btn.onmouseleave=()=>btn.style.background='';
+    btn.onclick=()=>{
+      if(cat==='その他'){
+        const customName=prompt('書類名を入力してください（例：住民票、誓約書 等）');
+        if(!customName){popup.remove();return;}
+        applyCatChange(kind,ownerId,fileIdx,'その他('+customName+')');
+      } else {
+        applyCatChange(kind,ownerId,fileIdx,cat);
+      }
+      popup.remove();
+    };
+    popup.appendChild(btn);
+  });
+
+  // 未分類に戻す
+  const clearBtn=document.createElement('div');
+  clearBtn.textContent='未分類に戻す';
+  clearBtn.style.cssText='padding:7px 14px;font-size:11px;cursor:pointer;color:#999;border-top:1px solid #eee;margin-top:2px';
+  clearBtn.onmouseenter=()=>clearBtn.style.background='#f5f5f5';
+  clearBtn.onmouseleave=()=>clearBtn.style.background='';
+  clearBtn.onclick=()=>{applyCatChange(kind,ownerId,fileIdx,'');popup.remove();};
+  popup.appendChild(clearBtn);
+
+  document.body.appendChild(popup);
+
+  // クリック外で閉じる
+  setTimeout(()=>{
+    const closer=e=>{if(!popup.contains(e.target)){popup.remove();document.removeEventListener('click',closer);}};
+    document.addEventListener('click',closer);
+  },10);
+}
+
+function applyCatChange(kind,ownerId,fileIdx,newCat){
+  let target=null;
+  if(kind==='driver'){
+    target=drivers.find(d=>d.id==ownerId);
+    if(!target) companies.forEach(c=>{if(!target)(c.drivers||[]).forEach(d=>{if(d.id==ownerId)target=d;});});
+  } else {
+    target=vehicles.find(v=>v.id==ownerId);
+    if(!target) companies.forEach(c=>{if(!target)(c.vehicles||[]).forEach(v=>{if(v.id==ownerId)target=v;});});
+  }
+  if(!target||!target.attachedFiles||!target.attachedFiles[fileIdx]) return;
+  target.attachedFiles[fileIdx].category=newCat;
+  // 自動リネーム
+  const ownerName=kind==='driver'?(target.name||''):(target.plate||'');
+  if(newCat){
+    target.attachedFiles[fileIdx].name=autoRenameFile(target.attachedFiles[fileIdx].name,newCat,'',ownerName);
+  }
+  saveLocal();saveCompanies();renderStorage();
+}
+
 let storageOfficeFilter='';
 let storageExpandedIds={};
 let storageViewMode='card'; // 'card' or 'file'
@@ -3918,7 +3990,7 @@ function renderStorage(){
       const plateStr=cv?cv.plate:'車両未割当';
 
       if(!expanded){
-        return '<div style="background:#d8dce3;border:1.5px solid #888;border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;min-height:160px;box-sizing:border-box;overflow:hidden" onclick="storageToggleExpand(\''+key+'\')">'+
+        return '<div style="background:#d8dce3;border:1.5px solid #888;border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;min-height:200px;box-sizing:border-box;overflow:hidden" onclick="storageToggleExpand(\''+key+'\')">'+
           '<div style="display:flex;align-items:center;gap:10px">'+
             '<div style="width:32px;height:32px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:11px;flex-shrink:0">'+typeIcon+'</div>'+
             '<div style="min-width:0"><div style="font-weight:600;font-size:14px;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+'</div>'+
@@ -3953,14 +4025,19 @@ function renderStorage(){
 
       // ドライバー書類サムネ
       if(af.length){
-        cardHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">';
+        cardHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">';
         af.forEach(function(f,i){
           var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
           var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-          var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w160':'');
-          var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:80px;height:56px;object-fit:cover;border-radius:5px 5px 0 0">':'<div style="height:56px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;font-size:16px;border-radius:5px 5px 0 0">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+          var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w200':'');
+          var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#e0e0e0;font-size:12px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
           var cat=f.category||guessFileCategoryByName(f.name,'driver')||'';
-          cardHtml+='<div style="width:80px;border:1px solid #aaa;border-radius:6px;overflow:hidden;cursor:pointer;background:#fff" onclick="openAttachedFilePreview(\'driver\','+d.id+','+i+',\'\')" title="'+(f.name||'')+'">'+thumb+(cat?'<div style="font-size:8px;background:#1565C0;color:#fff;padding:2px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+cat+'</div>':'')+'</div>';
+          var catLabel=cat||'未分類';
+          var catBg=cat?'#1565C0':'#999';
+          cardHtml+='<div style="border:1px solid #aaa;border-radius:6px;overflow:hidden;cursor:pointer;background:#fff">';
+          cardHtml+='<div onclick="openAttachedFilePreview(\'driver\','+d.id+','+i+',\'\')">'+thumb+'</div>';
+          cardHtml+='<div style="font-size:9px;background:'+catBg+';color:#fff;padding:3px 4px;text-align:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="event.stopPropagation();openCatPicker(\'driver\','+d.id+','+i+',this)" title="クリックでカテゴリ変更">'+catLabel+'</div>';
+          cardHtml+='</div>';
         });
         cardHtml+='</div>';
       }
@@ -3978,14 +4055,19 @@ function renderStorage(){
         // 車両書類サムネ
         var vaf=cv.attachedFiles||[];
         if(vaf.length){
-          cardHtml+='<div style="display:flex;gap:4px;margin-top:4px">';
+          cardHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px">';
           vaf.forEach(function(f,i){
             var fid2=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
             var isImg2=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-            var thumbSrc2=f.dataUrl||(fid2&&isImg2?'https://drive.google.com/thumbnail?id='+fid2+'&sz=w120':'');
-            var thumb2=thumbSrc2&&isImg2?'<img src="'+thumbSrc2+'" style="width:64px;height:44px;object-fit:cover;border-radius:4px 4px 0 0">':'<div style="height:44px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;font-size:11px;border-radius:4px 4px 0 0">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+            var thumbSrc2=f.dataUrl||(fid2&&isImg2?'https://drive.google.com/thumbnail?id='+fid2+'&sz=w160':'');
+            var thumb2=thumbSrc2&&isImg2?'<img src="'+thumbSrc2+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#ddd;font-size:11px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
             var cat2=f.category||guessFileCategoryByName(f.name,'vehicle')||'';
-            cardHtml+='<div style="width:64px;border:1px solid #999;border-radius:5px;overflow:hidden;cursor:pointer;background:#fff" onclick="openAttachedFilePreview(\'vehicle\','+cv.id+','+i+',\'\')" title="'+(f.name||'')+'">'+thumb2+(cat2?'<div style="font-size:8px;background:#E65100;color:#fff;padding:2px;text-align:center">'+cat2+'</div>':'')+'</div>';
+            var catLabel2=cat2||'未分類';
+            var catBg2=cat2?'#E65100':'#999';
+            cardHtml+='<div style="border:1px solid #999;border-radius:5px;overflow:hidden;cursor:pointer;background:#fff">';
+            cardHtml+='<div onclick="openAttachedFilePreview(\'vehicle\','+cv.id+','+i+',\'\')">'+thumb2+'</div>';
+            cardHtml+='<div style="font-size:8px;background:'+catBg2+';color:#fff;padding:2px 3px;text-align:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="event.stopPropagation();openCatPicker(\'vehicle\','+cv.id+','+i+',this)" title="クリックでカテゴリ変更">'+catLabel2+'</div>';
+            cardHtml+='</div>';
           });
           cardHtml+='</div>';
         }
@@ -4007,7 +4089,7 @@ function renderStorage(){
     html+='<div class="storage-grid">';
     html+=unassignedVehicles.map(v=>{
       var vaf=v.attachedFiles||[];
-      return '<div style="background:#d8dce3;border:1.5px solid #888;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;min-height:160px;box-sizing:border-box;overflow:hidden">'+
+      return '<div style="background:#d8dce3;border:1.5px solid #888;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between;min-height:200px;box-sizing:border-box;overflow:hidden">'+
         '<div><strong style="font-size:14px">'+v.plate+'</strong> <span style="font-size:11px;color:#777">'+(v.model||'')+'</span><div style="font-size:11px;color:#888;margin-top:2px">'+(v._offices.join('・')||v.office||'未設定')+'</div></div>'+
         '<div style="display:flex;gap:4px;align-items:center;justify-content:flex-end;margin-top:auto">'+
           expBadge(minExp([v.shaken?.exp,v.jibai?.exp,v.nin?.exp]))+
