@@ -1662,14 +1662,14 @@ function renderVehicles(off){
     }
 
     return '<tr class="'+rowCls([v.shaken?.exp,v.jibai?.exp,v.nin?.exp])+'" style="cursor:pointer" onclick="toggleVehicleDetail('+vid+')">'+
-      '<td><strong>'+v.plate+'</strong></td>'+
+      '<td><span style="font-size:9px;color:#aaa;margin-right:4px">▶</span><strong>'+v.plate+'</strong></td>'+
       '<td>'+(v.model||'—')+'</td>'+
       '<td><span class="badge '+(v.type==='持込'?'badge-info':'badge-gray')+'">'+v.type+'</span></td>'+
       '<td>'+(v.office||'—')+'</td>'+
       '<td style="font-size:11px;color:#888">'+(v.owner||'—')+'</td>'+
-      '<td>'+docBadge(v.shaken?.exp,hasS,'shaken')+'</td>'+
-      '<td>'+docBadge(v.jibai?.exp,hasJ,'jibai')+'</td>'+
-      '<td>'+docBadge(v.nin?.exp,hasN,'nin')+'</td>'+
+      '<td>'+docBadge(v.shaken?.exp,hasS,'shaken')+'<br><input type="text" value="'+(v.shaken?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateVehicleExpInline('+vid+',\'shaken\',this.value)" placeholder="YYYY-MM-DD"></td>'+
+      '<td>'+docBadge(v.jibai?.exp,hasJ,'jibai')+'<br><input type="text" value="'+(v.jibai?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateVehicleExpInline('+vid+',\'jibai\',this.value)" placeholder="YYYY-MM-DD"></td>'+
+      '<td>'+docBadge(v.nin?.exp,hasN,'nin')+'<br><input type="text" value="'+(v.nin?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateVehicleExpInline('+vid+',\'nin\',this.value)" placeholder="YYYY-MM-DD"></td>'+
       '<td>'+expBadge(minExp([v.shaken?.exp,v.jibai?.exp,v.nin?.exp]))+'</td>'+
       '<td>'+driverHtml+'</td>'+
       '<td><button class="btn btn-sm" onclick="event.stopPropagation();openVehicleModal('+vid+')">編集</button></td></tr>'+
@@ -1731,7 +1731,12 @@ function buildVehicleDetailRow(v, af){
 
 function toggleVehicleDetail(id){
   var el=document.getElementById('vehicle-detail-'+id);
-  if(el) el.style.display=el.style.display==='none'?'table-row':'none';
+  if(el){
+    var show=el.style.display==='none';
+    el.style.display=show?'table-row':'none';
+    var row=el.previousElementSibling;
+    if(row){var arrow=row.querySelector('td:first-child span');if(arrow)arrow.textContent=show?'▼':'▶';}
+  }
 }
 function renderDrivers(off){
   let data=drivers.filter(d=>!d.status||d.status==='在籍');
@@ -1765,10 +1770,10 @@ function renderDrivers(off){
     }
 
     return '<tr class="'+rowCls([d.license?.exp])+'" style="cursor:pointer" onclick="toggleDriverDetail('+did+')">'+
-      '<td><strong>'+d.name+'</strong></td>'+
+      '<td><span style="font-size:9px;color:#aaa;margin-right:4px">▶</span><strong>'+d.name+'</strong></td>'+
       '<td><span class="badge '+(d.type==='外注'||d.type==='外注（個人）'?'badge-info':'badge-gray')+'">'+d.type+'</span></td>'+
       '<td>'+allOffs+'</td>'+
-      '<td>'+licBadgeHtml+'</td>'+
+      '<td>'+licBadgeHtml+'<br><input type="text" value="'+(d.license?.exp||'')+'" style="width:90px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateDriverExpInline('+did+',this.value)" placeholder="YYYY-MM-DD"></td>'+
       '<td>'+(d.license?.type||'—')+'</td>'+
       '<td style="font-size:11px">'+(d.license?.cond||'—')+'</td>'+
       '<td>'+subHtml+'</td>'+
@@ -1830,7 +1835,25 @@ function buildDriverDetailRow(d, af){
 
 function toggleDriverDetail(id){
   var el=document.getElementById('driver-detail-'+id);
-  if(el) el.style.display=el.style.display==='none'?'table-row':'none';
+  if(el){
+    var show=el.style.display==='none';
+    el.style.display=show?'table-row':'none';
+    // ▶/▼ toggle
+    var row=el.previousElementSibling;
+    if(row){var arrow=row.querySelector('td:first-child span');if(arrow)arrow.textContent=show?'▼':'▶';}
+  }
+}
+
+function updateDriverExpInline(id,val){
+  val=normalizeBirthDate(val);
+  var d=drivers.find(x=>x.id==id);
+  if(d){if(!d.license)d.license={};d.license.exp=val;saveLocal();renderDrivers(currentOfficeFilter);renderStorage();renderDashboard();}
+}
+
+function updateVehicleExpInline(id,field,val){
+  val=normalizeBirthDate(val);
+  var v=vehicles.find(x=>x.id==id);
+  if(v){if(!v[field])v[field]={};v[field].exp=val;saveLocal();renderVehicles(currentOfficeFilter);renderStorage();renderDashboard();}
 }
 
 // ====== ダッシュボード ======
@@ -4525,14 +4548,24 @@ function renderStorage(){
       cardHtml+='</div>';
 
       // バッジ行（免許 + 車両書類ステータス + アップロード）
-      cardHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;align-items:center">';
-      cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:6px;cursor:pointer;'+(hasLic?'background:#1565C0;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'license\')" title="免許証をアップロード">免許 '+expBadge(d.license?.exp,hasLic).replace(/<[^>]+>/g,'')+'</span>';
+      cardHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
+      cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasLic?'background:#1565C0;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'license\')" title="クリックで免許証アップロード">免許 '+expBadge(d.license?.exp,hasLic).replace(/<[^>]+>/g,'')+'</span>';
       if(cv){
-        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:6px;cursor:pointer;'+(hasShaken?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'shaken\')" title="車検証をアップロード">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:6px;cursor:pointer;'+(hasJibai?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'jibai\')" title="自賠責をアップロード">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:6px;cursor:pointer;'+(hasNin?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'nin\')" title="任意保険をアップロード">任意 '+(cv.nin?.exp?cv.nin.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasShaken?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'shaken\')" title="クリックで車検証アップロード">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasJibai?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'jibai\')" title="クリックで自賠責アップロード">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasNin?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'nin\')" title="クリックで任意保険アップロード">任意 '+(cv.nin?.exp?cv.nin.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
       }
-      cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:6px;cursor:pointer;background:#4a90e2;color:#fff;margin-left:auto" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'\')">+ 追加</span>';
+      cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;background:#4a90e2;color:#fff;margin-left:auto" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'\')">+ 追加</span>';
+      cardHtml+='</div>';
+
+      // 期限入力行
+      cardHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center;font-size:10px;color:#666">';
+      cardHtml+='<label style="display:flex;align-items:center;gap:3px">免許期限 <input type="text" value="'+(d.license?.exp||'')+'" style="width:90px;font-size:10px;padding:2px 6px;border:1px solid #ccc;border-radius:4px" onchange="updateDriverExpInline('+d.id+',this.value)" placeholder="和暦/西暦OK"></label>';
+      if(cv){
+        cardHtml+='<label style="display:flex;align-items:center;gap:3px">車検 <input type="text" value="'+(cv.shaken?.exp||'')+'" style="width:90px;font-size:10px;padding:2px 6px;border:1px solid #ccc;border-radius:4px" onchange="updateVehicleExpInline('+cv.id+',\'shaken\',this.value)" placeholder="和暦/西暦OK"></label>';
+        cardHtml+='<label style="display:flex;align-items:center;gap:3px">自賠 <input type="text" value="'+(cv.jibai?.exp||'')+'" style="width:90px;font-size:10px;padding:2px 6px;border:1px solid #ccc;border-radius:4px" onchange="updateVehicleExpInline('+cv.id+',\'jibai\',this.value)" placeholder="和暦/西暦OK"></label>';
+        cardHtml+='<label style="display:flex;align-items:center;gap:3px">任意 <input type="text" value="'+(cv.nin?.exp||'')+'" style="width:90px;font-size:10px;padding:2px 6px;border:1px solid #ccc;border-radius:4px" onchange="updateVehicleExpInline('+cv.id+',\'nin\',this.value)" placeholder="和暦/西暦OK"></label>';
+      }
       cardHtml+='</div>';
 
       // 詳細情報
@@ -4565,14 +4598,8 @@ function renderStorage(){
 
       // 搭乗車両
       if(cv){
-        cardHtml+='<div style="padding:8px 10px;background:#b8bfc9;color:#333;border-radius:8px;font-size:11px">';
-        cardHtml+='<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;flex-wrap:wrap;gap:4px">';
-        cardHtml+='<div><span style="font-size:10px;color:#555">搭乗車両</span> <strong>'+cv.plate+'</strong> <span style="color:#666">'+(cv.model||'')+'</span></div>';
-        cardHtml+='<div style="display:flex;gap:3px;flex-wrap:wrap">';
-        cardHtml+='<span style="font-size:9px;padding:1px 5px;border-radius:99px;'+expBadgeStyle(cv.shaken?.exp)+'">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(2).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:9px;padding:1px 5px;border-radius:99px;'+expBadgeStyle(cv.jibai?.exp)+'">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(2).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:9px;padding:1px 5px;border-radius:99px;'+expBadgeStyle(cv.nin?.exp)+'">任意 '+(cv.nin?.exp?cv.nin.exp.slice(2).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='</div></div>';
+        cardHtml+='<div style="padding:8px 10px;background:#b8bfc9;color:#333;border-radius:8px;font-size:11px;margin-top:4px">';
+        cardHtml+='<div style="margin-bottom:6px"><span style="font-size:10px;color:#555">搭乗車両</span> <strong>'+cv.plate+'</strong> <span style="color:#666">'+(cv.model||'')+'</span></div>';
         // 車両書類サムネ
         var vaf=cv.attachedFiles||[];
         if(vaf.length){
@@ -5957,20 +5984,21 @@ function renderCompanyPage(companyId, pageId){
   var dRows = '';
   dc.forEach(function(d){
     var af=d.attachedFiles||[];
-    var hasLic=af.some(function(f){return ['免許','license'].some(function(k){return (f.name||'').toLowerCase().includes(k);});});
-    var licBadge=expBadge(d.license&&d.license.exp?d.license.exp:'');
+    var hasLic=af.some(function(f){return (f.category||'').includes('免許')||['免許','license'].some(function(k){return (f.name||'').toLowerCase().includes(k);});});
+    var licBadge=expBadge(d.license&&d.license.exp?d.license.exp:'',hasLic);
     var licHtml=hasLic
       ?'<span style="cursor:pointer" onclick="event.stopPropagation();previewEntityDoc(\'driver\','+d.id+',\'license\')" title="免許証を閲覧">'+licBadge+'</span>'
       :'<span style="cursor:pointer" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'license\')" title="免許証をアップロード">'+licBadge+'</span>';
-    dRows += '<tr class="' + rowCls([d.license&&d.license.exp?d.license.exp:'']) + '">';
-    dRows += '<td><strong>' + d.name + '</strong></td>';
+    dRows += '<tr class="' + rowCls([d.license&&d.license.exp?d.license.exp:'']) + '" style="cursor:pointer" onclick="toggleCompanyDriverDetail('+companyId+','+d.id+')">';
+    dRows += '<td><span style="font-size:9px;color:#aaa;margin-right:4px">▶</span><strong>' + d.name + '</strong></td>';
     dRows += '<td>' + (d.kana||'—') + '</td>';
     dRows += '<td>' + ((d.offices||[]).join('・')||'—') + '</td>';
-    dRows += '<td>' + licHtml + '</td>';
+    dRows += '<td>' + licHtml + '<br><input type="text" value="'+(d.license?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateCompanyDriverExp('+companyId+','+d.id+',this.value)" placeholder="YYYY-MM-DD"></td>';
     dRows += '<td style="display:flex;gap:4px">';
-    dRows += '<button class="btn btn-sm" onclick="openCompanyDriverModal(' + companyId + ',' + d.id + ')">編集</button>';
-    dRows += '<button class="btn btn-sm btn-danger" onclick="deleteCompanyDriver(' + companyId + ',' + d.id + ')">削除</button>';
+    dRows += '<button class="btn btn-sm" onclick="event.stopPropagation();openCompanyDriverModal(' + companyId + ',' + d.id + ')">編集</button>';
+    dRows += '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteCompanyDriver(' + companyId + ',' + d.id + ')">削除</button>';
     dRows += '</td></tr>';
+    dRows += '<tr id="cd-detail-'+companyId+'-'+d.id+'" style="display:none"><td colspan="5" style="background:#f7f8fa;padding:10px 14px">'+buildDriverDetailRow(d,af)+'</td></tr>';
   });
   var dTable = dc.length
     ? '<div class="table-wrap"><table><thead><tr><th>氏名</th><th>フリガナ</th><th>担当営業所</th><th>免許証期限</th><th>操作</th></tr></thead><tbody>' + dRows + '</tbody></table></div>'
@@ -5988,17 +6016,18 @@ function renderCompanyPage(companyId, pageId){
         ?'<span style="cursor:pointer" onclick="event.stopPropagation();previewEntityDoc(\'vehicle\','+v.id+',\''+key+'\')" title="書類を閲覧">'+badge+'</span>'
         :'<span style="cursor:pointer" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+v.id+',\''+key+'\')" title="書類をアップロード">'+badge+'</span>';
     }
-    vRows += '<tr class="' + rowCls([v.shaken&&v.shaken.exp?v.shaken.exp:'',v.jibai&&v.jibai.exp?v.jibai.exp:'',v.nin&&v.nin.exp?v.nin.exp:'']) + '">';
-    vRows += '<td><strong>' + v.plate + '</strong></td>';
+    vRows += '<tr class="' + rowCls([v.shaken&&v.shaken.exp?v.shaken.exp:'',v.jibai&&v.jibai.exp?v.jibai.exp:'',v.nin&&v.nin.exp?v.nin.exp:'']) + '" style="cursor:pointer" onclick="toggleCompanyVehicleDetail('+companyId+','+v.id+')">';
+    vRows += '<td><span style="font-size:9px;color:#aaa;margin-right:4px">▶</span><strong>' + v.plate + '</strong></td>';
     vRows += '<td>' + (v.model||'—') + '</td>';
     vRows += '<td>' + ((v.offices||[]).join('・')||'—') + '</td>';
-    vRows += '<td>' + cvBadge(v.shaken&&v.shaken.exp?v.shaken.exp:'',hasS,'shaken') + '</td>';
-    vRows += '<td>' + cvBadge(v.jibai&&v.jibai.exp?v.jibai.exp:'',hasJ,'jibai') + '</td>';
-    vRows += '<td>' + cvBadge(v.nin&&v.nin.exp?v.nin.exp:'',hasN,'nin') + '</td>';
+    vRows += '<td>' + cvBadge(v.shaken&&v.shaken.exp?v.shaken.exp:'',hasS,'shaken') + '<br><input type="text" value="'+(v.shaken?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateCompanyVehicleExp('+companyId+','+v.id+',\'shaken\',this.value)" placeholder="YYYY-MM-DD"></td>';
+    vRows += '<td>' + cvBadge(v.jibai&&v.jibai.exp?v.jibai.exp:'',hasJ,'jibai') + '<br><input type="text" value="'+(v.jibai?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateCompanyVehicleExp('+companyId+','+v.id+',\'jibai\',this.value)" placeholder="YYYY-MM-DD"></td>';
+    vRows += '<td>' + cvBadge(v.nin&&v.nin.exp?v.nin.exp:'',hasN,'nin') + '<br><input type="text" value="'+(v.nin?.exp||'')+'" style="width:85px;font-size:10px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;margin-top:2px" onclick="event.stopPropagation()" onchange="updateCompanyVehicleExp('+companyId+','+v.id+',\'nin\',this.value)" placeholder="YYYY-MM-DD"></td>';
     vRows += '<td style="display:flex;gap:4px">';
-    vRows += '<button class="btn btn-sm" onclick="openCompanyVehicleModal(' + companyId + ',' + v.id + ')">編集</button>';
-    vRows += '<button class="btn btn-sm btn-danger" onclick="deleteCompanyVehicle(' + companyId + ',' + v.id + ')">削除</button>';
+    vRows += '<button class="btn btn-sm" onclick="event.stopPropagation();openCompanyVehicleModal(' + companyId + ',' + v.id + ')">編集</button>';
+    vRows += '<button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteCompanyVehicle(' + companyId + ',' + v.id + ')">削除</button>';
     vRows += '</td></tr>';
+    vRows += '<tr id="cv-detail-'+companyId+'-'+v.id+'" style="display:none"><td colspan="7" style="background:#f7f8fa;padding:10px 14px">'+buildVehicleDetailRow(v,af)+'</td></tr>';
   });
   var vTable = vc.length
     ? '<div class="table-wrap"><table><thead><tr><th>車両番号</th><th>車種</th><th>担当営業所</th><th>車検期限</th><th>自賠責</th><th>任意保険</th><th>操作</th></tr></thead><tbody>' + vRows + '</tbody></table></div>'
@@ -6038,6 +6067,39 @@ function renderCompanyPage(companyId, pageId){
   html += '</div>';
   html += '</div></div>';
   pageEl.innerHTML = html;
+}
+
+function toggleCompanyDriverDetail(companyId,driverId){
+  var el=document.getElementById('cd-detail-'+companyId+'-'+driverId);
+  if(el){
+    var show=el.style.display==='none';
+    el.style.display=show?'table-row':'none';
+    var row=el.previousElementSibling;
+    if(row){var arrow=row.querySelector('td:first-child span');if(arrow)arrow.textContent=show?'▼':'▶';}
+  }
+}
+function toggleCompanyVehicleDetail(companyId,vehicleId){
+  var el=document.getElementById('cv-detail-'+companyId+'-'+vehicleId);
+  if(el){
+    var show=el.style.display==='none';
+    el.style.display=show?'table-row':'none';
+    var row=el.previousElementSibling;
+    if(row){var arrow=row.querySelector('td:first-child span');if(arrow)arrow.textContent=show?'▼':'▶';}
+  }
+}
+function updateCompanyDriverExp(companyId,driverId,val){
+  val=normalizeBirthDate(val);
+  var c=companies.find(x=>x.id==companyId);
+  if(!c) return;
+  var d=(c.drivers||[]).find(x=>x.id==driverId);
+  if(d){if(!d.license)d.license={};d.license.exp=val;saveCompanies();renderCompanyPage(companyId);renderStorage();}
+}
+function updateCompanyVehicleExp(companyId,vehicleId,field,val){
+  val=normalizeBirthDate(val);
+  var c=companies.find(x=>x.id==companyId);
+  if(!c) return;
+  var v=(c.vehicles||[]).find(x=>x.id==vehicleId);
+  if(v){if(!v[field])v[field]={};v[field].exp=val;saveCompanies();renderCompanyPage(companyId);renderStorage();}
 }
 
 function renderCompanyFilesTabHTML(dc, vc, companyId){
