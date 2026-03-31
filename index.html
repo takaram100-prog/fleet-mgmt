@@ -482,7 +482,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="nav-group-body" id="nav-grp-docs" style="max-height:200px">
           <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
           <div class="nav-item" onclick="showPage('mail',this)" data-page="mail"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>メール <span id="mail-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span><span id="inbox-nav-badge" style="background:#fb8c00;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
-          <div class="nav-item" onclick="showPage('templates',this)" data-page="templates"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M5 1v3h4V1"/><path d="M4 7h6M4 9.5h4"/></svg>テンプレート書類</div>
         </div>
 
         <div class="nav-group-header" onclick="toggleNavGroup('nav-grp-other')">その他 <span class="nav-group-arrow" id="nav-grp-other-arrow">▶</span></div>
@@ -566,22 +565,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
             <button class="btn btn-primary" onclick="sendMailAllOffices()" style="font-size:12px">全営業所に一括送信</button>
           </div>
           <div class="doc-gen-grid" id="doc-office-cards"></div>
-        </div>
-      </div>
-      <div id="page-templates" class="page">
-        <div class="topbar"><h1>テンプレート書類</h1></div>
-        <div class="content">
-          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
-            <label style="font-size:12px;font-weight:600">委託会社:</label>
-            <select id="tpl-company" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;min-width:200px" onchange="renderTemplates()">
-              <option value="">会社を選択</option>
-            </select>
-            <label style="font-size:12px;font-weight:600;margin-left:8px">営業所:</label>
-            <select id="tpl-office" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;min-width:140px">
-              <option value="">選択</option>
-            </select>
-          </div>
-          <div id="tpl-list"></div>
         </div>
       </div>
       <div id="page-storage" class="page">
@@ -1912,11 +1895,38 @@ function getDocDate(){return document.getElementById('doc-date').value||new Date
 
 function renderDocPage(){
   const targetOffices=getDocOffices();
-  document.getElementById('doc-office-cards').innerHTML=targetOffices.map(office=>{
+  // テンプレート管理セクション
+  var tplHtml='<div style="background:#f7f8fa;border:1px solid #e0e0e0;border-radius:8px;padding:10px 14px;margin-bottom:16px">';
+  tplHtml+='<div style="font-size:12px;font-weight:600;margin-bottom:6px">テンプレート書類（docx原本）</div>';
+  tplHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap">';
+  TPL_DEFS.forEach(function(t){
+    var stored=tplFiles[t.id];
+    var ok=stored&&stored.dataUrl;
+    tplHtml+='<div style="background:#fff;border:1px solid '+(ok?'#a5d6a7':'#ef9a9a')+';border-radius:6px;padding:4px 8px;font-size:10px;display:flex;align-items:center;gap:4px">';
+    tplHtml+='<span style="color:'+(ok?'#2e7d32':'#e53935')+'">'+(ok?'✓':'✗')+'</span>';
+    tplHtml+='<span>'+t.name+'</span>';
+    tplHtml+='<label style="cursor:pointer;color:#4a90e2;margin-left:4px"><input type="file" accept=".docx" style="display:none" onchange="uploadTplFile(\''+t.id+'\',this.files[0])">'+(ok?'差替':'登録')+'</label>';
+    if(ok) tplHtml+='<span style="cursor:pointer;color:#4a90e2" onclick="previewTplOriginal(\''+t.id+'\')">DL</span>';
+    tplHtml+='</div>';
+  });
+  tplHtml+='</div></div>';
+
+  document.getElementById('doc-office-cards').innerHTML=tplHtml+targetOffices.map(office=>{
     const offD=drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
     const offV=vehicles.filter(v=>belongsToOffice(v,office));
     const employees=offD.filter(d=>d.type==='社員');
     const subcons=offD.filter(d=>d.type==='外注');
+    // 外注ドライバーチェックボックス
+    var subCheckHtml='';
+    if(subcons.length){
+      subCheckHtml='<div style="margin:8px 0;padding:8px 10px;background:#fff5f0;border:1px solid #ffccbc;border-radius:6px">';
+      subCheckHtml+='<div style="font-size:10px;font-weight:600;color:#E65100;margin-bottom:4px">再委託先（外注）ドライバー選択 <label style="font-size:9px;color:#888;font-weight:400;cursor:pointer;margin-left:8px"><input type="checkbox" checked onchange="toggleSubAll(\''+office+'\',this.checked)"> 全選択</label></div>';
+      subCheckHtml+=subcons.map(d=>{
+        var coName=d.sub?.company||d.name;
+        return '<label style="display:inline-flex;align-items:center;gap:3px;font-size:11px;margin-right:10px;cursor:pointer"><input type="checkbox" class="sub-check-'+office+'" value="'+d.id+'" checked>'+coName+'</label>';
+      }).join('');
+      subCheckHtml+='</div>';
+    }
     return `<div class="doc-card">
       <div class="doc-card-name">${office}営業所 <span class="badge badge-info" style="font-size:10px">${POST_OFFICE_MAP[office]||office+'郵便局'}宛</span></div>
       <div class="doc-card-info">社員 ${employees.length}名 / 外注 ${subcons.length}名 / 車両 ${offV.length}台</div>
@@ -1934,6 +1944,7 @@ function renderDocPage(){
         <button class="btn btn-sm" onclick="generateDoc('${office}','seiyaku_sub')">誓約書（外注各自）</button>
         <button class="btn btn-sm" onclick="generateDoc('${office}','tekigo_sub')">適合証明書（外注各自）</button>
       </div>`:''}
+      ${subCheckHtml}
       <div class="doc-card-btns">
         <button class="btn btn-sm btn-success" onclick="generateAllDocs('${office}')">全書類まとめてDL</button>
         <button class="mail-btn" onclick="openMailModal('${office}')">メール送信</button>
@@ -1941,6 +1952,16 @@ function renderDocPage(){
       <div class="gen-progress" id="prog-${office}"></div>
     </div>`;
   }).join('');
+}
+
+function toggleSubAll(office,checked){
+  document.querySelectorAll('.sub-check-'+office).forEach(cb=>{cb.checked=checked;});
+}
+
+function getSelectedSubcons(office){
+  var ids=[];
+  document.querySelectorAll('.sub-check-'+office+':checked').forEach(cb=>{ids.push(Number(cb.value));});
+  return ids;
 }
 
 // ====== docx生成ユーティリティ ======
@@ -2806,10 +2827,11 @@ async function generateDoc(office,type){
   const prog=document.getElementById(`prog-${office}`);
   prog.className='gen-progress show';prog.textContent='生成中...';
   try{
-    const subcons=drivers.filter(d=>belongsToOffice(d,office)&&d.type==='外注'&&(!d.status||d.status==='在籍'));
+    const allSubcons=drivers.filter(d=>belongsToOffice(d,office)&&d.type==='外注'&&(!d.status||d.status==='在籍'));
+    const selectedIds=getSelectedSubcons(office);
+    const subcons=allSubcons.filter(d=>selectedIds.includes(d.id));
     const generatedFiles=[];
 
-    // Apps Script PDF生成対象（主要書類）
     const pdfTypes={
       'koyou': '雇用証明書',
       'houkoku': '報告書',
@@ -2817,48 +2839,69 @@ async function generateDoc(office,type){
       'tekigo_osaka': '適合証明書（大阪急配）',
     };
 
-    // 現況届（従事員・車両）1ファイルにまとめて生成
     if(type==='genkyo'){
       prog.textContent='生成中: 現況届（従事員・車両）...';
       const result=await generatePdfViaApps(office,'genkyo',dateStr);
       generatedFiles.push({name:result.fileName,office,fileId:result.fileId});
     }
     else if(pdfTypes[type]){
-      prog.textContent=`生成中: ${pdfTypes[type]}（PDF）...`;
-      const result=await generatePdfViaApps(office, type, dateStr);
-      generatedFiles.push({name:result.fileName, office, fileId:result.fileId});
+      // 大阪急配テンプレートがあればテンプレート使用
+      var tplId=type==='seiyaku_osaka'?'tpl2':type==='tekigo_osaka'?'tpl4':null;
+      if(tplId&&tplFiles[tplId]&&tplFiles[tplId].dataUrl){
+        prog.textContent=`生成中: ${pdfTypes[type]}（テンプレート）...`;
+        await generateFromTemplate(tplId,office,null,dateStr);
+        generatedFiles.push({name:pdfTypes[type],office});
+      } else {
+        prog.textContent=`生成中: ${pdfTypes[type]}（PDF）...`;
+        const result=await generatePdfViaApps(office, type, dateStr);
+        generatedFiles.push({name:result.fileName, office, fileId:result.fileId});
+      }
     }
-    // 外注ごとの書類はdocxで継続
     else if(type==='saitaku'){
-      if(!subcons.length){prog.textContent='外注ドライバーがいません';return;}
+      if(!subcons.length){prog.textContent='外注ドライバーが選択されていません';return;}
+      var tplId5=tplFiles['tpl5']&&tplFiles['tpl5'].dataUrl?'tpl5':null;
       for(const d of subcons){
         prog.textContent=`生成中: 再委託承認願（${d.name}）`;
-        const xml=genSaitakuXml(office,dateStr,d);
-        const name=`${office}_再委託承認願_${d.name}_${dateStr}.docx`;
-        downloadBlob(await buildDocx(xml),name);
-        generatedFiles.push({name,office});
+        if(tplId5){
+          await generateFromTemplate('tpl5',office,d,dateStr);
+        } else {
+          const xml=genSaitakuXml(office,dateStr,d);
+          const name=`${office}_再委託承認願_${d.name}_${dateStr}.docx`;
+          downloadBlob(await buildDocx(xml),name);
+        }
+        generatedFiles.push({name:`再委託承認願_${d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
       }
     }
     else if(type==='seiyaku_sub'){
-      if(!subcons.length){prog.textContent='外注ドライバーがいません';return;}
+      if(!subcons.length){prog.textContent='外注ドライバーが選択されていません';return;}
+      var tplId1=tplFiles['tpl1']&&tplFiles['tpl1'].dataUrl?'tpl1':null;
       for(const d of subcons){
         prog.textContent=`生成中: 誓約書（${d.sub?.company||d.name}）`;
-        const xml=genSeiyakuSubXml(dateStr,d);
-        const name=`${office}_誓約書（${d.sub?.company||d.name}）_${dateStr}.docx`;
-        downloadBlob(await buildDocx(xml),name);
-        generatedFiles.push({name,office});
+        if(tplId1){
+          await generateFromTemplate('tpl1',office,d,dateStr);
+        } else {
+          const xml=genSeiyakuSubXml(dateStr,d);
+          const name=`${office}_誓約書（${d.sub?.company||d.name}）_${dateStr}.docx`;
+          downloadBlob(await buildDocx(xml),name);
+        }
+        generatedFiles.push({name:`誓約書_${d.sub?.company||d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
       }
     }
     else if(type==='tekigo_sub'){
-      if(!subcons.length){prog.textContent='外注ドライバーがいません';return;}
+      if(!subcons.length){prog.textContent='外注ドライバーが選択されていません';return;}
+      var tplId3=tplFiles['tpl3']&&tplFiles['tpl3'].dataUrl?'tpl3':null;
       for(const d of subcons){
         prog.textContent=`生成中: 適合証明書（${d.sub?.company||d.name}）`;
-        const xml=genTekigoSubXml(dateStr,d);
-        const name=`${office}_適合証明書（${d.sub?.company||d.name}）_${dateStr}.docx`;
-        downloadBlob(await buildDocx(xml),name);
-        generatedFiles.push({name,office});
+        if(tplId3){
+          await generateFromTemplate('tpl3',office,d,dateStr);
+        } else {
+          const xml=genTekigoSubXml(dateStr,d);
+          const name=`${office}_適合証明書（${d.sub?.company||d.name}）_${dateStr}.docx`;
+          downloadBlob(await buildDocx(xml),name);
+        }
+        generatedFiles.push({name:`適合証明書_${d.sub?.company||d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
       }
     }
@@ -2866,6 +2909,84 @@ async function generateDoc(office,type){
     if(generatedFiles.length){recordHistory(office,generatedFiles,tag);}
     prog.textContent=`${generatedFiles.length}件ダウンロードしました`;
   }catch(e){prog.textContent='生成エラー: '+e.message;console.error(e);}
+}
+
+// テンプレートdocxから差し込み生成
+async function generateFromTemplate(tplId,office,driver,dateStr){
+  var stored=tplFiles[tplId];
+  if(!stored||!stored.dataUrl) return;
+  var tpl=TPL_DEFS.find(t=>t.id===tplId);
+  var JSZipLib=await loadJSZip();
+
+  var blob=dataURLtoBlob(stored.dataUrl);
+  var zip=await JSZipLib.loadAsync(blob);
+  var docXml=await zip.file('word/document.xml').async('string');
+
+  var today=new Date();
+  var postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
+
+  if(tpl.target==='sub'&&driver){
+    // 再委託先テンプレート: 外注ドライバーの情報を差し込み
+    var sub=driver.sub||{};
+    var coName=sub.company||driver.name;
+    var repName=sub.company?driver.name:driver.name;
+    var repKana=driver.kana||'';
+    var repBirth=sub.birth||driver.birth||'';
+    var addr=driver.addr||'';
+
+    docXml=tplReplace(docXml,'（住　　所）',addr);
+    docXml=tplReplace(docXml,'（会社名）',coName);
+    docXml=tplReplace(docXml,'（ふりがな）',repKana);
+    docXml=tplReplace(docXml,'（代表者名）',repName);
+    if(repBirth){
+      var bp=repBirth.split('-');
+      if(bp.length===3) docXml=tplReplace(docXml,' 年 月 日',bp[0]+'年 '+parseInt(bp[1])+'月 '+parseInt(bp[2])+'日');
+    }
+    docXml=tplReplace(docXml,'西成郵便局長',postOffice+'長');
+    // 社員数
+    docXml=tplReplace(docXml,'（１）人','（1）人');
+  }
+
+  if(tpl.target==='self'){
+    // 大阪急配テンプレート: 営業所の郵便局名だけ差し替え
+    docXml=tplReplace(docXml,'浜寺郵便局長',postOffice+'長');
+  }
+
+  if(tpl.target==='both'&&driver){
+    // 再委託承認願
+    var sub2=driver.sub||{};
+    var coName2=sub2.company||driver.name;
+    docXml=tplReplace(docXml,'西成郵便局長',postOffice+'長');
+    var repBirth2=sub2.birth||driver.birth||'';
+    var birthStr='';
+    if(repBirth2){var bp2=repBirth2.split('-');if(bp2.length===3)birthStr=bp2[0]+'年'+parseInt(bp2[1])+'月'+parseInt(bp2[2])+'日';}
+    docXml=tplReplace(docXml,'氏名（ふりがな）　西暦生年月日',(sub2.company?driver.name:driver.name)+'（'+(driver.kana||'')+'）　'+birthStr);
+    docXml=tplReplace(docXml,'住所　連絡先',(driver.addr||'')+'　'+(driver.tel||sub2.tel||''));
+    docXml=tplReplace(docXml,'西成区全域',office+'管内');
+  }
+
+  // 日付の日を差し込み
+  var day=today.getDate();
+  docXml=tplReplace(docXml,'　　日','　'+day+'日');
+  docXml=tplReplace(docXml,'　 日','　'+day+'日');
+
+  zip.file('word/document.xml',docXml);
+  var outBlob=await zip.generateAsync({type:'blob'});
+
+  var driverLabel=driver?(driver.sub?.company||driver.name):'大阪急配';
+  var fileName=office+'_'+tpl.name+'_'+driverLabel+'_'+dateStr+'.docx';
+  downloadBlob(outBlob,fileName);
+
+  // Driveにアップロード
+  try{
+    var reader=new FileReader();
+    var outDataUrl=await new Promise(function(resolve){reader.onload=function(e){resolve(e.target.result);};reader.readAsDataURL(outBlob);});
+    fetch(API_URL,{method:'POST',body:JSON.stringify({
+      action:'uploadFile',folder:office,subFolder:'テンプレート書類/'+driverLabel,
+      fileName:fileName,mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      dataUrl:outDataUrl
+    })});
+  }catch(e){console.log('Drive upload optional:',e);}
 }
 
 async function generateAllDocs(office){
@@ -3176,7 +3297,6 @@ function showPage(name,el){
   if(name==='vehicles'){document.getElementById('vehicle-office-label').textContent='';renderVehicles(null);}
   if(name==='drivers')renderDrivers(null);
   if(name==='documents'){setTodayDate();renderDocPage();}
-  if(name==='templates'){initTemplatesPage();}
   if(name==='print'){rebuildPrintSelect();renderPrint();}
   if(name==='mail'){renderMailTasks();renderInbox();}
   if(name==='history')renderHistory();
@@ -7264,78 +7384,7 @@ const TPL_DEFS=[
   {id:'tpl5',name:'再委託承認願',fileName:'マスタ2_4再委託承認願.docx',target:'both',desc:'委託会社+営業所情報を差し込み'}
 ];
 let tplFiles=JSON.parse(localStorage.getItem('fleet_tpl_files')||'{}');
-// tplFiles = { tplId: { fileId, fileName, url } }
-
-function initTemplatesPage(){
-  var sel=document.getElementById('tpl-company');
-  if(!sel)return;
-  sel.innerHTML='<option value="">委託会社を選択</option>'+companies.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
-  var oSel=document.getElementById('tpl-office');
-  if(oSel) oSel.innerHTML='<option value="">選択</option>'+offices.map(o=>'<option>'+o+'</option>').join('');
-  renderTemplates();
-}
-
-function renderTemplates(){
-  var el=document.getElementById('tpl-list');if(!el)return;
-  var coId=document.getElementById('tpl-company')?.value;
-  var co=coId?companies.find(c=>c.id==coId):null;
-
-  var html='';
-  html+='<div style="background:#f7f8fa;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px;margin-bottom:16px">';
-  html+='<div style="font-size:12px;font-weight:600;margin-bottom:8px">テンプレートファイル管理（Google Drive保存）</div>';
-  html+='<div style="font-size:11px;color:#888;margin-bottom:8px">docxテンプレートをアップロードするとDriveに保存され、委託会社情報を差し込んで書類を生成できます。</div>';
-  html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
-  TPL_DEFS.forEach(function(t){
-    var stored=tplFiles[t.id];
-    var hasDrive=stored&&stored.fileId;
-    var hasLocal=stored&&stored.dataUrl;
-    var statusColor=(hasDrive||hasLocal)?'#2e7d32':'#e53935';
-    var statusText=hasDrive?'✓ Drive保存済':hasLocal?'✓ ローカル保存':'未登録';
-    html+='<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:11px;min-width:180px">';
-    html+='<div style="font-weight:600;margin-bottom:2px">'+t.name+'</div>';
-    html+='<div style="color:'+statusColor+';font-size:10px;margin-bottom:4px">'+statusText+'</div>';
-    html+='<label style="cursor:pointer;color:#4a90e2;font-size:10px"><input type="file" accept=".docx" style="display:none" onchange="uploadTplFile(\''+t.id+'\',this.files[0])">'+(stored?'差し替え':'アップロード')+'</label>';
-    if(stored) html+=' <span style="cursor:pointer;color:#4a90e2;font-size:10px;margin-left:8px" onclick="previewTplOriginal(\''+t.id+'\')">DL</span>';
-    if(stored) html+=' <span style="cursor:pointer;color:#e53935;font-size:10px;margin-left:4px" onclick="deleteTplFile(\''+t.id+'\')">削除</span>';
-    html+='</div>';
-  });
-  html+='</div></div>';
-
-  if(!co){
-    html+='<div style="padding:24px;text-align:center;color:#888;font-size:12px">委託会社を選択すると、テンプレート書類を生成できます。</div>';
-    el.innerHTML=html;return;
-  }
-
-  html+='<div style="font-size:13px;font-weight:600;margin-bottom:8px">'+co.name+' の書類生成</div>';
-  html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">';
-  TPL_DEFS.forEach(function(t){
-    var stored=tplFiles[t.id];
-    var canGen=stored&&stored.dataUrl;
-    var targetLabel=t.target==='sub'?'<span style="background:#E65100;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">再委託先</span>':t.target==='self'?'<span style="background:#1565C0;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">大阪急配</span>':'<span style="background:#6A1B9A;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">両方</span>';
-    html+='<div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px">';
-    html+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;font-size:12px">'+t.name+'</div>'+targetLabel+'</div>';
-    html+='<div style="font-size:10px;color:#888">'+t.desc+'</div>';
-    html+='<div style="display:flex;gap:6px;margin-top:auto">';
-    if(canGen){
-      html+='<button class="btn btn-sm btn-primary" style="font-size:10px;flex:1" onclick="generateTemplate(\''+t.id+'\','+co.id+')">生成・DL</button>';
-      html+='<button class="btn btn-sm" style="font-size:10px" onclick="previewTplOriginal(\''+t.id+'\')">原本DL</button>';
-    } else {
-      html+='<div style="font-size:10px;color:#e53935;padding:4px 0">テンプレート未登録</div>';
-    }
-    html+='</div></div>';
-  });
-  html+='</div>';
-
-  // 一括生成ボタン
-  var allStored=TPL_DEFS.every(function(t){return tplFiles[t.id]&&tplFiles[t.id].dataUrl;});
-  if(allStored){
-    html+='<div style="margin-top:12px;text-align:right">';
-    html+='<button class="btn btn-primary" onclick="generateAllTemplates('+co.id+')">全テンプレート一括生成</button>';
-    html+='</div>';
-  }
-
-  el.innerHTML=html;
-}
+// tplFiles = { tplId: { fileId, fileName, url, dataUrl } }
 
 async function uploadTplFile(tplId, file){
   if(!file) return;
@@ -7362,7 +7411,7 @@ async function uploadTplFile(tplId, file){
     tplFiles[tplId]={fileId:fileId,fileName:tpl?tpl.fileName:file.name,url:url,dataUrl:dataUrl};
     localStorage.setItem('fleet_tpl_files',JSON.stringify(tplFiles));
     alert('✓ テンプレートを登録しました'+(fileId?' (Driveにも保存)':''));
-    renderTemplates();
+    renderDocPage();
   }catch(e){
     alert('アップロードエラー: '+e.message);
   }
@@ -7372,7 +7421,7 @@ function deleteTplFile(tplId){
   if(!confirm('このテンプレートの登録を解除しますか？（Drive上のファイルは残ります）'))return;
   delete tplFiles[tplId];
   localStorage.setItem('fleet_tpl_files',JSON.stringify(tplFiles));
-  renderTemplates();
+  renderDocPage();
 }
 
 function previewTplOriginal(tplId){
@@ -7396,109 +7445,6 @@ function dataURLtoBlob(dataUrl){
   var arr=new Uint8Array(b64.length);
   for(var i=0;i<b64.length;i++) arr[i]=b64.charCodeAt(i);
   return new Blob([arr],{type:mime});
-}
-
-async function generateTemplate(tplId, companyId){
-  var stored=tplFiles[tplId];
-  if(!stored||!stored.dataUrl){alert('テンプレートが登録されていません');return;}
-  var tpl=TPL_DEFS.find(t=>t.id===tplId);
-  var co=companies.find(c=>c.id==companyId);
-  if(!co){alert('委託会社が選択されていません');return;}
-
-  try{
-    if(typeof JSZip==='undefined'){
-      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
-    }
-
-    var blob=dataURLtoBlob(stored.dataUrl);
-    var zip=await JSZip.loadAsync(blob);
-    var docXml=await zip.file('word/document.xml').async('string');
-
-    // 会社情報の差し込み
-    var office=document.getElementById('tpl-office')?.value||'';
-    var today=new Date();
-    var year=today.getFullYear();
-    var month=today.getMonth()+1;
-    var day=today.getDate();
-
-    if(tpl.target==='sub'){
-      // 再委託先テンプレート: 委託会社データを差し込み
-      docXml=tplReplace(docXml,'（住　　所）',co.addr||'');
-      docXml=tplReplace(docXml,'（会社名）',co.name||'');
-      docXml=tplReplace(docXml,'（ふりがな）',co.repKana||'');
-      docXml=tplReplace(docXml,'（代表者名）',co.rep||'');
-      // 生年月日
-      if(co.repBirth){
-        var bp=co.repBirth.split('-');
-        docXml=tplReplace(docXml,' 年 月 日',bp[0]+'年 '+parseInt(bp[1])+'月 '+parseInt(bp[2])+'日');
-      }
-      // 日付
-      docXml=tplReplace(docXml,'　　日','　'+day+'日');
-      // 社員数
-      var empCount=(co.drivers||[]).length||1;
-      docXml=tplReplace(docXml,'（１）人','（'+empCount+'）人');
-    }
-
-    if(tpl.target==='both'){
-      // 再委託承認願: 委託会社情報を差し込み
-      // 営業所局長名
-      if(office){
-        docXml=tplReplace(docXml,'西成郵便局長',office+'郵便局長');
-      }
-      // 再委託先情報（セクション1〜2）
-      var repBirth='';
-      if(co.repBirth){var bp2=co.repBirth.split('-');repBirth=bp2[0]+'年'+parseInt(bp2[1])+'月'+parseInt(bp2[2])+'日';}
-      docXml=tplReplace(docXml,'氏名（ふりがな）　西暦生年月日',(co.rep||'')+'（'+(co.repKana||'')+'）　'+repBirth);
-      docXml=tplReplace(docXml,'住所　連絡先',(co.addr||'')+'　'+(co.tel||''));
-      // 受持地域
-      if(office) docXml=tplReplace(docXml,'西成区全域',office+'管内');
-      // 日付
-      docXml=tplReplace(docXml,'　 日','　'+day+'日');
-    }
-
-    zip.file('word/document.xml',docXml);
-    var outBlob=await zip.generateAsync({type:'blob'});
-
-    // ダウンロード
-    var fileName=(co.name||'委託先')+'_'+tpl.name+'_'+year+month.toString().padStart(2,'0')+day.toString().padStart(2,'0')+'.docx';
-    var url=URL.createObjectURL(outBlob);
-    var a=document.createElement('a');
-    a.href=url;a.download=fileName;a.click();
-    URL.revokeObjectURL(url);
-
-    // Driveにもアップロード
-    var reader=new FileReader();
-    reader.onload=async function(ev){
-      try{
-        var res=await fetch(API_URL,{method:'POST',body:JSON.stringify({
-          action:'uploadFile',folder:office||'テンプレート',subFolder:co.name,
-          fileName:fileName,mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          dataUrl:ev.target.result
-        })});
-        var data=await res.json();
-        if(data.ok){
-          // 会社の添付ファイルに追加
-          if(!co.attachedFiles)co.attachedFiles=[];
-          co.attachedFiles.push({name:fileName,fileId:data.fileId,url:data.url,category:'テンプレート書類',uploadedAt:new Date().toISOString()});
-          saveCompanies();
-        }
-      }catch(e){console.log('Drive upload failed:',e);}
-    };
-    reader.readAsDataURL(outBlob);
-
-  }catch(e){
-    console.error('Template generation error:',e);
-    alert('テンプレート生成エラー: '+e.message);
-  }
-}
-
-async function generateAllTemplates(companyId){
-  for(var i=0;i<TPL_DEFS.length;i++){
-    if(tplFiles[TPL_DEFS[i].id]){
-      await generateTemplate(TPL_DEFS[i].id,companyId);
-      await new Promise(r=>setTimeout(r,500)); // ダウンロード間隔
-    }
-  }
 }
 
 // XMLテキスト内の差し込み（ランをまたぐ場合にも対応）
