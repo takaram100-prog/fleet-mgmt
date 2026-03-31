@@ -369,7 +369,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
         <div class="self-form-group">
           <label class="self-form-label">住所</label>
-          <input type="text" id="sf-addr" class="self-form-input" placeholder="〒000-0000　大阪府...">
+          <div style="display:flex;gap:6px"><input type="text" id="sf-zip" class="self-form-input" placeholder="郵便番号" style="width:100px" oninput="autoZipLookup(this,'sf-addr')" maxlength="8"><input type="text" id="sf-addr" class="self-form-input" placeholder="都道府県市区町村..." style="flex:1" onblur="autoAddrToZip(this,'sf-zip')"></div>
         </div>
       </div>
 
@@ -823,7 +823,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>ステータス</label><select id="d-status" onchange="toggleArchiveFields()" class="modal-field"><option value="在籍">在籍</option><option value="休止">休止</option><option value="退職">退職</option></select></div>
       <div class="form-group"><label>電話番号</label><input type="tel" id="d-tel" class="modal-field" onblur="this.value=formatPhone(this.value)"></div>
       <div class="form-group"><label>生年月日（免許証記載）</label><input type="date" id="d-birth" class="modal-field"></div>
-      <div class="form-group" style="grid-column:1/-1"><label>住所（免許証記載）</label><input type="text" id="d-addr" placeholder="〒000-0000　都道府県市区町村..." class="modal-field"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>住所（免許証記載）</label><div style="display:flex;gap:6px;align-items:center"><input type="text" id="d-zip" placeholder="郵便番号" style="width:100px;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" oninput="autoZipLookup(this,'d-addr')" maxlength="8"><input type="text" id="d-addr" placeholder="都道府県市区町村..." class="modal-field" style="flex:1" onblur="autoAddrToZip(this,'d-zip')"></div></div>
       <!-- 休止・退職時フィールド -->
       <div id="archive-fields" style="display:none;grid-column:1/-1;background:#fde8e8;border:1px solid #f5c6c6;border-radius:8px;padding:10px 13px">
         <div style="font-size:11px;font-weight:600;color:#c62828;margin-bottom:8px">休止・退職情報</div>
@@ -869,7 +869,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group" style="margin-bottom:10px"><label>代表者名</label><input type="text" id="cm-rep" placeholder="山田 太郎"></div>
       <div class="form-group" style="margin-bottom:10px"><label>代表者ふりがな</label><input type="text" id="cm-rep-kana" placeholder="やまだ たろう"></div>
       <div class="form-group" style="margin-bottom:10px"><label>代表者生年月日</label><input type="date" id="cm-rep-birth"></div>
-      <div class="form-group" style="margin-bottom:10px"><label>住所</label><input type="text" id="cm-addr" placeholder="〒000-0000　大阪府..."></div>
+      <div class="form-group" style="margin-bottom:10px"><label>住所</label><div style="display:flex;gap:6px;align-items:center"><input type="text" id="cm-zip" placeholder="郵便番号" style="width:100px;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" oninput="autoZipLookup(this,'cm-addr')" maxlength="8"><input type="text" id="cm-addr" placeholder="都道府県市区町村..." style="flex:1;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" onblur="autoAddrToZip(this,'cm-zip')"></div></div>
       <div class="form-group" style="margin-bottom:10px"><label>電話番号</label><input type="tel" id="cm-tel" onblur="this.value=formatPhone(this.value)"></div>
       <div class="form-group" style="margin-bottom:10px"><label>社員数</label><input type="number" id="cm-count" value="1" min="1"></div>
       <div class="form-group" style="margin-bottom:10px;background:#e3f2fd;padding:10px;border-radius:7px">
@@ -910,7 +910,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div class="form-group"><label>電話番号</label><input type="tel" id="cd-tel" class="modal-field" onblur="this.value=formatPhone(this.value)"></div>
       <div class="form-group"><label>生年月日</label><input type="date" id="cd-birth" class="modal-field"></div>
-      <div class="form-group" style="grid-column:1/-1"><label>住所</label><input type="text" id="cd-addr" placeholder="〒000-0000　..." class="modal-field"></div>
+      <div class="form-group" style="grid-column:1/-1"><label>住所</label><div style="display:flex;gap:6px;align-items:center"><input type="text" id="cd-zip" placeholder="郵便番号" style="width:100px;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" oninput="autoZipLookup(this,'cd-addr')" maxlength="8"><input type="text" id="cd-addr" placeholder="都道府県市区町村..." class="modal-field" style="flex:1" onblur="autoAddrToZip(this,'cd-zip')"></div></div>
       <div class="section-title">運転免許証</div>
       <div class="form-group"><label>有効期限</label><input type="date" id="cd-license-exp" class="modal-field"></div>
       <div class="form-group"><label>免許番号</label><input type="text" id="cd-license-no" class="modal-field"></div>
@@ -3250,7 +3250,7 @@ function openDriverModal(id){
   document.getElementById('dm-title').textContent=id?'ドライバー 編集':'ドライバー 登録';
   // 営業所チェックボックスを構築
   renderOfficeMultiSelect('d-office-checks', []);
-  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('d-type').value='社員';document.getElementById('d-sub-count').value='1';
   document.getElementById('d-status').value='在籍';
   document.getElementById('subcon-fields').style.display='none';
@@ -3276,6 +3276,7 @@ function openDriverModal(id){
       document.getElementById('d-tel').value=d.tel||'';
       document.getElementById('d-birth').value=d.birth||'';
       document.getElementById('d-addr').value=d.addr||'';
+      document.getElementById('d-zip').value=d.zip||'';
       document.getElementById('d-license-exp').value=d.license?.exp||'';
       document.getElementById('d-license-no').value=d.license?.no||'';
       document.getElementById('d-license-type').value=d.license?.type||'普通自動車';
@@ -3364,7 +3365,7 @@ function saveDriver(){
   const obj={id:editingDriverId||Date.now(),name,kana,type,status,
     office: selectedOffices[0]||'',
     offices: selectedOffices,
-    tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{}};
+    tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,zip:document.getElementById('d-zip').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{}};
   if(editingDriverId){const i=drivers.findIndex(d=>d.id==editingDriverId);if(i>=0)drivers[i]=obj;else drivers.push(obj);}else drivers.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const dFiles = modalFiles['d-files'] || [];
@@ -3578,6 +3579,41 @@ function formatPhone(val){
   if(d.match(/^0120/) && d.length===10) return d.slice(0,4)+'-'+d.slice(4,7)+'-'+d.slice(7);
   if(s.includes('-')) return s;
   return d;
+}
+
+// 郵便番号→住所 自動補完
+function autoZipLookup(zipEl, addrId){
+  var val=zipEl.value.trim()
+    .replace(/[０-９]/g,function(c){return String.fromCharCode(c.charCodeAt(0)-0xFEE0);})
+    .replace(/[ー−‐－]/g,'-').replace(/[^0-9-]/g,'');
+  zipEl.value=val;
+  var digits=val.replace(/-/g,'');
+  // 3桁でハイフン自動挿入
+  if(digits.length===3&&!val.includes('-')){zipEl.value=digits+'-';return;}
+  if(digits.length===7){
+    if(!val.includes('-')) zipEl.value=digits.slice(0,3)+'-'+digits.slice(3);
+    fetch('https://zipcloud.ibsnet.co.jp/api/search?zipcode='+digits)
+      .then(function(r){return r.json();})
+      .then(function(data){
+        if(data.results&&data.results.length){
+          var r=data.results[0];
+          var addr=r.address1+r.address2+r.address3;
+          var addrEl=document.getElementById(addrId);
+          if(addrEl&&(!addrEl.value||addrEl.value.length<3)) addrEl.value=addr;
+        }
+      }).catch(function(){});
+  }
+}
+
+// 住所→郵便番号（住所先頭に〒xxx-xxxxがあればパース）
+function autoAddrToZip(addrEl, zipId){
+  var val=addrEl.value.trim();
+  var m=val.match(/^〒?\s*(\d{3})-?(\d{4})\s*/);
+  if(m){
+    var zipEl=document.getElementById(zipId);
+    if(zipEl) zipEl.value=m[1]+'-'+m[2];
+    addrEl.value=val.replace(/^〒?\s*\d{3}-?\d{4}\s*/, '');
+  }
 }
 
 // 全ての日付フィールドを初期化（type="text"化 + onblurで自動正規化）
@@ -3798,7 +3834,7 @@ async function submitSelfForm(){
 
 function resetSelfForm(){
   sfFiles=[];
-  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-addr','sf-note','sf-plate','sf-v-model','sf-v-color'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-zip','sf-addr','sf-note','sf-plate','sf-v-model','sf-v-color'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
   ['sf-doc-license','sf-doc-shaken','sf-doc-jibai','sf-doc-nin','sf-doc-health','sf-doc-other'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const sfNewOffice=document.getElementById('sf-new-office');if(sfNewOffice)sfNewOffice.value='';
   const sfVKind=document.getElementById('sf-v-kind');if(sfVKind)sfVKind.value='軽四';
@@ -4689,7 +4725,7 @@ function renderStorage(){
           '<div style="display:flex;align-items:center;gap:8px;min-width:0;flex:1">'+
             '<div style="width:28px;height:28px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;flex-shrink:0">'+typeIcon+'</div>'+
             '<div style="min-width:0"><div style="font-weight:600;font-size:13px;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+d.name+' <span style="font-size:9px;color:#999;font-weight:400">'+(d.kana||'')+'</span></div>'+
-            '<div style="font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+plateStr+' ・ '+(d._offices.join('・')||'未設定')+'</div></div>'+
+            '<div style="font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(d._offices.join('・')||'未設定')+'</div></div>'+
           '</div>'+
           '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">'+
             expBadge(d.license?.exp,hasLic)+
@@ -4712,7 +4748,7 @@ function renderStorage(){
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
       cardHtml+='<div><div style="font-weight:600;font-size:15px;color:#222"><span style="cursor:pointer;color:#222" onclick="event.stopPropagation();navigateToDriver(\''+esc(d.name)+'\')">'+d.name+'</span> <span style="font-size:10px;color:#999;font-weight:400">'+(d.kana||'')+'</span></div>';
       var plateLink=cv?'<span style="cursor:pointer;color:#4a90e2;text-decoration:underline" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')">'+plateStr+'</span>':plateStr;
-      cardHtml+='<div style="font-size:11px;color:#555">'+plateLink+' ・ '+(d._offices.join('・')||'未設定')+'</div></div>';
+      cardHtml+='<div style="font-size:11px;color:#555">'+(d._offices.join('・')||'未設定')+'</div></div>';
       cardHtml+='</div>';
       cardHtml+='<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">';
       var isSelf=d._src==='自社';
@@ -6400,7 +6436,7 @@ function switchCompanyTab(tab, companyId){
 function openCompanyModal(id){
   editingCompanyId = id||null;
   document.getElementById('cm-title').textContent = id?'委託会社 編集':'委託会社 登録';
-  ['cm-name','cm-rep','cm-rep-kana','cm-addr','cm-tel'].forEach(f=>document.getElementById(f).value='');
+  ['cm-name','cm-rep','cm-rep-kana','cm-zip','cm-addr','cm-tel'].forEach(f=>document.getElementById(f).value='');
   document.getElementById('cm-rep-birth').value='';
   document.getElementById('cm-count').value='1';
   if(id){
@@ -6411,6 +6447,7 @@ function openCompanyModal(id){
       document.getElementById('cm-rep-kana').value=c.repKana||'';
       document.getElementById('cm-rep-birth').value=c.repBirth||'';
       document.getElementById('cm-addr').value=c.addr||'';
+      document.getElementById('cm-zip').value=c.zip||'';
       document.getElementById('cm-tel').value=c.tel||'';
       document.getElementById('cm-count').value=c.count||1;
       document.getElementById('cm-regcode').value=c.regCode||'';
@@ -6449,6 +6486,7 @@ function saveCompany(){
     repKana:document.getElementById('cm-rep-kana').value,
     repBirth:document.getElementById('cm-rep-birth').value,
     addr:document.getElementById('cm-addr').value,
+    zip:document.getElementById('cm-zip').value,
     tel:formatPhone(document.getElementById('cm-tel').value),
     count:document.getElementById('cm-count').value,
     drivers: editingCompanyId ? (companies.find(x=>x.id==editingCompanyId)?.drivers||[]) : [],
@@ -6473,7 +6511,7 @@ function openCompanyDriverModal(companyId, driverId){
   editingCompanyDriverId=driverId||null;
   currentCompanyId=companyId;
   document.getElementById('cdm-title').textContent=driverId?'ドライバー 編集':'ドライバー 登録';
-  ['cd-sei','cd-mei','cd-sei-kana','cd-mei-kana','cd-tel','cd-birth','cd-addr','cd-license-exp','cd-license-no','cd-license-cond'].forEach(f=>document.getElementById(f).value='');
+  ['cd-sei','cd-mei','cd-sei-kana','cd-mei-kana','cd-tel','cd-birth','cd-zip','cd-addr','cd-license-exp','cd-license-no','cd-license-cond'].forEach(f=>document.getElementById(f).value='');
   // 営業所複数選択
   renderOfficeMultiSelect('cd-offices', []);
   if(driverId){
@@ -6489,6 +6527,7 @@ function openCompanyDriverModal(companyId, driverId){
       document.getElementById('cd-tel').value=d.tel||'';
       document.getElementById('cd-birth').value=d.birth||'';
       document.getElementById('cd-addr').value=d.addr||'';
+      document.getElementById('cd-zip').value=d.zip||'';
       document.getElementById('cd-license-exp').value=d.license?.exp||'';
       document.getElementById('cd-license-no').value=d.license?.no||'';
       document.getElementById('cd-license-type').value=d.license?.type||'普通自動車';
@@ -6550,6 +6589,7 @@ function saveCompanyDriver(){
     tel:formatPhone(document.getElementById('cd-tel').value),
     birth:document.getElementById('cd-birth').value,
     addr:document.getElementById('cd-addr').value,
+    zip:document.getElementById('cd-zip').value,
     license:{exp:document.getElementById('cd-license-exp').value,no:document.getElementById('cd-license-no').value,type:document.getElementById('cd-license-type').value,cond:document.getElementById('cd-license-cond').value},
   };
   const c=companies.find(x=>x.id==currentCompanyId);
