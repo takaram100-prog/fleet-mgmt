@@ -436,7 +436,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="self-form-group" id="sf-upload-group">
         <label class="self-form-label" id="sf-upload-label">写真・書類の画像</label>
         <div id="sf-license-notice" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:7px;padding:9px 12px;margin-bottom:8px;font-size:12px;color:#e65100">
-          ⚠️ 運転免許証は<strong>表面・裏面の両方</strong>を撮影してください（2枚必須）
+          運転免許証は<strong>表面・裏面の両方</strong>を撮影してください（2枚必須）
         </div>
         <div class="self-form-upload" id="sf-upload" ondragover="sfDragOver(event)" ondragleave="sfDragLeave(event)" ondrop="sfDrop(event)">
           <input type="file" accept="image/*" multiple onchange="sfFileChange(event)">
@@ -624,7 +624,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <div id="mail-inbox-section" style="display:none">
             <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
               <div style="font-size:12px;color:#888">QRフォームからの受信データ</div>
-              <button class="btn btn-sm" onclick="syncInboxFromSheet().then(()=>{renderInbox();alert('✅ 受信ボックスを更新しました')})">受信更新</button>
+              <button class="btn btn-sm" onclick="syncInboxFromSheet().then(()=>{renderInbox();alert('受信ボックスを更新しました')})">受信更新</button>
             </div>
             <div id="inbox-list"></div>
           </div>
@@ -695,7 +695,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="topbar"><h1>アーカイブ（退職・廃車）</h1><span style="font-size:11px;color:#888">退職・休止ドライバー / 廃車車両</span></div>
         <div class="content">
           <div style="font-size:12px;color:#888;margin-bottom:12px;padding:10px 14px;background:#fff3e0;border-radius:8px;border:1px solid #ffcc80">
-            ⚠️ アーカイブされたドライバーは書類生成・書類管理・期限アラートから除外されます。「在籍に戻す」で復帰、「削除」で完全削除が可能です。
+            アーカイブされたドライバーは書類生成・書類管理・期限アラートから除外されます。「在籍に戻す」で復帰、「削除」で完全削除が可能です。
           </div>
           <div class="filter-bar" id="archive-filters"></div>
           <div id="archive-list"></div>
@@ -983,7 +983,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="modal modal-sm" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title">予備車両に切り替え</span><button class="modal-close" onclick="closeModal('temp-vehicle-modal')">✕</button></div>
     <div class="modal-body">
-      <div style="font-size:12px;color:#e65100;background:#fff3e0;padding:8px 12px;border-radius:6px;margin-bottom:12px">⚠️ 元の担当車両は変更されません。一時的な代替使用として記録されます。</div>
+      <div style="font-size:12px;color:#e65100;background:#fff3e0;padding:8px 12px;border-radius:6px;margin-bottom:12px">元の担当車両は変更されません。一時的な代替使用として記録されます。</div>
       <div class="form-group">
         <label>使用する予備車両</label>
         <select id="temp-vehicle-select" style="width:100%;padding:8px;font-size:13px;border:1px solid #ddd;border-radius:6px"></select>
@@ -1281,7 +1281,7 @@ function renderSettingsOffices(){
   });
   if(orphanedOffices.size){
     const migrateOpts=offices.map(o=>`<option value="${o}">${o}</option>`).join('');
-    let orphanHtml='<div style="margin-top:12px;padding:10px 14px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px"><div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:8px">⚠️ 営業所リストにない旧営業所名が残っています</div>';
+    let orphanHtml='<div style="margin-top:12px;padding:10px 14px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px"><div style="font-size:11px;font-weight:600;color:#e65100;margin-bottom:8px">営業所リストにない旧営業所名が残っています</div>';
     let idx=0;
     orphanedOffices.forEach((data,offName)=>{
       const selId='orphan-migrate-'+idx;
@@ -1323,7 +1323,7 @@ function migrateOrphan(oldName, selId){
     (c.vehicles||[]).forEach(v=>{if(Array.isArray(v.offices)){const idx=v.offices.indexOf(oldName);if(idx>=0){if(newOffice&&!v.offices.includes(newOffice))v.offices[idx]=newOffice;else v.offices.splice(idx,1);count++;}}});
   });
   saveLocal();saveCompanies();renderAll();renderSettingsOffices();
-  alert(`✅ 「${oldName}」→「${newOffice||'(解除)'}」に${count}件移行しました。`);
+  alert(`「${oldName}」→「${newOffice||'(解除)'}」に${count}件移行しました。`);
 }
 function openOfficeModal(){document.getElementById('office-name-input').value='';document.getElementById('office-modal').style.display='flex';setTimeout(()=>document.getElementById('office-name-input').focus(),50);}
 function saveOffice(){const n=document.getElementById('office-name-input').value.trim();if(!n||offices.includes(n)){alert(n?'既に存在します':'営業所名を入力');return;}offices.push(n);saveLocal();closeModal('office-modal');renderOfficeNav();renderSettingsOffices();rebuildOfficeSelects();renderDocPage();}
@@ -1349,7 +1349,7 @@ function deleteOffice(name){
       <div class="modal-header"><span class="modal-title">営業所「${esc(name)}」の削除</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
       <div class="modal-body">
         <div style="padding:10px;background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;font-size:12px;color:#e65100;margin-bottom:14px">
-          ⚠️ 「${esc(name)}」には車両 ${totalV}台・ドライバー ${totalD}名が紐づいています。
+          「${esc(name)}」には車両 ${totalV}台・ドライバー ${totalD}名が紐づいています。
         </div>
         <div class="form-group" style="margin-bottom:12px">
           <label style="font-size:11px;color:#666;font-weight:500">紐づいているデータの移行先</label>
@@ -1418,7 +1418,7 @@ function execDeleteOffice(name){
 
   offices=offices.filter(o=>o!==name);docExclude=docExclude.filter(o=>o!==name);
   saveLocal();saveCompanies();renderAll();renderSettingsOffices();
-  alert(`✅ 「${name}」を削除しました。${newOffice?'紐づきデータを「'+newOffice+'」に移行しました。':'紐づけを解除しました。'}`);
+  alert(`「${name}」を削除しました。${newOffice?'紐づきデータを「'+newOffice+'」に移行しました。':'紐づけを解除しました。'}`);
 }
 function rebuildOfficeSelects(){['v-office'].forEach(id=>{const sel=document.getElementById(id);if(!sel)return;const cur=sel.value;sel.innerHTML=offices.map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');});}
 
@@ -1517,7 +1517,7 @@ function openQuickUpload(kind, entityId, docKey){
       '<div style="font-size:12px;margin-bottom:10px"><strong>'+esc(targetName)+'</strong> の'+label+'</div>'+
       '<div id="qu-drop" style="border:2px dashed #c5d8f8;border-radius:10px;padding:28px 16px;text-align:center;cursor:pointer;background:#f7f9ff;transition:all .2s" ondragover="event.preventDefault();this.style.borderColor=\'#4a90e2\';this.style.background=\'#eaf2ff\'" ondragleave="this.style.borderColor=\'#c5d8f8\';this.style.background=\'#f7f9ff\'" ondrop="event.preventDefault();handleQuickUploadDrop(event,\''+kind+'\','+entityId+',\''+docKey+'\')">'+
         '<input type="file" accept="image/*,.pdf" style="display:none" id="qu-file-input" onchange="handleQuickUploadFile(event,\''+kind+'\','+entityId+',\''+docKey+'\')">'+
-        '<div style="font-size:28px;margin-bottom:6px">📄</div>'+
+        '<div style="font-size:28px;margin-bottom:6px">PDF</div>'+
         '<div style="font-size:13px;font-weight:500;color:#4a90e2">ここにファイルをドロップ</div>'+
         '<div style="font-size:11px;color:#888;margin-top:4px">または<span style="color:#4a90e2;text-decoration:underline;cursor:pointer" onclick="document.getElementById(\'qu-file-input\').click()">クリックして選択</span></div>'+
       '</div>'+
@@ -1570,7 +1570,7 @@ async function processQuickUpload(file,kind,entityId,docKey){
         saveLocal();saveCompanies();
         document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
         renderVehicles(currentOfficeFilter);renderDrivers(currentOfficeFilter);
-        alert('✅ '+file.name+' をアップロードしました');
+        alert(''+file.name+' をアップロードしました');
       } else {
         if(statusEl) statusEl.textContent='❌ アップロードエラー: '+(json.error||'');
       }
@@ -1627,7 +1627,7 @@ function execAssignDriver(vehicleId){
   saveLocal();
   document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
   renderVehicles(currentOfficeFilter);
-  alert('✅ '+v.plate+' の担当を '+dName+' に設定しました');
+  alert(''+v.plate+' の担当を '+dName+' に設定しました');
 }
 
 function renderVehicles(off){
@@ -2113,7 +2113,7 @@ function renderMailTasks(){
           </div>
           <div style="font-size:11px;color:#555;margin-top:4px">
             添付：${driverFiles?'免許証等'+driverFiles+'件 ':''}${vehicleFiles?'車検証等'+vehicleFiles+'件 ':''}${genPdfs?'PDF'+genPdfs+'件':''}
-            ${!totalFiles?'<span style="color:#e65100">⚠️ 添付ファイルなし</span>':'　計'+totalFiles+'件'}
+            ${!totalFiles?'<span style="color:#e65100">添付ファイルなし</span>':'　計'+totalFiles+'件'}
           </div>
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
@@ -2288,7 +2288,7 @@ function execCreateMailTask(){
     count++;
   });
   document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
-  alert('✅ '+count+'件のデータ送信タスクを作成しました');
+  alert(''+count+'件のデータ送信タスクを作成しました');
 }
 
 // 送信モーダル
@@ -2310,8 +2310,8 @@ function openMailSendModal(taskId){
   const extraVOpts=allVehicles.filter(v=>String(v.id)!==t.vehicleId).map(v=>`<option value="${v.id}">${v.plate} ${v.model||''}</option>`).join('');
 
   // ファイルチェックリスト
-  const dFilesHtml=(t.driverFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="driver" data-idx="${i}" data-fileid="${f.fileId||''}"> 👤 ${esc(f.name)}</label>`).join('');
-  const vFilesHtml=(t.vehicleFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="vehicle" data-idx="${i}" data-fileid="${f.fileId||''}"> 🚗 ${esc(f.name)}</label>`).join('');
+  const dFilesHtml=(t.driverFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="driver" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
+  const vFilesHtml=(t.vehicleFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="vehicle" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
   const pdfHtml=(t.genPdfs||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="pdf" data-idx="${i}" data-type="${f.type}" data-office="${f.office}"> ${esc(f.name)}</label>`).join('');
 
   const isShaIn=t.driverType==='社員';
@@ -2323,12 +2323,12 @@ function openMailSendModal(taskId){
   if(dFilesHtml){
     attachHtml+='<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #eee"><div style="font-size:10px;color:#888;margin-bottom:4px">ドライバー書類</div>'+dFilesHtml+'</div>';
   } else {
-    attachHtml+='<div style="font-size:11px;color:#e65100;margin-bottom:6px">⚠️ ドライバーの添付ファイルがありません</div>';
+    attachHtml+='<div style="font-size:11px;color:#e65100;margin-bottom:6px">ドライバーの添付ファイルがありません</div>';
   }
   if(vFilesHtml){
     attachHtml+='<div style="margin-bottom:6px;padding-bottom:6px;border-bottom:1px solid #eee"><div style="font-size:10px;color:#888;margin-bottom:4px">車両書類'+vPlateLabel+'</div>'+vFilesHtml+'</div>';
   } else {
-    attachHtml+='<div style="font-size:11px;color:#e65100;margin-bottom:6px">⚠️ 車両の添付ファイルがありません</div>';
+    attachHtml+='<div style="font-size:11px;color:#e65100;margin-bottom:6px">車両の添付ファイルがありません</div>';
   }
   if(pdfHtml){
     attachHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;color:#888;margin-bottom:4px">生成PDF</div>'+pdfHtml+'</div>';
@@ -2476,10 +2476,10 @@ async function execMailSend(taskId){
         if(json.ok&&json.fileId){
           fileIds.push(json.fileId);
         } else {
-          alert('⚠️ PDF生成失敗: '+pdfReq.type+'\n'+(json.error||'不明なエラー'));
+          alert('PDF生成失敗: '+pdfReq.type+'\n'+(json.error||'不明なエラー'));
         }
       }catch(e){
-        alert('⚠️ PDF生成通信エラー: '+pdfReq.type+'\n'+e.message);
+        alert('PDF生成通信エラー: '+pdfReq.type+'\n'+e.message);
       }
     }
   }
@@ -2499,7 +2499,7 @@ async function execMailSend(taskId){
       t.status='sent';t.sentAt=new Date().toISOString();
       saveMailTasks();renderMailTasks();
       document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
-      alert('✅ メールを送信しました（添付 '+fileIds.length+'件）');
+      alert('メールを送信しました（添付 '+fileIds.length+'件）');
     } else {
       if(sendBtn){sendBtn.disabled=false;sendBtn.textContent='送信する';}
       alert('❌ 送信エラー: '+(json.error||'不明なエラー'));
@@ -2616,7 +2616,7 @@ async function execBulkSendByOffice(){
   }
 
   document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
-  alert('✅ 一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
+  alert('一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
 }
 
 // ====== 提出履歴 ======
@@ -2710,7 +2710,7 @@ function clearOldHistory(){
   const cutoff=new Date();cutoff.setFullYear(cutoff.getFullYear()-1);
   submitHistory=submitHistory.filter(h=>new Date(h.date)>=cutoff);
   saveHistory();renderHistory();
-  alert(`✅ ${oldCount}件削除しました`);
+  alert(`${oldCount}件削除しました`);
 }
 
 function clearAllHistory(){
@@ -2718,7 +2718,7 @@ function clearAllHistory(){
   if(!confirm(`提出履歴 ${submitHistory.length}件を全て削除しますか？\nこの操作は元に戻せません。`))return;
   submitHistory=[];
   saveHistory();renderHistory();
-  alert('✅ 全件削除しました');
+  alert('全件削除しました');
 }
 
 // ====== 書類生成ディスパッチ ======
@@ -2833,8 +2833,8 @@ async function generateDoc(office,type){
     }
 
     if(generatedFiles.length){recordHistory(office,generatedFiles,tag);}
-    prog.textContent=`✅ ${generatedFiles.length}件ダウンロードしました`;
-  }catch(e){prog.textContent='⚠️ 生成エラー: '+e.message;console.error(e);}
+    prog.textContent=`${generatedFiles.length}件ダウンロードしました`;
+  }catch(e){prog.textContent='生成エラー: '+e.message;console.error(e);}
 }
 
 async function generateAllDocs(office){
@@ -2845,7 +2845,7 @@ async function generateAllDocs(office){
     await generateDoc(office,type);
     await new Promise(r=>setTimeout(r,200));
   }
-  prog.textContent=`✅ ${office}営業所 全書類のダウンロードが完了しました`;
+  prog.textContent=`${office}営業所 全書類のダウンロードが完了しました`;
 }
 
 // ====== 印刷一覧 ======
@@ -2975,7 +2975,7 @@ function renderArchive(){
   // ドライバーセクション
   if(filterType==='全て'||filterType==='ドライバー'){
     if(driverData.length){
-      html+='<div style="font-size:11px;font-weight:600;color:#888;margin:0 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">👤 退職・休止ドライバー（'+driverData.length+'名）</div>';
+      html+='<div style="font-size:11px;font-weight:600;color:#888;margin:0 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">退職・休止ドライバー（'+driverData.length+'名）</div>';
       html+=driverData.map(d=>`
         <div class="archive-card">
           <div class="archive-card-info">
@@ -2999,7 +2999,7 @@ function renderArchive(){
   // 廃車車両セクション
   if(filterType==='全て'||filterType==='車両'){
     if(vehicleData.length){
-      html+='<div style="font-size:11px;font-weight:600;color:#888;margin:12px 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">🚗 廃車（'+vehicleData.length+'台）</div>';
+      html+='<div style="font-size:11px;font-weight:600;color:#888;margin:12px 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">廃車（'+vehicleData.length+'台）</div>';
       html+=vehicleData.map(v=>`
         <div class="archive-card">
           <div class="archive-card-info">
@@ -3196,11 +3196,11 @@ function saveVehicle(){
       let coDup=null;
       companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.plate===plate)coDup=v;});});
       if(coDup){
-        if(!confirm('⚠️ 委託会社にも同じ車両番号「'+plate+'」が登録されています。\n\nそれでも登録しますか？')) return;
+        if(!confirm('委託会社にも同じ車両番号「'+plate+'」が登録されています。\n\nそれでも登録しますか？')) return;
       }
     }
     if(dup){
-      if(!confirm('⚠️ 車両番号「'+plate+'」は既に登録されています（'+dup.office+'）。\n\nそれでも登録しますか？')) return;
+      if(!confirm('車両番号「'+plate+'」は既に登録されています（'+dup.office+'）。\n\nそれでも登録しますか？')) return;
     }
   }
 
@@ -3318,7 +3318,7 @@ function saveDriver(){
     ...existingFiles.filter(f=>(f.category||'').includes('免許')||['免許','license'].some(k=>(f.name||'').toLowerCase().includes(k)))
   ];
   if(allLicFiles.length<2 && newFiles.length>0){
-    if(!confirm('⚠️ 免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
+    if(!confirm('免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
   }
   const kana=(document.getElementById('d-sei-kana').value.trim()+' '+document.getElementById('d-mei-kana').value.trim()).trim();
   const type=document.getElementById('d-type').value;
@@ -3337,13 +3337,13 @@ function saveDriver(){
   if(!editingDriverId){
     const dup=drivers.find(d=>d.name===name&&selectedOffices.some(o=>belongsToOffice(d,o)));
     if(dup){
-      if(!confirm('⚠️ 重複の可能性があります。\n「'+name+'」は既に'+((Array.isArray(dup.offices)?dup.offices:dup.office?[dup.office]:[]).join('・'))+'営業所に登録されています。\n\nそれでも登録しますか？')) return;
+      if(!confirm('重複の可能性があります。\n「'+name+'」は既に'+((Array.isArray(dup.offices)?dup.offices:dup.office?[dup.office]:[]).join('・'))+'営業所に登録されています。\n\nそれでも登録しますか？')) return;
     }
     // 委託会社ドライバーも確認
     let coDup=null;
     companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.name===name&&selectedOffices.some(o=>(d.offices||[]).includes(o)))coDup=d;});});
     if(coDup){
-      if(!confirm('⚠️ 委託会社にも同名のドライバー「'+name+'」が登録されています。\n\nそれでも登録しますか？')) return;
+      if(!confirm('委託会社にも同名のドライバー「'+name+'」が登録されています。\n\nそれでも登録しますか？')) return;
     }
   }
 
@@ -3411,8 +3411,8 @@ async function processTopPdf(files){
     const text=(data.content||[]).map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
     let results=[];try{const p=JSON.parse(text);results=Array.isArray(p)?p:[p];}catch(e){}
     const lines=results.filter(r=>r.exp).map(r=>`${r.label||r.docType}: ${r.exp.replace(/-/g,'/')}`);
-    st.textContent=lines.length?'✅ '+lines.join(' / '):'⚠️ 読み取れませんでした';
-  }catch(e){st.textContent='⚠️ エラーが発生しました';}
+    st.textContent=lines.length?''+lines.join(' / '):'読み取れませんでした';
+  }catch(e){st.textContent='エラーが発生しました';}
 }
 
 // ====== スマホ サイドバー ======
@@ -3958,25 +3958,25 @@ function openFilePreview(url, name, dataUrl, fileId){
         const blobUrl = URL.createObjectURL(blob);
         body.innerHTML = '<iframe src="'+blobUrl+'" style="width:100%;height:70vh;border:none;display:block"></iframe>';
       }catch(e){
-        body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📄</div><div style="margin-bottom:16px">'+name+'</div></div>';
+        body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">PDF</div><div style="margin-bottom:16px">'+name+'</div></div>';
       }
     } else if(driveFileId){
       const previewUrl = 'https://drive.google.com/file/d/'+driveFileId+'/preview';
       body.innerHTML = '<iframe src="'+previewUrl+'" style="width:100%;height:70vh;border:none;display:block" allow="autoplay"></iframe>';
     } else {
-      body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:64px;margin-bottom:16px">📄</div><div style="font-size:14px;margin-bottom:8px">'+name+'</div><div style="font-size:12px;color:#aaa;margin-bottom:20px">PDFプレビューを表示できません</div>'+(url?'<a href="'+url+'" target="_blank" style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">🔗 別タブで開く</a>':'')+'</div>';
+      body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:64px;margin-bottom:16px">PDF</div><div style="font-size:14px;margin-bottom:8px">'+name+'</div><div style="font-size:12px;color:#aaa;margin-bottom:20px">PDFプレビューを表示できません</div>'+(url?'<a href="'+url+'" target="_blank" style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">別タブで開く</a>':'')+'</div>';
     }
   } else if(isImg){
     const imgSrc = src||'';
     if(driveFileId && !imgSrc.startsWith('data:')){
       const thumbUrl = 'https://drive.google.com/thumbnail?id='+driveFileId+'&sz=w800';
-      body.innerHTML = '<img src="'+thumbUrl+'" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px" onerror="this.onerror=null;this.parentElement.innerHTML=\'<div style=color:#fff;padding:32px;text-align:center>🖼️ '+name+'</div>\'"><div id="img-fallback" style="display:none"></div>';
+      body.innerHTML = '<img src="'+thumbUrl+'" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px" onerror="this.onerror=null;this.parentElement.innerHTML=\'<div style=color:#fff;padding:32px;text-align:center>IMG '+name+'</div>\'"><div id="img-fallback" style="display:none"></div>';
     } else {
-      body.innerHTML = '<img src="'+imgSrc+'" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px" onerror="this.onerror=null;this.parentElement.innerHTML=\'<div style=color:#fff;padding:32px;text-align:center>🖼️ '+name+'</div>\'"><div id="img-fallback" style="display:none"></div>';
+      body.innerHTML = '<img src="'+imgSrc+'" style="max-width:100%;max-height:70vh;object-fit:contain;display:block;margin:auto;padding:12px" onerror="this.onerror=null;this.parentElement.innerHTML=\'<div style=color:#fff;padding:32px;text-align:center>IMG '+name+'</div>\'"><div id="img-fallback" style="display:none"></div>';
     }
   } else {
     const openUrl = hasDriveUrl ? url : src;
-    body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">📎</div><div style="margin-bottom:16px">'+name+'</div>'+(openUrl?'<a href="'+openUrl+'" '+(hasDriveUrl?'target="_blank"':'download="'+name+'"')+' style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">'+(hasDriveUrl?'🔗 Google Driveで開く':'⬇ ダウンロード')+'</a>':'')+'</div>';
+    body.innerHTML = '<div style="color:#fff;padding:32px;text-align:center"><div style="font-size:48px;margin-bottom:12px">FILE</div><div style="margin-bottom:16px">'+name+'</div>'+(openUrl?'<a href="'+openUrl+'" '+(hasDriveUrl?'target="_blank"':'download="'+name+'"')+' style="color:#4a90e2;padding:10px 20px;border:1px solid #4a90e2;border-radius:6px;text-decoration:none">'+(hasDriveUrl?'Driveで開く':'ダウンロード')+'</a>':'')+'</div>';
   }
   document.getElementById('file-preview-modal').style.display = 'flex';
 }
@@ -4064,7 +4064,7 @@ function renderFilePreview(bufKey){
     const customName=f.category==='その他'?'<input type="text" value="'+(f.customName||'')+'" placeholder="書類名を入力" style="width:100%;padding:2px 4px;font-size:10px;border:1px solid #ddd;border-radius:3px;margin-top:2px" onchange="modalFiles[\''+bufKey+'\']['+i+'].customName=this.value">':'';
     return '<div style="position:relative;border:1px solid #e0e0e0;border-radius:8px;padding:6px;width:110px;background:#fff">'+
       '<div class="file-thumb" style="cursor:pointer;margin:0" onclick="openFilePreview(\'\',\''+esc(f.name)+'\',modalFiles[\''+bufKey+'\']['+i+']?.dataUrl||\'\')">'+
-        (isImg ? '<img src="'+f.dataUrl+'" alt="'+esc(f.name)+'" style="width:100%;height:60px;object-fit:cover;border-radius:4px">' : '<div style="height:60px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:4px;font-size:22px">'+(isPdf?'📄':'📎')+'</div>')+
+        (isImg ? '<img src="'+f.dataUrl+'" alt="'+esc(f.name)+'" style="width:100%;height:60px;object-fit:cover;border-radius:4px">' : '<div style="height:60px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:4px;font-size:22px">'+(isPdf?'PDF':'FILE')+'</div>')+
       '</div>'+
       '<button style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();removeModalFile(\''+bufKey+'\','+i+')">×</button>'+
       '<div style="font-size:9px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-top:4px" title="'+esc(f.name)+'">'+esc(f.name)+'</div>'+
@@ -4681,7 +4681,7 @@ function renderStorageFileView(el, allDrivers, allVehicles){
         var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
         var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
         var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w120':'');
-        var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">':'<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:20px">'+(f.name&&f.name.match(/\.pdf$/i)?'📄':'📎')+'</div>';
+        var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">':'<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:20px">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
         var catLabel=f.category||guessFileCategoryByName(f.name,'driver')||'';
         html+='<div class="file-thumb" style="cursor:pointer;width:70px" onclick="openAttachedFilePreview(\'driver\','+d.id+','+i+',\'\')" title="'+(f.name||'')+'">'+thumb+(catLabel?'<div class="file-thumb-cat">'+catLabel+'</div>':'<div class="file-thumb-name">'+(f.name||'')+'</div>')+'</div>';
       });
@@ -4701,7 +4701,7 @@ function renderStorageFileView(el, allDrivers, allVehicles){
         var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
         var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
         var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w120':'');
-        var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">':'<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:20px">'+(f.name&&f.name.match(/\.pdf$/i)?'📄':'📎')+'</div>';
+        var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">':'<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:20px">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
         var catLabel=f.category||guessFileCategoryByName(f.name,'vehicle')||'';
         html+='<div class="file-thumb" style="cursor:pointer;width:70px" onclick="openAttachedFilePreview(\'vehicle\','+v.id+','+i+',\'\')" title="'+(f.name||'')+'">'+thumb+(catLabel?'<div class="file-thumb-cat">'+catLabel+'</div>':'<div class="file-thumb-name">'+(f.name||'')+'</div>')+'</div>';
       });
@@ -4780,7 +4780,7 @@ function renderFileMgr(){
               const fid = f.fileId || (f.url && f.url.match(/\/d\/([a-zA-Z0-9_-]+)/) ? f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1] : '');
               const thumbSrc = f.dataUrl || (fid && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120' : '');
               const isImg = f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-              const thumb = thumbSrc && isImg ? `<img src="${thumbSrc}" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">` : `<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5">${f.name.match(/\.pdf$/i)?'<span style="font-size:20px">📄</span>':'<span style="font-size:20px">📎</span>'}</div>`;
+              const thumb = thumbSrc && isImg ? `<img src="${thumbSrc}" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">` : `<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5">${f.name.match(/\.pdf$/i)?'<span style="font-size:20px">PDF</span>':'<span style="font-size:20px">FILE</span>'}</div>`;
               const catLabel = f.category || guessFileCategoryByName(f.name,'driver') || '';
               return `<div class="file-thumb" style="cursor:pointer;width:70px" onclick="openAttachedFilePreview('driver',${d.id},${i},'${d._company||""}')" title="${esc(f.name)}">
               ${thumb}
@@ -4817,7 +4817,7 @@ function renderFileMgr(){
               <div class="company-card-meta">
                 ${v._office ? `営業所：${v._office}　` : ''}
                 担当：${assignedDriver ? assignedDriver.name : '未割当'}
-                ${tempDrivers.length ? `　<span style="color:#e65100;font-size:10px">⚠️ ${tempDrivers.map(d=>d.name).join('・')}が予備使用中</span>` : ''}
+                ${tempDrivers.length ? `　<span style="color:#e65100;font-size:10px">${tempDrivers.map(d=>d.name).join('・')}が予備使用中</span>` : ''}
               </div>
             </div>
             <button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload('vehicle',${v.id},'${v._company||""}')">書類追加</button>
@@ -4827,7 +4827,7 @@ function renderFileMgr(){
               const fid = f.fileId || (f.url && f.url.match(/\/d\/([a-zA-Z0-9_-]+)/) ? f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1] : '');
               const thumbSrc = f.dataUrl || (fid && f.name.match(/\.(jpg|jpeg|png|gif)$/i) ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120' : '');
               const isImg = f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-              const thumb = thumbSrc && isImg ? `<img src="${thumbSrc}" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">` : `<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5">${f.name.match(/\.pdf$/i)?'<span style="font-size:20px">📄</span>':'<span style="font-size:20px">📎</span>'}</div>`;
+              const thumb = thumbSrc && isImg ? `<img src="${thumbSrc}" style="width:70px;height:50px;object-fit:cover;border-radius:5px 5px 0 0">` : `<div style="height:50px;display:flex;align-items:center;justify-content:center;background:#f5f5f5">${f.name.match(/\.pdf$/i)?'<span style="font-size:20px">PDF</span>':'<span style="font-size:20px">FILE</span>'}</div>`;
               const catLabel = f.category || guessFileCategoryByName(f.name,'vehicle') || '';
               return `<div class="file-thumb" style="cursor:pointer;width:70px" onclick="openAttachedFilePreview('vehicle',${v.id},${i},'${v._company||""}')" title="${esc(f.name)}">
               ${thumb}
@@ -4861,7 +4861,7 @@ function renderUnassignedBox(){
     const driveThumb = f.fileId ? 'https://drive.google.com/thumbnail?id='+f.fileId+'&sz=w80' : '';
     const thumb = isImg && (f.dataUrl || driveThumb)
       ? `<img src="${f.dataUrl}" style="width:50px;height:50px;object-fit:cover;border-radius:4px;cursor:pointer" onclick="openUnassignedPreview(${i})">`
-      : `<div style="width:50px;height:50px;border-radius:4px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer" onclick="openUnassignedPreview(${i})">${isPdf?'📄':'📎'}</div>`;
+      : `<div style="width:50px;height:50px;border-radius:4px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer" onclick="openUnassignedPreview(${i})">${isPdf?'PDF':'FILE'}</div>`;
     const savedDate = f.savedAt ? new Date(f.savedAt).toLocaleDateString('ja-JP') : '';
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border-bottom:1px solid #f0f0f0">
       ${thumb}
@@ -4991,7 +4991,7 @@ function renderFileMgrAssignList(){
     const isImg = item.file.type.startsWith('image/');
     const thumb = isImg && item.preview
       ? `<img src="${item.preview}" style="width:60px;height:60px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0;flex-shrink:0">`
-      : `<div style="width:60px;height:60px;border-radius:6px;border:1px solid #e0e0e0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">📄</div>`;
+      : `<div style="width:60px;height:60px;border-radius:6px;border:1px solid #e0e0e0;background:#f5f5f5;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0">PDF</div>`;
 
     // 現在選択中の紐づけ先
     const curKind = item.targetKind;
@@ -5134,7 +5134,7 @@ async function saveFileMgr(){
 
   // 結果メッセージ
   if(unassignedCount > 0){
-    alert(`✅ ${assignedCount}件を紐づけ保存しました。\n⚠️ ${unassignedCount}件は紐づけ先が未設定のため「未分類ボックス」に保存しました。\nデータ管理ページから後で紐づけできます。`);
+    alert(`${assignedCount}件を紐づけ保存しました。\n${unassignedCount}件は紐づけ先が未設定のため「未分類ボックス」に保存しました。\nデータ管理ページから後で紐づけできます。`);
   }
   renderFileMgr();
 }
@@ -5235,7 +5235,7 @@ function renderInbox(){
       未確認・確認済 <span style="background:#e53935;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;margin-left:4px">${unread||''}</span>
     </div>
     <div onclick="inboxSetTab('registered')" style="padding:7px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid ${currentTab==='registered'?'#43a047':'transparent'};color:${currentTab==='registered'?'#43a047':'#888'};font-weight:${currentTab==='registered'?'600':'400'}">
-      ✅ 登録済 (${registered.length})
+      登録済 (${registered.length})
     </div>
   </div>`;
 
@@ -5257,7 +5257,7 @@ function renderInbox(){
             return `<img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;cursor:pointer" onclick="openFilePreviewFromAttached('','${esc(fname)}','${fdataUrl.substring(0,30)}');openInboxFilePreview(${item.id},${fi})" title="${esc(fname)}">`;
           }
           return `<div onclick="openInboxFilePreview(${item.id},${fi})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;background:#f0f4ff;border-radius:4px;font-size:10px;color:#4a90e2;cursor:pointer;border:1px solid #c5d8f8">
-            ${isPdf?'📄':'📎'} ${esc(fname)}
+            ${isPdf?'PDF':'FILE'} ${esc(fname)}
           </div>`;
         }).join('')}
       </div>` : '';
@@ -5272,29 +5272,29 @@ function renderInbox(){
             ${item.regcode?`<span style="font-size:10px;background:#f3e5f5;color:#6a1b9a;padding:1px 5px;border-radius:99px">📋 ${esc(item.regcode)}</span>`:''}
             <span style="font-size:10px;background:#e3f2fd;color:#1565c0;padding:1px 5px;border-radius:99px">${esc(item.doctype)}</span>
             ${item.status==='未確認'?'<span style="font-size:10px;background:#fff3e0;color:#e65100;padding:1px 5px;border-radius:99px">未確認</span>':''}
-            ${item.status==='登録完了'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">👤 登録完了</span>':''}
-            ${item.status==='登録済'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">✅ 登録済</span>':''}
+            ${item.status==='登録完了'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">登録完了</span>':''}
+            ${item.status==='登録済'?'<span style="font-size:10px;background:#e8f5e9;color:#2e7d32;padding:1px 5px;border-radius:99px">登録済</span>':''}
           </div>
           <div style="font-size:10px;color:#888;margin-top:2px">${new Date(item.timestamp).toLocaleString('ja-JP')}${item.note?'　'+esc(item.note):''}</div>
           ${isNew?`<div style="font-size:10px;color:#4a90e2;margin-top:2px">生年月日：${item.birth||'—'}　電話：${item.tel||'—'}</div>`:''}
-          ${item.plate?`<div style="font-size:10px;color:#555;margin-top:2px">🚗 ${esc(item.plate)}${item.vModel?' '+esc(item.vModel):''}${item.vColor?' '+esc(item.vColor):''}</div>`:''}
+          ${item.plate?`<div style="font-size:10px;color:#555;margin-top:2px">${esc(item.plate)}${item.vModel?' '+esc(item.vModel):''}${item.vColor?' '+esc(item.vColor):''}</div>`:''}
           ${filesHTML}
         </div>
         <div style="display:flex;flex-direction:column;gap:4px;flex-shrink:0">
           ${(()=>{
             // 新規登録モードの場合は登録ボタン表示
-            if(isNew && item.status!=='登録完了' && item.status!=='登録済') return `<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">👤 登録</button>`;
+            if(isNew && item.status!=='登録完了' && item.status!=='登録済') return `<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px">登録</button>`;
             // 書類更新モードだが氏名がドライバーに見つからない場合も登録ボタン表示
             if(!isNew && item.status!=='登録完了' && item.status!=='登録済'){
               const nameMatch = drivers.find(d=>d.name===item.name) || companies.flatMap(co=>co.drivers||[]).find(d=>d.name===item.name);
-              if(!nameMatch) return `<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px" title="氏名が未登録です">👤 新規登録</button>`;
+              if(!nameMatch) return `<button class="btn btn-sm btn-primary" onclick="registerFromInbox(${item.id})" style="font-size:10px" title="氏名が未登録です">新規登録</button>`;
             }
             return '';
           })()}
           ${item.status==='未確認'?`<button class="btn btn-sm" onclick="markInboxRead(${item.id})" style="font-size:10px">確認済</button>`:''}
           ${(item.files||[]).some(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl))&&item.status!=='登録済'?`<button class="btn btn-sm btn-success" onclick="saveInboxFilesToDriver(${item.id})" style="font-size:10px">保存</button>`:''}
           ${item.status==='登録済'?`<button class="btn btn-sm" onclick="restoreInboxItem(${item.id})" style="font-size:10px">復元</button>`:''}
-          ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRegistered(${item.id})" style="font-size:10px;color:#888" title="二重登録防止用">✅ 登録済にする</button>`:''}
+          ${item.status!=='登録済'?`<button class="btn btn-sm" onclick="markInboxRegistered(${item.id})" style="font-size:10px;color:#888" title="二重登録防止用">登録済にする</button>`:''}
           <button class="btn btn-sm btn-danger" onclick="deleteInboxItem(${item.id})" style="font-size:10px">削除</button>
         </div>
       </div>
@@ -5361,7 +5361,7 @@ function inboxBulkDelete(){
   localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
   localStorage.setItem('fleet_inbox_deleted',JSON.stringify(deletedIds));
   renderInbox();
-  alert('✅ '+ids.length+'件を削除しました');
+  alert(''+ids.length+'件を削除しました');
 }
 
 function inboxBulkSave(){
@@ -5420,7 +5420,7 @@ function execInboxBulkSave(ids, targetVal){
   });
   localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
   saveLocal(); saveCompanies();
-  alert('✅ '+savedCount+'件のファイルを保存しました');
+  alert(''+savedCount+'件のファイルを保存しました');
   renderInbox(); renderFileMgr();
 }
 
@@ -5500,7 +5500,7 @@ function saveInboxFilesToDriver(inboxId){
 
   // 各ファイルごとのカスケードピッカーを構築
   const filesHtml = files.map((f,i)=>{
-    const icon = f.name?.match(/\.pdf$/i)?'📄':f.name?.match(/\.(jpg|jpeg|png|gif)$/i)?'🖼️':'📎';
+    const icon = f.name?.match(/\.pdf$/i)?'PDF':f.name?.match(/\.(jpg|jpeg|png|gif)$/i)?'IMG':'FILE';
     const fid = f.fileId||'';
     const isImg = f.name?.match(/\.(jpg|jpeg|png|gif)$/i);
     const thumbSrc = fid && isImg ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w60' : '';
@@ -5586,8 +5586,8 @@ function execInboxSavePerFile(inboxId, fileCount){
     fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
   }
 
-  let msg = `✅ ${savedCount}件を保存しました。`;
-  if(skippedCount) msg += `\n⚠️ ${skippedCount}件は振り分け先が未選択のためスキップしました。`;
+  let msg = `${savedCount}件を保存しました。`;
+  if(skippedCount) msg += `\n${skippedCount}件は振り分け先が未選択のためスキップしました。`;
   alert(msg);
   renderInbox(); renderFileMgr();
 }
@@ -5626,7 +5626,7 @@ function execInboxSave(inboxId, targetVal){
   localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
   fetch(API_URL,{method:'POST',body:JSON.stringify({action:'updateInboxStatus',id:item.id,status:'登録済'})}).catch(()=>{});
 
-  alert('✅ '+files.length+'件を保存しました');
+  alert(''+files.length+'件を保存しました');
   renderInbox(); renderFileMgr();
 }
 
@@ -5674,7 +5674,7 @@ function registerFromInbox(id){
       `:`
         ${hasRegcode&&!isCompany?`
           <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:8px;padding:10px 14px;margin-bottom:12px;font-size:11px;color:#e65100">
-            ⚠️ 登録番号「${esc(item.regcode)}」に一致する委託会社が見つかりませんでした。<br>
+            登録番号「${esc(item.regcode)}」に一致する委託会社が見つかりませんでした。<br>
             下のリストから委託会社を選択するか、区分を変更してください。
           </div>
           <div class="form-group" style="margin-bottom:12px">
@@ -5877,7 +5877,7 @@ function execRegisterFromInbox(id){
   // ★ 入社メールタスクを自動生成
   createMailTask('入社', newId, item.name, isCompany?'委託':selectedType, selectedOffice, newVehicleId);
 
-  let msg = `✅ 「${item.name}」を${where}のドライバーとして登録しました。`;
+  let msg = `「${item.name}」を${where}のドライバーとして登録しました。`;
   if(newVehicleId){
     msg += `\n車両「${regPlate}」も同時に登録しました。`;
   }
@@ -6037,7 +6037,7 @@ function renderCompanyPage(companyId, pageId){
   html += '<div class="topbar" style="position:sticky;top:0;z-index:5;background:#fff">';
   html += '<h1>' + c.name + '</h1>';
   html += '<div style="display:flex;gap:6px">';
-  html += '<button class="btn btn-sm" onclick="openCompanyModal(' + c.id + ')">&#x270F;&#xFE0F; 編集</button>';
+  html += '<button class="btn btn-sm" onclick="openCompanyModal(' + c.id + ')">編集</button>';
   html += '<button class="btn btn-sm btn-danger" onclick="deleteCompany(' + c.id + ')">削除</button>';
   html += '</div></div>';
   html += '<div class="content">';
@@ -6103,47 +6103,62 @@ function updateCompanyVehicleExp(companyId,vehicleId,field,val){
 }
 
 function renderCompanyFilesTabHTML(dc, vc, companyId){
+  function thumbHtml(f,i,kind,eid){
+    var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
+    var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
+    var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w160':'');
+    var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:70px;height:70px;object-fit:cover;display:block">':'<div style="width:70px;height:70px;display:flex;align-items:center;justify-content:center;background:#e8e8e8;font-size:11px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+    return '<div style="border:1px solid #ccc;border-radius:4px;overflow:hidden;cursor:pointer;position:relative" onclick="openAttachedFilePreview(\''+kind+'\','+eid+','+i+',\'\')" title="'+(f.name||'')+'">'+thumb+'<button style="position:absolute;top:1px;right:1px;width:14px;height:14px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:9px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();deleteCompanyAttachedFile('+companyId+',\''+kind+'\','+eid+','+i+')">×</button></div>';
+  }
+
+  var dCats=[{key:'免許証（表）',label:'免許証(表)',color:'#1565C0'},{key:'免許証（裏）',label:'免許証(裏)',color:'#1565C0'},{key:'健康診断書',label:'健康診断',color:'#2e7d32'}];
+  var vCats=[{key:'車検証',label:'車検証',color:'#E65100'},{key:'自賠責',label:'自賠責',color:'#E65100'},{key:'任意保険',label:'任意保険',color:'#E65100'}];
+
   var html = '<div style="padding:4px 0">';
   if(dc.length){
-    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:4px 0 8px;padding-bottom:4px;border-bottom:1px solid #f0f0f0">&#x1F464; ドライバー</div>';
+    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:4px 0 8px;padding-bottom:4px;border-bottom:1px solid #f0f0f0">ドライバー</div>';
     dc.forEach(function(d){
-      var files = d.attachedFiles||[];
-      html += '<div style="margin-bottom:10px">';
-      html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' + d.name;
-      html += "<button class='btn btn-sm btn-primary' style='font-size:10px' onclick='openFileMgrUpload(\"driver\"," + d.id + "," + companyId + ")'>&#x1F4CE; 追加</button></div>";
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
-      if(files.length){
-        files.forEach(function(f,i){
-          var isImg = f.name && f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-          var icon = f.url ? (isImg ? '<img src="'+f.url+'" style="width:100%;height:100%;object-fit:cover">' : '&#x1F4C4;') : '&#x1F4CE;';
-          var link = f.url ? '<a href="'+f.url+'" target="_blank">'+icon+'</a>' : icon;
-          html += '<div class="file-thumb" title="'+f.name+'">'+link+'<div class="file-thumb-name">'+f.name+'</div>';
-          html += '<button class="file-thumb-del" onclick="deleteCompanyAttachedFile('+companyId+',\'driver\','+d.id+','+i+')">x</button></div>';
-        });
-      } else {
-        html += '<div style="font-size:11px;color:#888">なし</div>';
+      var af = d.attachedFiles||[];
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:12px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">' + d.name;
+      html += '<button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload(\'driver\',' + d.id + ',' + companyId + ')">追加</button></div>';
+      html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+      dCats.forEach(function(cat){
+        var files=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
+        html+='<div style="text-align:center"><div style="font-size:9px;color:#fff;background:'+cat.color+';padding:2px 8px;border-radius:4px;margin-bottom:3px">'+cat.label+'</div>';
+        if(files.length){files.forEach(function(x){html+=thumbHtml(x.f,x.i,'driver',d.id);});}
+        else{html+='<div style="width:70px;height:70px;border:1px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa">なし</div>';}
+        html+='</div>';
+      });
+      var otherFiles=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !dCats.some(function(c){return (x.f.category||'').includes(c.key);});});
+      if(otherFiles.length){
+        html+='<div style="text-align:center"><div style="font-size:9px;color:#fff;background:#888;padding:2px 8px;border-radius:4px;margin-bottom:3px">その他</div>';
+        otherFiles.forEach(function(x){html+=thumbHtml(x.f,x.i,'driver',d.id);});
+        html+='</div>';
       }
       html += '</div></div>';
     });
   }
   if(vc.length){
-    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:8px 0;padding-bottom:4px;border-bottom:1px solid #f0f0f0">&#x1F697; 車両</div>';
+    html += '<div style="font-size:11px;font-weight:600;color:#888;margin:8px 0;padding-bottom:4px;border-bottom:1px solid #f0f0f0">車両</div>';
     vc.forEach(function(v){
-      var files = v.attachedFiles||[];
-      html += '<div style="margin-bottom:10px">';
-      html += '<div style="font-size:12px;font-weight:600;margin-bottom:4px;display:flex;justify-content:space-between;align-items:center">' + v.plate;
-      html += "<button class='btn btn-sm btn-primary' style='font-size:10px' onclick='openFileMgrUpload(\"vehicle\"," + v.id + "," + companyId + ")'>&#x1F4CE; 追加</button></div>";
-      html += '<div style="display:flex;flex-wrap:wrap;gap:6px">';
-      if(files.length){
-        files.forEach(function(f,i){
-          var isImg = f.name && f.name.match(/\.(jpg|jpeg|png|gif)$/i);
-          var icon = f.url ? (isImg ? '<img src="'+f.url+'" style="width:100%;height:100%;object-fit:cover">' : '&#x1F4C4;') : '&#x1F4CE;';
-          var link = f.url ? '<a href="'+f.url+'" target="_blank">'+icon+'</a>' : icon;
-          html += '<div class="file-thumb" title="'+f.name+'">'+link+'<div class="file-thumb-name">'+f.name+'</div>';
-          html += '<button class="file-thumb-del" onclick="deleteCompanyAttachedFile('+companyId+',\'vehicle\','+v.id+','+i+')">x</button></div>';
-        });
-      } else {
-        html += '<div style="font-size:11px;color:#888">なし</div>';
+      var af = v.attachedFiles||[];
+      html += '<div style="margin-bottom:14px">';
+      html += '<div style="font-size:12px;font-weight:600;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">' + v.plate + ' <span style="font-size:10px;color:#888;font-weight:400">'+(v.model||'')+'</span>';
+      html += '<button class="btn btn-sm btn-primary" style="font-size:10px" onclick="openFileMgrUpload(\'vehicle\',' + v.id + ',' + companyId + ')">追加</button></div>';
+      html += '<div style="display:flex;gap:12px;flex-wrap:wrap">';
+      vCats.forEach(function(cat){
+        var files=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
+        html+='<div style="text-align:center"><div style="font-size:9px;color:#fff;background:'+cat.color+';padding:2px 8px;border-radius:4px;margin-bottom:3px">'+cat.label+'</div>';
+        if(files.length){files.forEach(function(x){html+=thumbHtml(x.f,x.i,'vehicle',v.id);});}
+        else{html+='<div style="width:70px;height:70px;border:1px dashed #ccc;border-radius:4px;display:flex;align-items:center;justify-content:center;font-size:9px;color:#aaa">なし</div>';}
+        html+='</div>';
+      });
+      var vOther=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !vCats.some(function(c){return (x.f.category||'').includes(c.key);});});
+      if(vOther.length){
+        html+='<div style="text-align:center"><div style="font-size:9px;color:#fff;background:#888;padding:2px 8px;border-radius:4px;margin-bottom:3px">その他</div>';
+        vOther.forEach(function(x){html+=thumbHtml(x.f,x.i,'vehicle',v.id);});
+        html+='</div>';
       }
       html += '</div></div>';
     });
@@ -6316,7 +6331,7 @@ function saveCompanyDriver(){
     ...existingFiles.filter(f=>(f.category||'').includes('免許')||['免許','license'].some(k=>(f.name||'').toLowerCase().includes(k)))
   ];
   if(allLicFiles.length<2 && newFiles.length>0){
-    if(!confirm('⚠️ 免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
+    if(!confirm('免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
   }
   const kana=(document.getElementById('cd-sei-kana').value.trim()+' '+document.getElementById('cd-mei-kana').value.trim()).trim();
   const selectedOffices=getSelectedOffices('cd-offices');
@@ -6474,14 +6489,14 @@ async function testAiKey(){
       headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:10,messages:[{role:'user',content:'ping'}]})
     });
-    if(res.ok){ st.textContent='✅ 接続OK'; st.style.color='#2e7d32'; }
+    if(res.ok){ st.textContent='接続OK'; st.style.color='#2e7d32'; }
     else { const err=await res.json(); st.textContent='❌ '+((err.error||{}).message||res.status); st.style.color='#e53935'; }
   }catch(e){ st.textContent='❌ 通信エラー: '+e.message; st.style.color='#e53935'; }
 }
 
 async function aiReadDocument(target){
   const key = getAiApiKey();
-  if(!key){ alert('⚠️ Claude APIキーが未設定です。\n設定 → AI書類読み取り設定でAPIキーを入力してください。'); return; }
+  if(!key){ alert('Claude APIキーが未設定です。\n設定 → AI書類読み取り設定でAPIキーを入力してください。'); return; }
 
   // 対象モーダルのファイルバッファからdataUrlを取得
   const bufMap = {
@@ -6490,13 +6505,13 @@ async function aiReadDocument(target){
   };
   const bufKey = bufMap[target];
   const files = modalFiles[bufKey] || [];
-  if(!files.length){ alert('⚠️ まずファイル（画像/PDF）を添付してください。'); return; }
+  if(!files.length){ alert('まずファイル（画像/PDF）を添付してください。'); return; }
 
   // 最初の画像ファイルを使用
   const imgFile = files.find(f => f.type?.startsWith('image/'));
   const pdfFile = files.find(f => f.type === 'application/pdf');
   const sourceFile = imgFile || pdfFile;
-  if(!sourceFile || !sourceFile.dataUrl){ alert('⚠️ 画像またはPDFファイルを添付してください。'); return; }
+  if(!sourceFile || !sourceFile.dataUrl){ alert('画像またはPDFファイルを添付してください。'); return; }
 
   const btn = document.getElementById('ai-btn-'+target);
   const resultEl = document.getElementById('ai-result-'+target);
@@ -6587,7 +6602,7 @@ JSONのみ出力してください。`;
 
     const filledCount = Object.values(parsed).filter(v=>v).length;
     resultEl.className='ai-result-bar show ok';
-    resultEl.textContent=`✅ ${docType}から${filledCount}項目を読み取りました。内容を確認してください。`;
+    resultEl.textContent=`${docType}から${filledCount}項目を読み取りました。内容を確認してください。`;
 
   }catch(e){
     console.error('AI読み取りエラー:',e);
@@ -6658,7 +6673,7 @@ function saveMailSettings(){
     if(el && el.value.trim()) settings[office] = el.value.trim();
   });
   localStorage.setItem('fleet_mail_settings', JSON.stringify(settings));
-  alert('✅ メール設定を保存しました');
+  alert('メール設定を保存しました');
 }
 function renderMailSettings(){
   const settings = getMailSettings();
@@ -6809,7 +6824,7 @@ function mailToggleDriver(idx){
 
 async function sendMail(){
   const to = document.getElementById('mail-to').value.trim();
-  if(!to){ alert('⚠️ 宛先メールアドレスを入力してください'); return; }
+  if(!to){ alert('宛先メールアドレスを入力してください'); return; }
   const cc = document.getElementById('mail-cc').value.trim();
   const subject = document.getElementById('mail-subject').value.trim();
   const body = document.getElementById('mail-body').value;
@@ -6872,7 +6887,7 @@ async function sendMail(){
     });
     const json = await res.json();
     if(json.ok){
-      alert('✅ メールを送信しました（添付 '+fileIds.length+'件）');
+      alert('メールを送信しました（添付 '+fileIds.length+'件）');
       closeModal('mail-modal');
       const tag = document.getElementById('doc-tag')?.value||'定期（3ヶ月）';
       recordHistory(office, [{name:'メール送信_'+subject, fileIds:fileIds}], tag);
@@ -6891,7 +6906,7 @@ async function sendMailAllOffices(){
   const settings = getMailSettings();
   const targetOffices = getDocOffices().filter(o => settings[o]);
   if(!targetOffices.length){
-    alert('⚠️ メールアドレスが設定されている営業所がありません。\n設定ページでメールアドレスを登録してください。');
+    alert('メールアドレスが設定されている営業所がありません。\n設定ページでメールアドレスを登録してください。');
     return;
   }
   const list = targetOffices.map(o => o+'→'+settings[o]).join('\n');
@@ -6952,7 +6967,7 @@ async function sendMailAllOffices(){
     }catch(e){ errorCount++; }
   }
 
-  alert('✅ 一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
+  alert('一括送信完了\n成功: '+successCount+'件 / エラー: '+errorCount+'件');
   const tag = document.getElementById('doc-tag')?.value||'定期（3ヶ月）';
   targetOffices.forEach(o=>recordHistory(o, [{name:'一括メール送信'}], tag));
 }
