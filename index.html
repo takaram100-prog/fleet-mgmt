@@ -1694,32 +1694,25 @@ function buildVehicleDetailRow(v, af){
   var vCats=[{key:'車検証',label:'車検証'},{key:'自賠責',label:'自賠責'},{key:'任意保険',label:'任意保険'}];
   var dCats=[{key:'免許証（表）',label:'免許(表)'},{key:'免許証（裏）',label:'免許(裏)'},{key:'健康診断書',label:'健康診断'}];
 
-  // 車両書類（橙）を左、ドライバー書類（青・緑）を右に配置
-  var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">';
-  // 車両書類グループ
-  html+='<div style="display:flex;gap:8px;align-items:flex-start">';
+  var html='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">';
   vCats.forEach(function(cat){
     var files=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
     html+=catBlock(cat.label,'#E65100',files,'vehicle',v.id);
   });
   var vOther=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !vCats.some(function(c){return (x.f.category||'').includes(c.key);});});
   if(vOther.length) html+=catBlock('その他','#888',vOther,'vehicle',v.id);
-  html+='</div>';
 
-  // ドライバー書類グループ（右寄せ）
   if(v.driverId){
     var dr=drivers.find(function(d){return d.id==v.driverId;});
     if(dr){
       var daf=dr.attachedFiles||[];
-      html+='<div style="display:flex;gap:8px;align-items:flex-start">';
-      html+='<div style="font-size:9px;color:#888;writing-mode:vertical-rl;text-orientation:mixed;padding-right:2px">'+dr.name+'</div>';
+      html+='<div style="border-left:2px solid #ddd;padding-left:8px;display:flex;gap:8px;align-items:flex-start">';
+      html+='<div style="font-size:9px;color:#888;writing-mode:vertical-rl;text-orientation:mixed">'+dr.name+'</div>';
       dCats.forEach(function(cat){
         var files=daf.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
         var color=cat.key.includes('健康')?'#2e7d32':'#1565C0';
         html+=catBlock(cat.label,color,files,'driver',dr.id);
       });
-      var dOther=daf.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !dCats.some(function(c){return (x.f.category||'').includes(c.key);});});
-      if(dOther.length) html+=catBlock('その他','#2e7d32',dOther,'driver',dr.id);
       html+='</div>';
     }
   }
@@ -1798,11 +1791,7 @@ function buildDriverDetailRow(d, af){
   var vCats=[{key:'車検証',label:'車検証'},{key:'自賠責',label:'自賠責'},{key:'任意保険',label:'任意保険'}];
   var cv=vehicles.find(function(v){return v.driverId&&String(v.driverId)===String(d.id);})||vehicles.find(function(v){return v.driver===d.name;});
 
-  // ドライバー書類（青・緑）を左、車両書類（橙）を右
-  var html='<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;flex-wrap:wrap">';
-
-  // ドライバー書類グループ（左）
-  html+='<div style="display:flex;gap:8px;align-items:flex-start">';
+  var html='<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start">';
   dCats.forEach(function(cat){
     var files=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
     var color=cat.key.includes('健康')?'#2e7d32':'#1565C0';
@@ -1810,22 +1799,17 @@ function buildDriverDetailRow(d, af){
   });
   var otherFiles=af.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !dCats.some(function(c){return (x.f.category||'').includes(c.key);});});
   if(otherFiles.length) html+=catBlock('その他','#888',otherFiles,'driver',d.id);
-  html+='</div>';
 
-  // 車両書類グループ（右寄せ）
   if(cv){
     var vaf=cv.attachedFiles||[];
-    html+='<div style="display:flex;gap:8px;align-items:flex-start">';
-    html+='<div style="font-size:9px;color:#888;writing-mode:vertical-rl;text-orientation:mixed;padding-right:2px">'+cv.plate+'</div>';
+    html+='<div style="border-left:2px solid #ddd;padding-left:8px;display:flex;gap:8px;align-items:flex-start">';
+    html+='<div style="font-size:9px;color:#888;writing-mode:vertical-rl;text-orientation:mixed">'+cv.plate+'</div>';
     vCats.forEach(function(cat){
       var files=vaf.map(function(f,i){return {f:f,i:i};}).filter(function(x){return (x.f.category||'').includes(cat.key);});
       html+=catBlock(cat.label,'#E65100',files,'vehicle',cv.id);
     });
-    var vOther=vaf.map(function(f,i){return {f:f,i:i};}).filter(function(x){return !vCats.some(function(c){return (x.f.category||'').includes(c.key);});});
-    if(vOther.length) html+=catBlock('その他','#E65100',vOther,'vehicle',cv.id);
     html+='</div>';
   }
-
   html+='</div>';
   return html;
 }
