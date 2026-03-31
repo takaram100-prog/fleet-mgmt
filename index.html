@@ -4056,7 +4056,54 @@ async function uploadFilesToDrive(files, folder, subFolder){
 }
 
 // ★ データ管理ページのレンダー
-// カテゴリ変更ピッカー
+// ドラッグ＆ドロップでカテゴリ割り当て
+function startCatDrag(event, kind, ownerId, fileIdx){
+  event.dataTransfer.setData('text/plain', JSON.stringify({kind:kind, ownerId:ownerId, fileIdx:fileIdx}));
+  event.dataTransfer.effectAllowed='move';
+  setTimeout(function(){
+    document.querySelectorAll('.cat-drop-zone').forEach(function(z){
+      z.style.borderWidth='2px';
+      z.style.transform='scale(1.02)';
+    });
+  },50);
+  // ドラッグ終了時にハイライト解除
+  event.target.addEventListener('dragend',function(){
+    document.querySelectorAll('.cat-drop-zone').forEach(function(z){
+      z.style.transform='';
+      z.style.borderStyle='dashed';
+      z.style.background=z.dataset.kind==='driver'?'#e8f0fe':'#fff3e0';
+    });
+  },{once:true});
+}
+
+function handleCatDrop(event, zone){
+  event.preventDefault();
+  zone.style.borderStyle='dashed';
+  zone.style.background=zone.dataset.kind==='driver'?'#e8f0fe':'#fff3e0';
+  document.querySelectorAll('.cat-drop-zone').forEach(function(z){z.style.transform='';});
+
+  var data;
+  try{ data=JSON.parse(event.dataTransfer.getData('text/plain')); }catch(e){return;}
+
+  // 同じ種別のみ受け付け
+  if(data.kind!==zone.dataset.kind) return;
+
+  var newCat=zone.dataset.cat;
+  var kind=data.kind;
+  var ownerId=Number(data.ownerId);
+  var fileIdx=Number(data.fileIdx);
+
+  // 「その他」の場合はカスタム名を入力
+  if(newCat==='その他'){
+    var customName=prompt('書類名を入力してください（例：住民票、誓約書 等）');
+    if(!customName) return;
+    newCat='その他('+customName+')';
+  }
+
+  applyCatChange(kind, ownerId, fileIdx, newCat);
+}
+
+// カテゴリ変更ピッカー（クリックUI）
 function openCatPicker(kind, ownerId, fileIdx, labelEl){
   // 既存ピッカーを閉じる
   document.querySelectorAll('.cat-picker-popup').forEach(e=>e.remove());
@@ -4272,18 +4319,26 @@ function renderStorage(){
       cardHtml+='<div><span style="color:#666;font-weight:500">免許条件</span> '+(d.license?.cond||'—')+'</div>';
       cardHtml+='</div>';
 
-      // ドライバー書類サムネ
+      // ドライバー書類サムネ + カテゴリドロップゾーン
+      const dCats=['免許証（表）','免許証（裏）','健康診断書','その他'];
+      cardHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">';
+      dCats.forEach(function(cat){
+        var count=af.filter(function(f){return f.category===cat;}).length;
+        cardHtml+='<div class="cat-drop-zone" data-cat="'+cat+'" data-kind="driver" data-owner="'+d.id+'" style="padding:4px 10px;border-radius:6px;font-size:10px;font-weight:500;border:2px dashed #1565C0;color:#1565C0;background:#e8f0fe;cursor:default;transition:all .15s" ondragover="event.preventDefault();this.style.background=\'#bbdefb\';this.style.borderStyle=\'solid\'" ondragleave="this.style.background=\'#e8f0fe\';this.style.borderStyle=\'dashed\'" ondrop="handleCatDrop(event,this)">'+cat+(count?' ('+count+')':'')+'</div>';
+      });
+      cardHtml+='</div>';
+
       if(af.length){
         cardHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px">';
         af.forEach(function(f,i){
           var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
           var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
           var thumbSrc=f.dataUrl||(fid&&isImg?'https://drive.google.com/thumbnail?id='+fid+'&sz=w200':'');
-          var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#e0e0e0;font-size:12px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+          var thumb=thumbSrc&&isImg?'<img src="'+thumbSrc+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" draggable="false">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#e0e0e0;font-size:12px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
           var cat=f.category||guessFileCategoryByName(f.name,'driver')||'';
           var catLabel=cat||'未分類';
           var catBg=cat?'#1565C0':'#999';
-          cardHtml+='<div style="border:1px solid #aaa;border-radius:6px;overflow:hidden;cursor:pointer;background:#fff">';
+          cardHtml+='<div draggable="true" ondragstart="startCatDrag(event,\'driver\','+d.id+','+i+')" style="border:1px solid #aaa;border-radius:6px;overflow:hidden;cursor:grab;background:#fff">';
           cardHtml+='<div onclick="openAttachedFilePreview(\'driver\','+d.id+','+i+',\'\')">'+thumb+'</div>';
           cardHtml+='<div style="font-size:9px;background:'+catBg+';color:#fff;padding:3px 4px;text-align:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="event.stopPropagation();openCatPicker(\'driver\','+d.id+','+i+',this)" title="クリックでカテゴリ変更">'+catLabel+'</div>';
           cardHtml+='</div>';
@@ -4301,19 +4356,27 @@ function renderStorage(){
         cardHtml+='<span style="font-size:9px;padding:1px 5px;border-radius:99px;'+expBadgeStyle(cv.jibai?.exp)+'">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(2).replace(/-/g,'/'):'—')+'</span>';
         cardHtml+='<span style="font-size:9px;padding:1px 5px;border-radius:99px;'+expBadgeStyle(cv.nin?.exp)+'">任意 '+(cv.nin?.exp?cv.nin.exp.slice(2).replace(/-/g,'/'):'—')+'</span>';
         cardHtml+='</div></div>';
-        // 車両書類サムネ
+        // 車両書類サムネ + カテゴリドロップゾーン
         var vaf=cv.attachedFiles||[];
+        var vCats=['車検証','自賠責','任意保険','その他'];
+        cardHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:6px 0 4px">';
+        vCats.forEach(function(cat){
+          var count=vaf.filter(function(f){return f.category===cat;}).length;
+          cardHtml+='<div class="cat-drop-zone" data-cat="'+cat+'" data-kind="vehicle" data-owner="'+cv.id+'" style="padding:3px 8px;border-radius:5px;font-size:9px;font-weight:500;border:2px dashed #E65100;color:#E65100;background:#fff3e0;cursor:default;transition:all .15s" ondragover="event.preventDefault();this.style.background=\'#ffccbc\';this.style.borderStyle=\'solid\'" ondragleave="this.style.background=\'#fff3e0\';this.style.borderStyle=\'dashed\'" ondrop="handleCatDrop(event,this)">'+cat+(count?' ('+count+')':'')+'</div>';
+        });
+        cardHtml+='</div>';
+
         if(vaf.length){
-          cardHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:6px">';
+          cardHtml+='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:4px;margin-top:4px">';
           vaf.forEach(function(f,i){
             var fid2=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
             var isImg2=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
             var thumbSrc2=f.dataUrl||(fid2&&isImg2?'https://drive.google.com/thumbnail?id='+fid2+'&sz=w160':'');
-            var thumb2=thumbSrc2&&isImg2?'<img src="'+thumbSrc2+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#ddd;font-size:11px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
+            var thumb2=thumbSrc2&&isImg2?'<img src="'+thumbSrc2+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" draggable="false">':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#ddd;font-size:11px;color:#666">'+(f.name&&f.name.match(/\.pdf$/i)?'PDF':'FILE')+'</div>';
             var cat2=f.category||guessFileCategoryByName(f.name,'vehicle')||'';
             var catLabel2=cat2||'未分類';
             var catBg2=cat2?'#E65100':'#999';
-            cardHtml+='<div style="border:1px solid #999;border-radius:5px;overflow:hidden;cursor:pointer;background:#fff">';
+            cardHtml+='<div draggable="true" ondragstart="startCatDrag(event,\'vehicle\','+cv.id+','+i+')" style="border:1px solid #999;border-radius:5px;overflow:hidden;cursor:grab;background:#fff">';
             cardHtml+='<div onclick="openAttachedFilePreview(\'vehicle\','+cv.id+','+i+',\'\')">'+thumb2+'</div>';
             cardHtml+='<div style="font-size:8px;background:'+catBg2+';color:#fff;padding:2px 3px;text-align:center;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" onclick="event.stopPropagation();openCatPicker(\'vehicle\','+cv.id+','+i+',this)" title="クリックでカテゴリ変更">'+catLabel2+'</div>';
             cardHtml+='</div>';
