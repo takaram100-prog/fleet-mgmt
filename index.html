@@ -482,6 +482,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="nav-group-body" id="nav-grp-docs" style="max-height:200px">
           <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
           <div class="nav-item" onclick="showPage('mail',this)" data-page="mail"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>メール <span id="mail-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span><span id="inbox-nav-badge" style="background:#fb8c00;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
+          <div class="nav-item" onclick="showPage('templates',this)" data-page="templates"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M5 1v3h4V1"/><path d="M4 7h6M4 9.5h4"/></svg>テンプレート書類</div>
         </div>
 
         <div class="nav-group-header" onclick="toggleNavGroup('nav-grp-other')">その他 <span class="nav-group-arrow" id="nav-grp-other-arrow">▶</span></div>
@@ -565,6 +566,22 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
             <button class="btn btn-primary" onclick="sendMailAllOffices()" style="font-size:12px">全営業所に一括送信</button>
           </div>
           <div class="doc-gen-grid" id="doc-office-cards"></div>
+        </div>
+      </div>
+      <div id="page-templates" class="page">
+        <div class="topbar"><h1>テンプレート書類</h1></div>
+        <div class="content">
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap">
+            <label style="font-size:12px;font-weight:600">委託会社:</label>
+            <select id="tpl-company" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;min-width:200px" onchange="renderTemplates()">
+              <option value="">会社を選択</option>
+            </select>
+            <label style="font-size:12px;font-weight:600;margin-left:8px">営業所:</label>
+            <select id="tpl-office" style="padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;min-width:140px">
+              <option value="">選択</option>
+            </select>
+          </div>
+          <div id="tpl-list"></div>
         </div>
       </div>
       <div id="page-storage" class="page">
@@ -3159,6 +3176,7 @@ function showPage(name,el){
   if(name==='vehicles'){document.getElementById('vehicle-office-label').textContent='';renderVehicles(null);}
   if(name==='drivers')renderDrivers(null);
   if(name==='documents'){setTodayDate();renderDocPage();}
+  if(name==='templates'){initTemplatesPage();}
   if(name==='print'){rebuildPrintSelect();renderPrint();}
   if(name==='mail'){renderMailTasks();renderInbox();}
   if(name==='history')renderHistory();
@@ -7237,6 +7255,261 @@ setTodayDate();
 drivers=dedup(drivers);vehicles=dedup(vehicles);
 companies.forEach(c=>{c.drivers=dedup(c.drivers||[]);c.vehicles=dedup(c.vehicles||[]);});
 initSelfForm();
+// ===== テンプレート書類管理 =====
+const TPL_DEFS=[
+  {id:'tpl1',name:'誓約書（再委託先様）',fileName:'マスタ2_1誓約書_再委託先様_.docx',target:'sub',desc:'委託会社の情報を差し込み'},
+  {id:'tpl2',name:'誓約書（大阪急配様）',fileName:'マスタ2_1誓約書_大阪急配様_.docx',target:'self',desc:'大阪急配の情報（固定）'},
+  {id:'tpl3',name:'適合証明書（再委託先様）',fileName:'マスタ2_2適合証明書_再委託先様_.docx',target:'sub',desc:'委託会社の情報を差し込み'},
+  {id:'tpl4',name:'適合証明書（大阪急配様）',fileName:'マスタ2_2適合証明書_大阪急配様_.docx',target:'self',desc:'大阪急配の情報（固定）'},
+  {id:'tpl5',name:'再委託承認願',fileName:'マスタ2_4再委託承認願.docx',target:'both',desc:'委託会社+営業所情報を差し込み'}
+];
+let tplFiles=JSON.parse(localStorage.getItem('fleet_tpl_files')||'{}');
+
+function initTemplatesPage(){
+  var sel=document.getElementById('tpl-company');
+  if(!sel)return;
+  sel.innerHTML='<option value="">委託会社を選択</option>'+companies.map(c=>'<option value="'+c.id+'">'+c.name+'</option>').join('');
+  var oSel=document.getElementById('tpl-office');
+  if(oSel) oSel.innerHTML='<option value="">選択</option>'+offices.map(o=>'<option>'+o+'</option>').join('');
+  renderTemplates();
+}
+
+function renderTemplates(){
+  var el=document.getElementById('tpl-list');if(!el)return;
+  var coId=document.getElementById('tpl-company')?.value;
+  var co=coId?companies.find(c=>c.id==coId):null;
+
+  var html='';
+  // テンプレートアップロードセクション
+  html+='<div style="background:#f7f8fa;border:1px solid #e0e0e0;border-radius:8px;padding:12px 16px;margin-bottom:16px">';
+  html+='<div style="font-size:12px;font-weight:600;margin-bottom:8px">テンプレートファイル管理</div>';
+  html+='<div style="font-size:11px;color:#888;margin-bottom:8px">docxテンプレートをアップロードすると、委託会社情報を差し込んで書類を生成できます。</div>';
+  html+='<div style="display:flex;gap:8px;flex-wrap:wrap">';
+  TPL_DEFS.forEach(function(t){
+    var stored=tplFiles[t.id];
+    var statusColor=stored?'#2e7d32':'#e53935';
+    var statusText=stored?'✓ 登録済':'未登録';
+    html+='<div style="background:#fff;border:1px solid #ddd;border-radius:6px;padding:6px 10px;font-size:11px;min-width:180px">';
+    html+='<div style="font-weight:600;margin-bottom:2px">'+t.name+'</div>';
+    html+='<div style="color:'+statusColor+';font-size:10px;margin-bottom:4px">'+statusText+'</div>';
+    html+='<label style="cursor:pointer;color:#4a90e2;font-size:10px"><input type="file" accept=".docx" style="display:none" onchange="uploadTplFile(\''+t.id+'\',this.files[0])">アップロード</label>';
+    if(stored) html+=' <span style="cursor:pointer;color:#e53935;font-size:10px;margin-left:8px" onclick="deleteTplFile(\''+t.id+'\')">削除</span>';
+    html+='</div>';
+  });
+  html+='</div></div>';
+
+  // 生成セクション
+  if(!co){
+    html+='<div style="padding:24px;text-align:center;color:#888;font-size:12px">委託会社を選択すると、テンプレート書類を生成できます。</div>';
+    el.innerHTML=html;return;
+  }
+
+  html+='<div style="font-size:13px;font-weight:600;margin-bottom:8px">'+co.name+' の書類生成</div>';
+  html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px">';
+  TPL_DEFS.forEach(function(t){
+    var stored=tplFiles[t.id];
+    var canGen=!!stored;
+    var targetLabel=t.target==='sub'?'<span style="background:#E65100;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">再委託先</span>':t.target==='self'?'<span style="background:#1565C0;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">大阪急配</span>':'<span style="background:#6A1B9A;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">両方</span>';
+    html+='<div style="background:#fff;border:1px solid #ddd;border-radius:8px;padding:12px;display:flex;flex-direction:column;gap:6px">';
+    html+='<div style="display:flex;justify-content:space-between;align-items:center"><div style="font-weight:600;font-size:12px">'+t.name+'</div>'+targetLabel+'</div>';
+    html+='<div style="font-size:10px;color:#888">'+t.desc+'</div>';
+    html+='<div style="display:flex;gap:6px;margin-top:auto">';
+    if(canGen){
+      html+='<button class="btn btn-sm btn-primary" style="font-size:10px;flex:1" onclick="generateTemplate(\''+t.id+'\','+co.id+')">生成・DL</button>';
+      html+='<button class="btn btn-sm" style="font-size:10px" onclick="previewTplOriginal(\''+t.id+'\')">原本DL</button>';
+    } else {
+      html+='<div style="font-size:10px;color:#e53935;padding:4px 0">テンプレート未登録</div>';
+    }
+    html+='</div></div>';
+  });
+  html+='</div>';
+
+  // 一括生成ボタン
+  var allStored=TPL_DEFS.every(function(t){return !!tplFiles[t.id];});
+  if(allStored){
+    html+='<div style="margin-top:12px;text-align:right">';
+    html+='<button class="btn btn-primary" onclick="generateAllTemplates('+co.id+')">全テンプレート一括生成</button>';
+    html+='</div>';
+  }
+
+  el.innerHTML=html;
+}
+
+function uploadTplFile(tplId, file){
+  if(!file) return;
+  var reader=new FileReader();
+  reader.onload=function(e){
+    tplFiles[tplId]=e.target.result; // data URL
+    localStorage.setItem('fleet_tpl_files',JSON.stringify(tplFiles));
+    renderTemplates();
+  };
+  reader.readAsDataURL(file);
+}
+
+function deleteTplFile(tplId){
+  if(!confirm('このテンプレートを削除しますか？'))return;
+  delete tplFiles[tplId];
+  localStorage.setItem('fleet_tpl_files',JSON.stringify(tplFiles));
+  renderTemplates();
+}
+
+function previewTplOriginal(tplId){
+  var dataUrl=tplFiles[tplId];
+  if(!dataUrl) return;
+  var tpl=TPL_DEFS.find(t=>t.id===tplId);
+  var blob=dataURLtoBlob(dataUrl);
+  var url=URL.createObjectURL(blob);
+  var a=document.createElement('a');
+  a.href=url;a.download=tpl?tpl.fileName:'template.docx';a.click();
+  URL.revokeObjectURL(url);
+}
+
+function dataURLtoBlob(dataUrl){
+  var parts=dataUrl.split(',');
+  var mime=parts[0].match(/:(.*?);/)[1];
+  var b64=atob(parts[1]);
+  var arr=new Uint8Array(b64.length);
+  for(var i=0;i<b64.length;i++) arr[i]=b64.charCodeAt(i);
+  return new Blob([arr],{type:mime});
+}
+
+async function generateTemplate(tplId, companyId){
+  var dataUrl=tplFiles[tplId];
+  if(!dataUrl){alert('テンプレートが登録されていません');return;}
+  var tpl=TPL_DEFS.find(t=>t.id===tplId);
+  var co=companies.find(c=>c.id==companyId);
+  if(!co){alert('委託会社が選択されていません');return;}
+
+  try{
+    // JSZip読み込み確認
+    if(typeof JSZip==='undefined'){
+      await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js');
+    }
+
+    var blob=dataURLtoBlob(dataUrl);
+    var zip=await JSZip.loadAsync(blob);
+    var docXml=await zip.file('word/document.xml').async('string');
+
+    // 会社情報の差し込み
+    var office=document.getElementById('tpl-office')?.value||'';
+    var today=new Date();
+    var year=today.getFullYear();
+    var month=today.getMonth()+1;
+    var day=today.getDate();
+
+    if(tpl.target==='sub'){
+      // 再委託先テンプレート: 委託会社データを差し込み
+      docXml=tplReplace(docXml,'（住　　所）',co.addr||'');
+      docXml=tplReplace(docXml,'（会社名）',co.name||'');
+      docXml=tplReplace(docXml,'（ふりがな）',co.repKana||'');
+      docXml=tplReplace(docXml,'（代表者名）',co.rep||'');
+      // 生年月日
+      if(co.repBirth){
+        var bp=co.repBirth.split('-');
+        docXml=tplReplace(docXml,' 年 月 日',bp[0]+'年 '+parseInt(bp[1])+'月 '+parseInt(bp[2])+'日');
+      }
+      // 日付
+      docXml=tplReplace(docXml,'　　日','　'+day+'日');
+      // 社員数
+      var empCount=(co.drivers||[]).length||1;
+      docXml=tplReplace(docXml,'（１）人','（'+empCount+'）人');
+    }
+
+    if(tpl.target==='both'){
+      // 再委託承認願: 委託会社情報を差し込み
+      // 営業所局長名
+      if(office){
+        docXml=tplReplace(docXml,'西成郵便局長',office+'郵便局長');
+      }
+      // 再委託先情報（セクション1〜2）
+      var repBirth='';
+      if(co.repBirth){var bp2=co.repBirth.split('-');repBirth=bp2[0]+'年'+parseInt(bp2[1])+'月'+parseInt(bp2[2])+'日';}
+      docXml=tplReplace(docXml,'氏名（ふりがな）　西暦生年月日',(co.rep||'')+'（'+(co.repKana||'')+'）　'+repBirth);
+      docXml=tplReplace(docXml,'住所　連絡先',(co.addr||'')+'　'+(co.tel||''));
+      // 受持地域
+      if(office) docXml=tplReplace(docXml,'西成区全域',office+'管内');
+      // 日付
+      docXml=tplReplace(docXml,'　 日','　'+day+'日');
+    }
+
+    zip.file('word/document.xml',docXml);
+    var outBlob=await zip.generateAsync({type:'blob'});
+
+    // ダウンロード
+    var fileName=(co.name||'委託先')+'_'+tpl.name+'_'+year+month.toString().padStart(2,'0')+day.toString().padStart(2,'0')+'.docx';
+    var url=URL.createObjectURL(outBlob);
+    var a=document.createElement('a');
+    a.href=url;a.download=fileName;a.click();
+    URL.revokeObjectURL(url);
+
+    // Driveにもアップロード
+    var reader=new FileReader();
+    reader.onload=async function(ev){
+      try{
+        var res=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+          action:'uploadFile',folder:office||'テンプレート',subFolder:co.name,
+          fileName:fileName,mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          dataUrl:ev.target.result
+        })});
+        var data=await res.json();
+        if(data.ok){
+          // 会社の添付ファイルに追加
+          if(!co.attachedFiles)co.attachedFiles=[];
+          co.attachedFiles.push({name:fileName,fileId:data.fileId,url:data.url,category:'テンプレート書類',uploadedAt:new Date().toISOString()});
+          saveCompanies();
+        }
+      }catch(e){console.log('Drive upload failed:',e);}
+    };
+    reader.readAsDataURL(outBlob);
+
+  }catch(e){
+    console.error('Template generation error:',e);
+    alert('テンプレート生成エラー: '+e.message);
+  }
+}
+
+async function generateAllTemplates(companyId){
+  for(var i=0;i<TPL_DEFS.length;i++){
+    if(tplFiles[TPL_DEFS[i].id]){
+      await generateTemplate(TPL_DEFS[i].id,companyId);
+      await new Promise(r=>setTimeout(r,500)); // ダウンロード間隔
+    }
+  }
+}
+
+// XMLテキスト内の差し込み（ランをまたぐ場合にも対応）
+function tplReplace(xml,search,replace){
+  // まず単純置換を試行
+  if(xml.includes(search)) return xml.split(search).join(replace);
+  // XMLタグをまたいでいる場合: タグを除去して検索
+  var plain=xml.replace(/<[^>]+>/g,'');
+  if(!plain.includes(search)) return xml;
+  // 文字単位で分割された場合の処理
+  var chars=search.split('');
+  var regex='';
+  chars.forEach(function(c,i){
+    regex+=escRegex(c);
+    if(i<chars.length-1) regex+='(?:</w:t></w:r><w:r[^>]*><w:t[^>]*>|</w:t></w:r><w:r><w:rPr>[^<]*</w:rPr><w:t[^>]*>)*';
+  });
+  try{
+    var re=new RegExp(regex);
+    var m=xml.match(re);
+    if(m) return xml.replace(m[0],replace);
+  }catch(e){}
+  return xml;
+}
+
+function escRegex(s){return s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');}
+
+function loadScript(url){
+  return new Promise(function(resolve,reject){
+    if(document.querySelector('script[src="'+url+'"]')){resolve();return;}
+    var s=document.createElement('script');
+    s.src=url;s.onload=resolve;s.onerror=reject;
+    document.head.appendChild(s);
+  });
+}
+
 // ロゴ画像設定
 (function(){var els=['sidebar-logo','login-logo-img'];els.forEach(function(id){var el=document.getElementById(id);if(el)el.src=LOGO_THUMB;});
 // favicon
