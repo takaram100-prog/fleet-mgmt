@@ -282,7 +282,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 <body>
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">大阪急配 フリート管理</div>
+    <div class="login-logo" style="display:flex;align-items:center;justify-content:center;gap:10px"><img src="" id="login-logo-img" style="width:36px;height:36px;object-fit:contain">大阪急配 フリート管理</div>
     <div class="login-sub">車両・書類・人員管理システム</div>
     <label class="login-label">パスワード</label>
     <input class="login-input" type="password" id="pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()">
@@ -466,7 +466,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <div class="layout">
     <aside class="sidebar">
-      <div class="logo"><div class="logo-title">大阪急配 フリート管理</div><div class="logo-sub">車両・書類・人員</div></div>
+      <div class="logo" style="cursor:pointer" onclick="location.reload()"><div class="logo-title" style="display:flex;align-items:center;gap:8px"><img src="" id="sidebar-logo" style="width:28px;height:28px;object-fit:contain">大阪急配 フリート管理</div><div class="logo-sub">車両・書類・人員</div></div>
       <div style="padding:8px 4px 4px;flex:1;overflow-y:auto">
         <div class="nav-item active" onclick="showPage('dashboard',this)" data-page="dashboard"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>ダッシュボード</div>
 
@@ -4718,12 +4718,12 @@ function renderStorage(){
       cardHtml+='</div>';
 
       // バッジ行（免許 + 車両書類ステータス）
-      cardHtml+='<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;align-items:center">';
-      cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasLic?'background:#1565C0;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'license\')" title="クリックで免許証アップロード">免許 '+expBadge(d.license?.exp,hasLic).replace(/<[^>]+>/g,'')+'</span>';
+      cardHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px;align-items:center">';
+      cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:20px;white-space:nowrap;cursor:pointer;'+(hasLic?'background:#1565C0;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'license\')" title="クリックで免許証アップロード">免許 '+expBadge(d.license?.exp,hasLic).replace(/<[^>]+>/g,'')+'</span>';
       if(cv){
-        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasShaken?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'shaken\')" title="クリックで車検証アップロード">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasJibai?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'jibai\')" title="クリックで自賠責アップロード">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
-        cardHtml+='<span style="font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;'+(hasNin?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'nin\')" title="クリックで任意保険アップロード">任意 '+(cv.nin?.exp?cv.nin.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:20px;white-space:nowrap;cursor:pointer;'+(hasShaken?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'shaken\')" title="クリックで車検証アップロード">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:20px;white-space:nowrap;cursor:pointer;'+(hasJibai?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'jibai\')" title="クリックで自賠責アップロード">自賠 '+(cv.jibai?.exp?cv.jibai.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
+        cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:20px;white-space:nowrap;cursor:pointer;'+(hasNin?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'nin\')" title="クリックで任意保険アップロード">任意 '+(cv.nin?.exp?cv.nin.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
       }
       cardHtml+='</div>';
 
@@ -7184,6 +7184,11 @@ function renderAll(){
 function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings();renderMailSettings();}
 setTodayDate();
 initSelfForm();
+// ロゴ画像設定
+(function(){var els=['sidebar-logo','login-logo-img'];els.forEach(function(id){var el=document.getElementById(id);if(el)el.src=LOGO_THUMB;});
+// favicon
+var link=document.createElement('link');link.rel='icon';link.type='image/jpeg';link.href=LOGO_THUMB;document.head.appendChild(link);
+})();
 
 // ====== 自動保存 + ページ離脱時同期 ======
 // 5分ごとに自動保存（変更がある場合のみ）
