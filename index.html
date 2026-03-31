@@ -1493,6 +1493,19 @@ function navigateToCompany(companyName){
   }
 }
 
+function navigateToVehicle(plate){
+  if(!plate) return;
+  const v=vehicles.find(x=>x.plate===plate);
+  if(v){
+    showPage('vehicles',document.querySelector('[data-page="vehicles"]'));
+    renderVehicles('');
+    // 折り畳みを開く
+    setTimeout(function(){toggleVehicleDetail(v.id);},100);
+    return;
+  }
+  alert('「'+plate+'」が見つかりません');
+}
+
 // クイックアップロードモーダル（書類が未登録の場合にドロップで追加）
 function openQuickUpload(kind, entityId, docKey){
   const labels={license:'免許証',shaken:'車検証',jibai:'自賠責保険',nin:'任意保険'};
@@ -1737,7 +1750,7 @@ function renderDrivers(off){
   });
   if(dSortCol)data=sortData(data,dSortCol,dSortDir);
   document.getElementById('driver-filters').innerHTML=['全て',...offices].map(o=>`<div class="filter-chip ${(o==='全て'&&!off)||(o===off)?'active':''}" onclick="filterDriverChip('${o}')">${o}</div>`).join('');
-  document.getElementById('driver-thead').innerHTML=`<tr>${th('氏名','name',dSortCol,dSortDir,'toggleDSort')}<th>区分</th>${th('営業所','office',dSortCol,dSortDir,'toggleDSort')}${th('免許有効期限','license',dSortCol,dSortDir,'toggleDSort')}<th>免許種別</th><th>免許条件</th><th>外注先</th><th></th></tr>`;
+  document.getElementById('driver-thead').innerHTML=`<tr>${th('氏名','name',dSortCol,dSortDir,'toggleDSort')}<th>区分</th>${th('営業所','office',dSortCol,dSortDir,'toggleDSort')}${th('免許有効期限','license',dSortCol,dSortDir,'toggleDSort')}<th>免許種別</th><th>免許条件</th><th>外注先</th><th>搭乗車両</th><th></th></tr>`;
   document.getElementById('driver-tbody').innerHTML=data.map(d=>{
     var allOffs=(Array.isArray(d.offices)&&d.offices.length)?d.offices.join('・'):(d.office||'未設定');
     var af=d.attachedFiles||[];
@@ -1768,8 +1781,13 @@ function renderDrivers(off){
       '<td>'+(d.license?.type||'—')+'</td>'+
       '<td style="font-size:11px">'+(d.license?.cond||'—')+'</td>'+
       '<td>'+subHtml+'</td>'+
+      (function(){
+        var cv=vehicles.find(function(v){return v.driverId&&String(v.driverId)===String(did);})||vehicles.find(function(v){return v.driver===d.name;});
+        if(cv) return '<td><span style="cursor:pointer;color:#4a90e2;text-decoration:underline;font-size:11px" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')" title="車両管理へ移動">'+cv.plate+'</span></td>';
+        return '<td style="font-size:11px;color:#888">—</td>';
+      })()+
       '<td><button class="btn btn-sm" onclick="event.stopPropagation();openDriverModal('+did+')">編集</button></td></tr>'+
-    '<tr id="driver-detail-'+did+'" style="display:none"><td colspan="8" style="background:#f7f8fa;padding:10px 14px">'+buildDriverDetailRow(d,af)+'</td></tr>';
+    '<tr id="driver-detail-'+did+'" style="display:none"><td colspan="9" style="background:#f7f8fa;padding:10px 14px">'+buildDriverDetailRow(d,af)+'</td></tr>';
   }).join('');
 }
 
