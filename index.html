@@ -2868,8 +2868,11 @@ async function generateDoc(office,type){
     const pdfTypes={
       'koyou': '雇用証明書',
       'houkoku': '報告書',
-      'seiyaku_osaka': '誓約書（大阪急配）',
-      'tekigo_osaka': '適合証明書（大阪急配）',
+    };
+    // テンプレート専用書類（テンプレート未登録時はPDFフォールバック不可）
+    const tplOnlyTypes={
+      'seiyaku_osaka': {name:'誓約書（大阪急配）',tplId:'tpl2'},
+      'tekigo_osaka': {name:'適合証明書（大阪急配）',tplId:'tpl4'},
     };
 
     if(type==='genkyo'){
@@ -2883,18 +2886,20 @@ async function generateDoc(office,type){
         generatedFiles.push({name:result.fileName,office,fileId:result.fileId});
       }
     }
-    else if(pdfTypes[type]){
-      // 大阪急配テンプレートがあればテンプレート使用
-      var tplId=type==='seiyaku_osaka'?'tpl2':type==='tekigo_osaka'?'tpl4':null;
-      if(tplId&&tplFiles[tplId]&&tplFiles[tplId].fileId){
-        prog.textContent=`生成中: ${pdfTypes[type]}（テンプレート）...`;
-        await generateFromTemplate(tplId,office,null,dateStr);
-        generatedFiles.push({name:pdfTypes[type],office});
+    else if(tplOnlyTypes[type]){
+      var tInfo=tplOnlyTypes[type];
+      if(tplFiles[tInfo.tplId]&&tplFiles[tInfo.tplId].fileId){
+        prog.textContent=`生成中: ${tInfo.name}（テンプレート）...`;
+        await generateFromTemplate(tInfo.tplId,office,null,dateStr);
+        generatedFiles.push({name:tInfo.name,office});
       } else {
-        prog.textContent=`生成中: ${pdfTypes[type]}（PDF）...`;
-        const result=await generatePdfViaApps(office, type, dateStr);
-        generatedFiles.push({name:result.fileName, office, fileId:result.fileId});
+        throw new Error(tInfo.name+'のテンプレートがDriveに未登録です。\nテンプレートフォルダにアップロード後、一括同期してください。');
       }
+    }
+    else if(pdfTypes[type]){
+      prog.textContent=`生成中: ${pdfTypes[type]}（PDF）...`;
+      const result=await generatePdfViaApps(office, type, dateStr);
+      generatedFiles.push({name:result.fileName, office, fileId:result.fileId});
     }
     else if(type==='saitaku'){
       if(!subcons.length){prog.textContent='外注ドライバーが選択されていません';return;}
