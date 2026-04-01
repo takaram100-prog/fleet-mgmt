@@ -128,7 +128,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 .sync-err{color:#c62828}
 .sync-ok{color:#43a047}
 .sync-err{color:#e53935}
-.top-drop{border:2px dashed #ddd;border-radius:9px;padding:14px 18px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;position:relative;margin-bottom:14px;background:#fff}
+.top-drop{border:2px dashed #ddd;border-radius:12px;padding:32px 18px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;cursor:pointer;transition:all .2s;position:relative;margin-bottom:14px;background:#fff;min-height:120px}
 .top-drop:hover,.top-drop.drag-over{border-color:#4a90e2;background:#eaf2ff}
 .top-drop input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
 .subcon-section{background:#fffde7;border:1px solid #ffe082;border-radius:8px;padding:10px 13px;grid-column:1/-1}
@@ -516,11 +516,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
             <span class="sync-status" id="sync-status" style="margin-left:auto;font-size:11px"></span>
           </div>
           <div class="stats" id="dash-stats"></div>
-          <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave()" ondrop="tdDrop(event)">
+          <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave(event)" ondrop="tdDrop(event)">
             <input type="file" accept=".pdf,image/*" multiple onchange="tdFile(event)">
-            <div style="font-size:16px;color:#aaa">+</div>
-            <div style="flex:1"><div style="font-size:12px;font-weight:500;margin-bottom:2px">書類PDFをドロップして期限を読み取る</div><div style="font-size:11px;color:#888">車検証・自賠責・任意保険・免許証など</div></div>
-            <div id="top-drop-state" style="margin-left:auto;font-size:11px;color:#888;text-align:right;max-width:200px">クリックまたはドロップ</div>
+            <div style="font-size:28px;color:#bbb">📄</div>
+            <div style="font-size:13px;font-weight:500;color:#555">書類PDFをドロップして期限を読み取る</div>
+            <div style="font-size:11px;color:#999">車検証・自賠責・任意保険・免許証など</div>
+            <div id="top-drop-state" style="font-size:12px;color:#4a90e2;margin-top:4px">クリックまたはドロップ</div>
           </div>
           <div style="margin-bottom:8px;font-size:12px;font-weight:500;color:#888">期限アラート（期限切れ・60日以内）</div>
           <div id="alert-list" class="table-wrap"></div>
@@ -2524,6 +2525,18 @@ function openMailSendModal(taskId){
     attachHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;color:#888;margin-bottom:4px">生成PDF</div>'+pdfHtml+'</div>';
   }
 
+  // 生成PDF追加セクション
+  attachHtml+='<div style="margin-top:6px;padding:6px 8px;background:#E3F2FD;border-radius:6px">';
+  attachHtml+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:4px">生成PDF追加（送信時に自動生成）</div>';
+  attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  var hasPdfGenkyo=(t.genPdfs||[]).some(p=>p.type==='現況届');
+  var hasPdfKoyou=(t.genPdfs||[]).some(p=>p.type==='雇用証明書');
+  var hasPdfHoukoku=(t.genPdfs||[]).some(p=>p.type==='報告書');
+  if(!hasPdfGenkyo) attachHtml+='<button class="btn btn-sm" style="font-size:10px" onclick="addGenPdfToMail(\''+taskId+'\',\'現況届\')">＋ 現況届</button>';
+  if(!hasPdfKoyou&&isShaIn) attachHtml+='<button class="btn btn-sm" style="font-size:10px" onclick="addGenPdfToMail(\''+taskId+'\',\'雇用証明書\')">＋ 雇用証明書</button>';
+  if(!hasPdfHoukoku) attachHtml+='<button class="btn btn-sm" style="font-size:10px" onclick="addGenPdfToMail(\''+taskId+'\',\'報告書\')">＋ 報告書</button>';
+  attachHtml+='</div></div>';
+
   const modal=document.createElement('div');
   modal.className='modal-bg';modal.style.display='flex';
   modal.innerHTML=`<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
@@ -2531,7 +2544,10 @@ function openMailSendModal(taskId){
     <div class="modal-body" style="max-height:75vh;overflow-y:auto">
       <div class="form-group" style="margin-bottom:10px">
         <label style="font-size:11px;color:#666;font-weight:500">宛先 *</label>
-        <input type="email" id="ms-to" value="${toAddr}" style="width:100%;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" placeholder="${postOffice}のメールアドレス">
+        <div style="display:flex;gap:8px">
+          <input type="email" id="ms-to" value="${toAddr}" style="flex:1;padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" placeholder="${postOffice}のメールアドレス">
+          <div style="display:flex;flex-direction:column"><label style="font-size:9px;color:#888">提出日</label><input type="date" id="ms-date" value="${new Date().toISOString().slice(0,10)}" style="padding:5px 6px;font-size:11px;border:1px solid #ddd;border-radius:4px"></div>
+        </div>
       </div>
       <div class="form-group" style="margin-bottom:10px">
         <label style="font-size:11px;color:#666;font-weight:500">CC</label>
@@ -2550,7 +2566,6 @@ function openMailSendModal(taskId){
         ${attachHtml}
         <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-sm" onclick="addExtraVehicleToMail('${taskId}')" style="font-size:10px">＋ 別の車両を追加</button>
-          ${hasKoyou?'<button class="btn btn-sm" onclick="addGenPdfToMail(\''+taskId+'\',\'雇用証明書\')" style="font-size:10px">＋ 雇用証明書</button>':''}
         </div>
       </div>
     </div>
@@ -2638,7 +2653,7 @@ async function execMailSend(taskId){
     for(const pdfReq of pdfRequests){
       try{
         const pdfOffice=pdfReq.office||t.office;
-        const dateStr=new Date().toISOString().slice(0,10);
+        const dateStr=document.getElementById('ms-date')?.value||new Date().toISOString().slice(0,10);
         const offD=drivers.filter(d=>belongsToOffice(d,pdfOffice)&&(!d.status||d.status==='在籍'));
         const offV=vehicles.filter(v=>belongsToOffice(v,pdfOffice));
         const coD=[],coV=[];
@@ -3791,21 +3806,52 @@ function closeBg(e,id){if(e.target===document.getElementById(id))closeModal(id);
 function tdOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function tdLeave(e){e.currentTarget.classList.remove('drag-over');}
 function tdDrop(e){e.preventDefault();e.currentTarget.classList.remove('drag-over');processTopPdf(e.dataTransfer.files);}
-function tdFile(e){processTopPdf(e.target.files);}
-async function readFile(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const b64=r.result.split(',')[1];res({b64,type:f.type||'image/jpeg',isPdf:f.type==='application/pdf'});};r.readAsDataURL(f);});}
+function tdFile(e){processTopPdf(e.target.files);e.target.value='';}
+async function readFile(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const b64=r.result.split(',')[1];res({b64,type:f.type||'image/jpeg',isPdf:f.type==='application/pdf',name:f.name});};r.readAsDataURL(f);});}
 async function processTopPdf(files){
   if(!files?.length)return;
-  const st=document.getElementById('top-drop-state');st.textContent='🔍 AIが読み取り中...';
+  const st=document.getElementById('top-drop-state');
+  st.textContent='📎 '+files.length+'件選択中...';
+  st.style.color='#E65100';
   try{
     const fd=[];for(const f of files){fd.push(await readFile(f));}
+    const aiKey=localStorage.getItem('fleet_ai_key')||'';
+    if(!aiKey){
+      // AI未設定: Driveの未分類にアップロード
+      st.textContent='📤 未分類にアップロード中...（'+fd.length+'件）';
+      var uploaded=0;
+      for(var i=0;i<files.length;i++){
+        try{
+          var reader2=new FileReader();
+          var dataUrl=await new Promise(function(resolve){reader2.onload=function(e){resolve(e.target.result);};reader2.readAsDataURL(files[i]);});
+          var res2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'uploadFile',folder:'_未分類',subFolder:'',fileName:files[i].name,mimeType:files[i].type,dataUrl:dataUrl})});
+          var json2=await res2.json();
+          if(json2.ok){
+            uploaded++;
+            if(!unassignedFiles) unassignedFiles=[];
+            unassignedFiles.push({name:files[i].name,fileId:json2.fileId,url:json2.url,type:files[i].type,uploadedAt:new Date().toISOString()});
+          }
+        }catch(ue){}
+      }
+      saveLocal();
+      st.textContent='✓ '+uploaded+'件を未分類にアップロードしました（データ管理で確認）';
+      st.style.color='#2e7d32';
+      try{renderStorage();}catch(e){}
+      return;
+    }
+    st.textContent='🔍 AIが読み取り中...（'+fd.length+'件）';
     const content=fd.flatMap(f=>[f.isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:f.b64}}:{type:'image',source:{type:'base64',media_type:f.type,data:f.b64}},{type:'text',text:'この書類の種別と期限をJSONで返してください。{"docType":"shaken|jibai|nin|license","exp":"YYYY-MM-DD","label":"書類の日本語名"} JSONのみ。'}]);
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content}]})});
+    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':aiKey,'anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content}]})});
     const data=await resp.json();
     const text=(data.content||[]).map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
     let results=[];try{const p=JSON.parse(text);results=Array.isArray(p)?p:[p];}catch(e){}
     const lines=results.filter(r=>r.exp).map(r=>`${r.label||r.docType}: ${r.exp.replace(/-/g,'/')}`);
-    st.textContent=lines.length?''+lines.join(' / '):'読み取れませんでした';
-  }catch(e){st.textContent='エラーが発生しました';}
+    st.textContent=lines.length?'✓ '+lines.join(' / '):'読み取れませんでした';
+    st.style.color=lines.length?'#2e7d32':'#e53935';
+  }catch(e){
+    st.textContent='❌ エラー: '+e.message;
+    st.style.color='#e53935';
+  }
 }
 
 // ====== スマホ サイドバー ======
@@ -7305,7 +7351,7 @@ function getMailSettings(){
 }
 function saveMailSettings(){
   const settings = {};
-  Object.keys(POST_OFFICE_MAP).forEach(office => {
+  getDocOffices().forEach(office => {
     const el = document.getElementById('mail-addr-'+office);
     if(el && el.value.trim()) settings[office] = el.value.trim();
   });
@@ -7316,11 +7362,11 @@ function renderMailSettings(){
   const settings = getMailSettings();
   const el = document.getElementById('mail-settings-list');
   if(!el) return;
-  const targetOffices = Object.keys(POST_OFFICE_MAP);
+  const targetOffices = getDocOffices();
   el.innerHTML = targetOffices.map(office => `
     <div style="display:flex;align-items:center;gap:8px">
       <span style="font-size:12px;font-weight:500;min-width:60px">${office}</span>
-      <span style="font-size:11px;color:#888;min-width:80px">${POST_OFFICE_MAP[office]}</span>
+      <span style="font-size:11px;color:#888;min-width:80px">${POST_OFFICE(office)}</span>
       <input type="email" id="mail-addr-${office}" value="${settings[office]||''}" placeholder="担当者メール" style="flex:1;padding:6px 10px;font-size:12px;border:1px solid #90caf9;border-radius:6px">
     </div>`).join('');
 }
@@ -7497,7 +7543,7 @@ function mailToggleCompanyBadge(badge,office){
   badge.classList.toggle('active');
   var coName=badge.dataset.co;
   var active=badge.classList.contains('active');
-  // 会社バッジON時、委託会社ドライバーを1度だけアンチェック
+  // 会社バッジON時、委託会社ドライバーを1度だけアンチェック（行は常に表示）
   if(active&&!_coDriverUncheckedOnce[coName]){
     _coDriverUncheckedOnce[coName]=true;
     document.querySelectorAll('.mail-driver-row[data-co="'+coName+'"]').forEach(row=>{
@@ -7505,9 +7551,7 @@ function mailToggleCompanyBadge(badge,office){
       if(cb){cb.checked=false;mailToggleDriver(cb.dataset.idx);}
     });
   }
-  document.querySelectorAll('.mail-driver-row[data-dtype="co"][data-co="'+coName+'"]').forEach(row=>{
-    row.style.display=active?'':'none';
-  });
+  // 行は常に表示のまま（非表示にしない）
 }
 
 function mailToggleSubDocs(checked){
