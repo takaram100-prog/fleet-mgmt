@@ -150,6 +150,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 .archive-card-info{flex:1}
 .archive-card-name{font-size:13px;font-weight:500}
 .archive-card-sub{font-size:11px;color:#888;margin-top:2px}
+.storage-link{cursor:pointer;color:#222;transition:color .15s}
+.storage-link:hover{color:#4a90e2;text-decoration:underline}
 .status-select{padding:4px 8px;font-size:11px;border:1px solid #ddd;border-radius:5px;background:#fff;color:#1a1a1a;font-family:inherit;cursor:pointer}
 .hist-group{background:#fff;border:1px solid #e0e0e0;border-radius:10px;overflow:hidden;margin-bottom:12px}
 .hist-group-header{padding:10px 14px;background:#fafafa;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;gap:10px;cursor:pointer}
@@ -289,6 +291,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   /* ===== 同期バー ===== */
   .sync-bar{flex-wrap:wrap;gap:4px;padding:6px 10px;font-size:10px}
   .sync-bar .btn{font-size:10px;padding:3px 8px}
+.topbar-sync{font-size:10px;padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;margin-left:auto}
+.topbar-sync:hover{background:#eaf2ff;color:#4a90e2;border-color:#90caf9}
 
   /* ===== ドロップボックス ===== */
   .top-drop{min-height:80px;padding:16px 12px}
@@ -615,21 +619,21 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
       </div>
       <div id="page-vehicles" class="page">
-        <div class="topbar"><div style="display:flex;align-items:center;gap:8px"><h1>車両管理</h1><span id="vehicle-office-label" style="font-size:11px;color:#888"></span></div><button class="btn btn-primary" onclick="openVehicleModal()">＋ 車両追加</button></div>
+        <div class="topbar"><div style="display:flex;align-items:center;gap:8px"><h1>車両管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><span id="vehicle-office-label" style="font-size:11px;color:#888"></span></div><button class="btn btn-primary" onclick="openVehicleModal()">＋ 車両追加</button></div>
         <div class="content">
           <div class="filter-bar" id="vehicle-filters"></div>
           <div class="table-wrap"><table><thead id="vehicle-thead"></thead><tbody id="vehicle-tbody"></tbody></table></div>
         </div>
       </div>
       <div id="page-drivers" class="page">
-        <div class="topbar"><h1>ドライバー管理</h1><button class="btn btn-primary" onclick="openDriverModal()">＋ ドライバー追加</button></div>
+        <div class="topbar"><h1>ドライバー管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><button class="btn btn-primary" onclick="openDriverModal()">＋ ドライバー追加</button></div>
         <div class="content">
           <div class="filter-bar" id="driver-filters"></div>
           <div class="table-wrap"><table><thead id="driver-thead"></thead><tbody id="driver-tbody"></tbody></table></div>
         </div>
       </div>
       <div id="page-documents" class="page">
-        <div class="topbar"><h1>書類生成</h1></div>
+        <div class="topbar"><h1>書類生成</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button></div>
         <div class="content">
           <div class="doc-date-bar">
             <label>提出日付</label>
@@ -654,7 +658,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div id="page-storage" class="page">
         <div class="topbar">
-          <h1>データ管理</h1>
+          <h1>データ管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
         </div>
         <div class="content">
           <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
@@ -683,7 +687,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-mail" class="page">
         <div class="topbar">
           <h1>メール</h1>
-          <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions">
+          <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions"><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
             <button class="btn btn-sm btn-primary" onclick="openCreateMailTask()">＋ メールデータ送信</button>
           </div>
         </div>
@@ -762,7 +766,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-contractors" class="page">
         <div class="topbar">
-          <h1>委託会社管理</h1>
+          <h1>委託会社管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
           <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
         </div>
         <div class="content" id="contractors-list-content"></div>
@@ -777,7 +781,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
 
       <div id="page-archive" class="page">
-        <div class="topbar"><h1>アーカイブ（退職・廃車）</h1><span style="font-size:11px;color:#888">退職・休止ドライバー / 廃車車両</span></div>
+        <div class="topbar"><h1>アーカイブ（退職・廃車）</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><span style="font-size:11px;color:#888">退職・休止ドライバー / 廃車車両</span></div>
         <div class="content">
           <div style="font-size:12px;color:#888;margin-bottom:12px;padding:10px 14px;background:#fff3e0;border-radius:8px;border:1px solid #ffcc80">
             アーカイブされたドライバーは書類生成・書類管理・期限アラートから除外されます。「在籍に戻す」で復帰、「削除」で完全削除が可能です。
@@ -787,7 +791,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
       </div>
       <div id="page-settings" class="page">
-        <div class="topbar"><h1>設定</h1></div>
+        <div class="topbar"><h1>設定</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button></div>
         <div class="content" style="max-width:540px">
           <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:#888">営業所管理</div>
           <div class="office-list" id="settings-office-list"></div>
@@ -5457,7 +5461,7 @@ function renderStorage(){
       cardHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">';
       cardHtml+='<div style="display:flex;align-items:center;gap:10px">';
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
-      cardHtml+='<div><div style="font-weight:600;font-size:15px;color:#222"><span style="cursor:pointer;color:#222" onclick="event.stopPropagation();navigateToDriver(\''+esc(d.name)+'\')">'+d.name+'</span> <span style="font-size:10px;color:#999;font-weight:400">'+(d.kana||'')+'</span></div>';
+      cardHtml+='<div><div style="font-weight:600;font-size:15px;color:#222"><span class="storage-link" onclick="event.stopPropagation();navigateToDriver(\''+esc(d.name)+'\')">'+d.name+'</span> <span style="font-size:10px;color:#999;font-weight:400">'+(d.kana||'')+'</span></div>';
       var plateLink=cv?'<span style="cursor:pointer;color:#4a90e2;text-decoration:underline" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')">'+plateStr+'</span>':plateStr;
       cardHtml+='<div style="font-size:11px;color:#555">'+(d._offices.join('・')||'未設定')+'</div></div>';
       cardHtml+='</div>';
@@ -7700,7 +7704,6 @@ ${office}営業所の書類を送付いたします。
 ━━━━━━━━━━━━━━━━━━`;
 
   // 添付ファイルリスト構築
-  _coDriverUncheckedOnce={};
   renderMailAttachments(office);
 
   document.getElementById('mail-modal').style.display='flex';
@@ -7739,17 +7742,25 @@ function renderMailAttachments(office){
   html+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" class="mail-attach-check" data-group="pdf" data-pdf-type="houkoku"> 報告書</label>';
   html+='</div></div>';
 
-  // 2. バッジ選択（社員/外注/委託会社）
+  // 2. 絞り込みバッジ＋委託会社チェックリスト
   html+='<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
-  html+='<span style="font-size:10px;font-weight:600;color:#555">対象：</span>';
+  html+='<span style="font-size:10px;font-weight:600;color:#555">絞込：</span>';
   if(employees.length) html+='<span class="mail-badge active" data-type="emp" onclick="mailToggleBadge(this,\''+office+'\')">社員('+employees.length+')</span>';
   if(subPersons.length) html+='<span class="mail-badge active" data-type="sub" onclick="mailToggleBadge(this,\''+office+'\')">外注('+subPersons.length+')</span>';
   companyEntries.forEach(co=>{
-    html+='<span class="mail-badge active" data-type="co" data-co="'+co.name+'" onclick="mailToggleCompanyBadge(this,\''+office+'\')">'+co.name+'('+co.drivers.length+')</span>';
+    html+='<span class="mail-badge active" data-type="co" data-co="'+co.name+'" onclick="mailToggleBadge(this,\''+office+'\')">'+co.name+'('+co.drivers.length+')</span>';
   });
   html+='<span style="font-size:9px;color:#4a90e2;cursor:pointer;margin-left:auto" onclick="mailExpandAll(true)">全展開</span>';
   html+='<span style="font-size:9px;color:#4a90e2;cursor:pointer" onclick="mailExpandAll(false)">全折畳</span>';
   html+='</div>';
+  // 委託会社チェックリスト（ドライバーリストの上に）
+  if(companyEntries.length){
+    companyEntries.forEach(co=>{
+      html+='<div style="margin-bottom:4px;padding:4px 8px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
+      html+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;font-weight:600;color:#7B1FA2"><input type="checkbox" class="mail-co-check" data-co="'+co.name+'" onchange="mailToggleCompanyDrivers(this,\''+office+'\')"> '+co.name+'</label>';
+      html+='</div>';
+    });
+  }
 
   // 3. ドライバーリスト（折り畳み）
   const isDefaultCat=cat=>['運転免許証','車検証','自賠責保険','任意保険'].some(k=>(cat||'').includes(k));
@@ -7794,11 +7805,11 @@ function renderMailAttachments(office){
   var hasSubs=subPersons.length>0||companyEntries.length>0;
   if(hasSubs){
     html+='<div style="margin-top:6px;padding:6px 8px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
-    html+='<div style="font-size:10px;font-weight:600;color:#7B1FA2;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">再委託先書類（送信時に自動生成）<label style="font-size:9px;cursor:pointer;color:#888;font-weight:400"><input type="checkbox" checked onchange="mailToggleSubDocs(this.checked)"> 全選択</label></div>';
+    html+='<div style="font-size:10px;font-weight:600;color:#7B1FA2;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">再委託先書類（送信時に自動生成）<label style="font-size:9px;cursor:pointer;color:#888;font-weight:400"><input type="checkbox" onchange="mailToggleSubDocs(this.checked)"> 全選択</label></div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
     var subDocs=['再委託承認願','誓約書（大阪急配）','誓約書（再委託先）','適合証明書（大阪急配）','適合証明書（再委託先）'];
     subDocs.forEach(doc=>{
-      html+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;background:#fff;border:1px solid #e0d5f5;border-radius:4px"><input type="checkbox" checked class="mail-sub-doc-check" data-doc="'+doc+'"> '+doc+'</label>';
+      html+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;background:#fff;border:1px solid #e0d5f5;border-radius:4px"><input type="checkbox" class="mail-sub-doc-check" data-doc="'+doc+'"> '+doc+'</label>';
     });
     html+='</div></div>';
   }
@@ -7810,27 +7821,24 @@ function mailToggleBadge(badge,office){
   badge.classList.toggle('active');
   var dtype=badge.dataset.type;
   var active=badge.classList.contains('active');
-  document.querySelectorAll('.mail-driver-row[data-dtype="'+dtype+'"]').forEach(row=>{
-    row.style.display=active?'':'none';
-    var cb=row.querySelector('.mail-driver-check');
-    if(cb){cb.checked=active;mailToggleDriver(cb.dataset.idx);}
+  var coName=badge.dataset.co||'';
+  // 絞り込み: 表示/非表示のみ（チェック状態は変えない）
+  document.querySelectorAll('.mail-driver-row').forEach(row=>{
+    if(dtype==='co'){
+      if(row.dataset.co===coName) row.style.display=active?'':'none';
+    } else {
+      if(row.dataset.dtype===dtype) row.style.display=active?'':'none';
+    }
   });
 }
 
-var _coDriverUncheckedOnce={};
-function mailToggleCompanyBadge(badge,office){
-  badge.classList.toggle('active');
-  var coName=badge.dataset.co;
-  var active=badge.classList.contains('active');
-  // 会社バッジON時、委託会社ドライバーを1度だけアンチェック（行は常に表示）
-  if(active&&!_coDriverUncheckedOnce[coName]){
-    _coDriverUncheckedOnce[coName]=true;
-    document.querySelectorAll('.mail-driver-row[data-co="'+coName+'"]').forEach(row=>{
-      var cb=row.querySelector('.mail-driver-check');
-      if(cb){cb.checked=false;mailToggleDriver(cb.dataset.idx);}
-    });
-  }
-  // 行は常に表示のまま（非表示にしない）
+function mailToggleCompanyDrivers(checkbox,office){
+  var coName=checkbox.dataset.co;
+  var checked=checkbox.checked;
+  document.querySelectorAll('.mail-driver-row[data-co="'+coName+'"]').forEach(row=>{
+    var cb=row.querySelector('.mail-driver-check');
+    if(cb){cb.checked=checked;mailToggleDriver(cb.dataset.idx);}
+  });
 }
 
 function mailToggleSubDocs(checked){
