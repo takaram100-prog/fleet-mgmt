@@ -6,7 +6,7 @@
 <title>大阪急配 フリート管理</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-html,body{overflow-x:hidden;max-width:100vw}
+html,body{overflow-x:hidden;max-width:100vw;overscroll-behavior-y:none}
 body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f5f5f5;color:#1a1a1a;font-size:13px}
 #login-screen{display:flex;align-items:center;justify-content:center;min-height:100vh}
 .login-card{background:#fff;border:1px solid #e0e0e0;border-radius:12px;padding:40px;width:340px;text-align:center;box-shadow:0 2px 12px rgba(0,0,0,.08)}
@@ -45,7 +45,7 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f5f
 .nav-del:hover{background:#fde8e8;color:#e53935}
 .main{flex:1;margin-left:200px;min-height:100vh;display:flex;flex-direction:column}
 .topbar{padding:12px 20px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;background:#fff;position:sticky;top:0;z-index:5}
-.topbar h1{font-size:15px;font-weight:600}
+.topbar h1{font-size:15px;font-weight:600;cursor:pointer}
 .content{flex:1;padding:16px 20px}
 .btn{padding:6px 12px;font-size:12px;font-weight:500;border-radius:6px;border:1px solid #ddd;background:#fff;color:#1a1a1a;cursor:pointer;transition:background .15s;display:inline-flex;align-items:center;gap:4px}
 .btn:hover{background:#f5f5f5}
@@ -2359,7 +2359,7 @@ let mailTasks = JSON.parse(localStorage.getItem('fleet_mail_tasks')||'[]');
 let mailCurrentTab = 'pending';
 let mailMainSection = 'send';
 
-function saveMailTasks(){localStorage.setItem('fleet_mail_tasks',JSON.stringify(mailTasks));}
+function saveMailTasks(){localStorage.setItem('fleet_mail_tasks',JSON.stringify(mailTasks));isDirty=true;scheduleAutoSave();}
 
 function mailMainTab(section){
   mailMainSection=section;
@@ -3760,6 +3760,8 @@ function showPage(name,el){
   document.getElementById('page-'+name).classList.add('active');
   document.querySelectorAll('.nav-item[data-page]').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
+  else{var navEl=document.querySelector('.nav-item[data-page="'+name+'"]');if(navEl)navEl.classList.add('active');}
+  sessionStorage.setItem('fleet_current_page',name);
   currentOfficeFilter=null;
   closeSidebar();
   if(name==='dashboard')renderDashboard();
@@ -7636,6 +7638,7 @@ function saveMailSettings(){
     if(el && el.value.trim()) settings[office] = el.value.trim();
   });
   localStorage.setItem('fleet_mail_settings', JSON.stringify(settings));
+  isDirty=true;scheduleAutoSave();
   alert('メール設定を保存しました');
 }
 function renderMailSettings(){
@@ -8249,8 +8252,26 @@ setInterval(function(){
     .then(json=>{
       if(!json.ok||!json.data) return;
       var updated=false;
-      if(json.data.drivers?.length&&JSON.stringify(json.data.drivers)!==JSON.stringify(drivers)){updated=true;}
-      if(json.data.vehicles?.length&&JSON.stringify(json.data.vehicles)!==JSON.stringify(vehicles)){updated=true;}
+      if(json.data.drivers?.length){updated=true;}
+      if(json.data.vehicles?.length){updated=true;}
+      // settings（メールタスク等）を常に読み込む
+      if(json.data.settings?.length){
+        try{
+          var st=json.data.settings[0]||{};
+          if(st.value){
+            var parsed=JSON.parse(st.value);
+            if(parsed.mailTasks&&Array.isArray(parsed.mailTasks)){
+              var newMT=JSON.stringify(parsed.mailTasks);
+              if(newMT!==JSON.stringify(mailTasks)){mailTasks=parsed.mailTasks;localStorage.setItem('fleet_mail_tasks',JSON.stringify(mailTasks));updated=true;}
+            }
+            if(parsed.officeAreas&&typeof parsed.officeAreas==='object'){officeAreas=parsed.officeAreas;}
+            if(parsed.officePostMap&&typeof parsed.officePostMap==='object'){officePostMap=parsed.officePostMap;}
+            if(parsed.unassignedFiles&&Array.isArray(parsed.unassignedFiles)){unassignedFiles=parsed.unassignedFiles;}
+            if(parsed.docExclude&&Array.isArray(parsed.docExclude)){docExclude=parsed.docExclude;}
+            if(parsed.mailSettings&&typeof parsed.mailSettings==='object'){localStorage.setItem('fleet_mail_settings',JSON.stringify(parsed.mailSettings));}
+          }
+        }catch(e){}
+      }
       if(!updated) return;
       if(json.data.drivers?.length){drivers=json.data.drivers.map(d=>{['license','other','sub','offices','otherDocs','leave','attachedFiles'].forEach(k=>{if(typeof d[k]==='string')try{d[k]=JSON.parse(d[k]);}catch(e){d[k]=['offices','otherDocs','attachedFiles'].includes(k)?[]:{};} });if(!Array.isArray(d.attachedFiles))d.attachedFiles=[];if(!Array.isArray(d.offices))d.offices=typeof d.offices==='string'?[d.offices]:[];if(!d.license)d.license={};if(!d.other)d.other={};if(!d.sub)d.sub={};return d;});}
       if(json.data.vehicles?.length){vehicles=json.data.vehicles.map(v=>{['shaken','jibai','nin','attachedFiles'].forEach(k=>{if(typeof v[k]==='string')try{v[k]=JSON.parse(v[k]);}catch(e){v[k]=k==='attachedFiles'?[]:{};} });if(!Array.isArray(v.attachedFiles))v.attachedFiles=[];if(!v.shaken)v.shaken={};if(!v.jibai)v.jibai={};if(!v.nin)v.nin={};return v;});}
@@ -8291,6 +8312,13 @@ document.addEventListener('visibilitychange', function(){
   }
 });
 
+// タイトルクリック → ダッシュボードに移動
+document.addEventListener('click',function(e){
+  if(e.target.tagName==='H1'&&e.target.closest('.topbar')){
+    showPage('dashboard');
+  }
+});
+
 // ====== 自動ログイン（同一タブ内のリロード時のみセッション維持）======
 // ?form=1 のQRフォームアクセス時は自動ログインしない
 (function(){
@@ -8300,6 +8328,11 @@ document.addEventListener('visibilitychange', function(){
     document.getElementById('login-screen').style.display='none';
     document.getElementById('app-screen').style.display='block';
     renderAll();
+    // 前回表示していたページを復元
+    var lastPage=sessionStorage.getItem('fleet_current_page');
+    if(lastPage&&document.getElementById('page-'+lastPage)){
+      showPage(lastPage);
+    }
     // ★ 自動でSheetsから最新データを読み込む
     syncAll();
   }
