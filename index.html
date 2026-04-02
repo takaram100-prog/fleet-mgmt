@@ -2622,11 +2622,9 @@ function openMailSendModal(taskId){
   const fileChk=isRetire?'':'checked';
   const dFilesHtml=(t.driverFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" ${fileChk} class="ms-file" data-src="driver" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
   const vFilesHtml=(t.vehicleFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" ${fileChk} class="ms-file" data-src="vehicle" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
-  const pdfHtml=(t.genPdfs||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" checked class="ms-file" data-src="pdf" data-idx="${i}" data-type="${f.type}" data-office="${f.office}"> ${esc(f.name)}</label>`).join('');
 
   const isShaIn=t.driverType==='社員';
   const vPlateLabel=t.vehiclePlate?' ('+esc(t.vehiclePlate)+')':'';
-  const hasKoyou=isShaIn&&!(t.genPdfs||[]).some(p=>p.type==='雇用証明書');
 
   // 添付ファイルセクション組み立て
   let attachHtml='';
@@ -2640,11 +2638,8 @@ function openMailSendModal(taskId){
   } else {
     attachHtml+='<div style="font-size:11px;color:#e65100;margin-bottom:6px">車両の添付ファイルがありません</div>';
   }
-  if(pdfHtml){
-    attachHtml+='<div style="margin-bottom:6px"><div style="font-size:10px;color:#888;margin-bottom:4px">生成PDF</div>'+pdfHtml+'</div>';
-  }
 
-  // 生成PDF選択セクション（チェックボックス方式）
+  // 生成PDF選択セクション（チェックボックス方式、ダブりなし）
   var existPdfs=(t.genPdfs||[]).map(p=>p.type);
   attachHtml+='<div style="margin-top:8px;padding:8px;background:#E3F2FD;border:1px solid #BBDEFB;border-radius:8px">';
   attachHtml+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:6px">生成PDF（送信時に自動生成）</div>';
@@ -7735,12 +7730,12 @@ function renderMailAttachments(office){
 
   let html='';
 
-  // 1. 生成PDF
+  // 1. 生成PDF（常に3種表示、現況届・雇用証明書はデフォルトON）
   html+='<div style="margin-bottom:8px;padding:6px 8px;background:#E3F2FD;border-radius:6px">';
   html+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:4px">生成PDF（送信時に自動生成）</div>';
   html+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
   html+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" checked class="mail-attach-check" data-group="pdf" data-pdf-type="genkyo"> 現況届</label>';
-  if(employees.length) html+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" checked class="mail-attach-check" data-group="pdf" data-pdf-type="koyou"> 雇用証明書</label>';
+  html+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" checked class="mail-attach-check" data-group="pdf" data-pdf-type="koyou"> 雇用証明書</label>';
   html+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" class="mail-attach-check" data-group="pdf" data-pdf-type="houkoku"> 報告書</label>';
   html+='</div></div>';
 
@@ -7795,8 +7790,9 @@ function renderMailAttachments(office){
     html+='</div></div>';
   });
 
-  // 4. 委託会社 再委託先書類カード
-  if(companyEntries.length){
+  // 4. 再委託先書類カード（外注・委託会社がある場合は常に表示）
+  var hasSubs=subPersons.length>0||companyEntries.length>0;
+  if(hasSubs){
     html+='<div style="margin-top:6px;padding:6px 8px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
     html+='<div style="font-size:10px;font-weight:600;color:#7B1FA2;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between">再委託先書類（送信時に自動生成）<label style="font-size:9px;cursor:pointer;color:#888;font-weight:400"><input type="checkbox" checked onchange="mailToggleSubDocs(this.checked)"> 全選択</label></div>';
     html+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
