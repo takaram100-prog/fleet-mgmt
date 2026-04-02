@@ -1131,20 +1131,6 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   </div>
 </div>
 
-<!-- Contractor Modal -->
-<div id="contractor-modal" style="display:none" class="modal-bg">
-  <div class="modal modal-sm" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title" id="cm-title">委託会社 登録</span><button class="modal-close" onclick="closeModal('contractor-modal')">✕</button></div>
-    <div class="modal-body">
-      <div class="form-group" style="margin-bottom:12px"><label>会社名 *</label><input type="text" id="c-name" placeholder="〇〇運送株式会社" class="modal-field"></div>
-      <div class="form-group" style="margin-bottom:12px"><label>代表者名</label><input type="text" id="c-rep" placeholder="山田 太郎" class="modal-field"></div>
-      <div class="form-group" style="margin-bottom:12px"><label>連絡先</label><input type="tel" id="c-tel" placeholder="090-0000-0000" class="modal-field" onblur="this.value=formatPhone(this.value)"></div>
-      <div class="form-group"><label>備考</label><input type="text" id="c-note" class="modal-field"></div>
-    </div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('contractor-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveContractor()">保存する</button></div>
-  </div>
-</div>
-
 <!-- Mail Modal -->
 <div id="mail-modal" style="display:none" class="modal-bg">
   <div class="modal" style="max-width:600px" onclick="event.stopPropagation()">
@@ -1276,6 +1262,7 @@ async function syncInboxFromSheet(){
   }catch(e){ console.log('inbox sync error:', e); }
 }
 async function syncToSheet(){
+  if(!isSafeToSave()){setSyncStatus('データなし - 保存スキップ','sync-err');return;}
   setSyncStatus('保存中...','');
   try{
     const res=await fetch(API_URL,{method:'POST',body:JSON.stringify(buildSavePayload())});
