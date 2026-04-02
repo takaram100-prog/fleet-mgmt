@@ -291,8 +291,9 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   /* ===== 同期バー ===== */
   .sync-bar{flex-wrap:wrap;gap:4px;padding:6px 10px;font-size:10px}
   .sync-bar .btn{font-size:10px;padding:3px 8px}
-.topbar-sync{font-size:10px;padding:2px 8px;border:1px solid #ddd;border-radius:4px;background:#fff;color:#888;cursor:pointer;white-space:nowrap;margin-left:auto}
-.topbar-sync:hover{background:#eaf2ff;color:#4a90e2;border-color:#90caf9}
+.topbar-sync{width:28px;height:28px;display:flex;align-items:center;justify-content:center;border:none;border-radius:50%;background:transparent;color:#aaa;cursor:pointer;font-size:14px;margin-left:auto;transition:all .2s;flex-shrink:0}
+.topbar-sync:hover{background:#eaf2ff;color:#4a90e2}
+.topbar-sync:active{transform:rotate(180deg)}
 
   /* ===== ドロップボックス ===== */
   .top-drop{min-height:80px;padding:16px 12px}
@@ -568,7 +569,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   <div class="sidebar-overlay" id="sidebar-overlay" onclick="closeSidebar()"></div>
   <div class="layout">
     <aside class="sidebar">
-      <div class="logo" style="cursor:pointer" onclick="location.reload()"><div class="logo-title" style="display:flex;align-items:center;gap:6px"><img src="" id="sidebar-logo" style="width:22px;height:22px;object-fit:contain">大阪急配 フリート管理</div><div class="logo-sub">車両・書類・人員</div></div>
+      <div class="logo" style="cursor:pointer" onclick="location.reload()"><div class="logo-title" style="display:flex;align-items:center;gap:6px"><img src="" id="sidebar-logo" style="width:22px;height:22px;object-fit:contain">大阪急配 フリート管理</div></div>
       <div style="padding:8px 4px 4px;flex:1;overflow-y:auto">
         <div class="nav-item active" onclick="showPage('dashboard',this)" data-page="dashboard"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>ダッシュボード</div>
         <div class="nav-item" onclick="showPage('storage',this)" data-page="storage"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h5l1.5 2H13v7H1z"/><path d="M5 9h4M7 7v4"/></svg>データ管理</div>
@@ -602,9 +603,9 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-dashboard" class="page active">
         <div class="topbar"><h1>ダッシュボード</h1><span id="today-label" style="font-size:11px;color:#888"></span></div>
         <div class="content">
-          <div class="sync-bar" style="justify-content:space-between">
-            <span class="sync-status" id="sync-status" style="font-size:11px">自動同期中</span>
-            <button class="btn btn-sm" onclick="syncAll(true)" id="sync-all-btn" style="font-size:10px">手動同期</button>
+          <div class="sync-bar" style="justify-content:space-between;padding:6px 12px">
+            <span class="sync-status" id="sync-status" style="font-size:11px;color:#888">自動同期中</span>
+            <div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div>
           </div>
           <div class="stats" id="dash-stats"></div>
           <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave(event)" ondrop="tdDrop(event)">
@@ -619,21 +620,21 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
       </div>
       <div id="page-vehicles" class="page">
-        <div class="topbar"><div style="display:flex;align-items:center;gap:8px"><h1>車両管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><span id="vehicle-office-label" style="font-size:11px;color:#888"></span></div><button class="btn btn-primary" onclick="openVehicleModal()">＋ 車両追加</button></div>
+        <div class="topbar"><div style="display:flex;align-items:center;gap:8px"><h1>車両管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div><span id="vehicle-office-label" style="font-size:11px;color:#888"></span></div><button class="btn btn-primary" onclick="openVehicleModal()">＋ 車両追加</button></div>
         <div class="content">
           <div class="filter-bar" id="vehicle-filters"></div>
           <div class="table-wrap"><table><thead id="vehicle-thead"></thead><tbody id="vehicle-tbody"></tbody></table></div>
         </div>
       </div>
       <div id="page-drivers" class="page">
-        <div class="topbar"><h1>ドライバー管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><button class="btn btn-primary" onclick="openDriverModal()">＋ ドライバー追加</button></div>
+        <div class="topbar"><h1>ドライバー管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div><button class="btn btn-primary" onclick="openDriverModal()">＋ ドライバー追加</button></div>
         <div class="content">
           <div class="filter-bar" id="driver-filters"></div>
           <div class="table-wrap"><table><thead id="driver-thead"></thead><tbody id="driver-tbody"></tbody></table></div>
         </div>
       </div>
       <div id="page-documents" class="page">
-        <div class="topbar"><h1>書類生成</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button></div>
+        <div class="topbar"><h1>書類生成</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div></div>
         <div class="content">
           <div class="doc-date-bar">
             <label>提出日付</label>
@@ -658,15 +659,15 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div id="page-storage" class="page">
         <div class="topbar">
-          <h1>データ管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
+          <h1>データ管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div>
         </div>
         <div class="content">
-          <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
-            <button class="btn btn-primary" onclick="openFileMgrUploadGeneral()" style="white-space:nowrap;min-height:38px;padding:8px 16px;font-size:13px">＋ ファイル追加</button>
-            <button class="btn btn-sm" onclick="toggleStorageView()" id="storage-view-btn" style="white-space:nowrap;min-height:34px">一覧</button>
+          <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
             <input type="text" id="storage-search" placeholder="検索..." style="padding:6px 8px;font-size:12px;border:1px solid #ddd;border-radius:6px;flex:1;min-width:80px;max-width:200px" oninput="renderStorage()">
+            <button class="btn btn-sm" onclick="toggleStorageView()" id="storage-view-btn" style="white-space:nowrap;min-height:34px">一覧</button>
+            <button class="btn btn-primary" onclick="openFileMgrUploadGeneral()" style="white-space:nowrap;min-height:38px;padding:8px 14px;font-size:12px">＋ ファイル追加</button>
           </div>
-          <div id="storage-office-badges" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap"></div>
+          <div id="storage-office-badges" style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px"></div>
           <div id="storage-content"></div>
         </div>
       </div>
@@ -687,7 +688,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-mail" class="page">
         <div class="topbar">
           <h1>メール</h1>
-          <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions"><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
+          <div style="display:flex;gap:6px;align-items:center" id="mail-topbar-actions"><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div>
             <button class="btn btn-sm btn-primary" onclick="openCreateMailTask()">＋ メールデータ送信</button>
           </div>
         </div>
@@ -766,7 +767,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-contractors" class="page">
         <div class="topbar">
-          <h1>委託会社管理</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button>
+          <h1>委託会社管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div>
           <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
         </div>
         <div class="content" id="contractors-list-content"></div>
@@ -781,7 +782,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
 
       <div id="page-archive" class="page">
-        <div class="topbar"><h1>アーカイブ（退職・廃車）</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button><span style="font-size:11px;color:#888">退職・休止ドライバー / 廃車車両</span></div>
+        <div class="topbar"><h1>アーカイブ（退職・廃車）</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div><span style="font-size:11px;color:#888">退職・休止ドライバー / 廃車車両</span></div>
         <div class="content">
           <div style="font-size:12px;color:#888;margin-bottom:12px;padding:10px 14px;background:#fff3e0;border-radius:8px;border:1px solid #ffcc80">
             アーカイブされたドライバーは書類生成・書類管理・期限アラートから除外されます。「在籍に戻す」で復帰、「削除」で完全削除が可能です。
@@ -791,7 +792,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
       </div>
       <div id="page-settings" class="page">
-        <div class="topbar"><h1>設定</h1><button class="topbar-sync" onclick="syncAll(true)">↻ 同期</button></div>
+        <div class="topbar"><h1>設定</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot" id="sync-dot"></span><span class="sync-time" id="sync-time-label"></span></div></div>
         <div class="content" style="max-width:540px">
           <div style="font-size:12px;font-weight:600;margin-bottom:10px;color:#888">営業所管理</div>
           <div class="office-list" id="settings-office-list"></div>
@@ -1263,7 +1264,17 @@ async function syncToSheet(){
     }
   }catch(e){setSyncStatus('保存エラー','sync-err');}
 }
-function setSyncStatus(msg,cls){const el=document.getElementById('sync-status');el.textContent=msg;el.className='sync-status '+(cls||'');}
+function setSyncStatus(msg,cls){
+  var el=document.getElementById('sync-status');if(el){el.textContent=msg;el.className='sync-status '+(cls||'');}
+  // Update all pill sync indicators
+  var dotCls='';
+  if(cls==='sync-ok') dotCls='';
+  else if(cls==='sync-err') dotCls='error';
+  else dotCls='saving';
+  var timeStr=msg.match(/\d{1,2}:\d{2}:\d{2}/);
+  document.querySelectorAll('.sync-dot').forEach(d=>{d.className='sync-dot '+dotCls;});
+  if(timeStr) document.querySelectorAll('.sync-time').forEach(t=>{t.textContent=timeStr[0];});
+}
 
 async function syncAll(saveFirst){
   const btn=document.getElementById('sync-all-btn');
@@ -5328,7 +5339,7 @@ function applyCatChange(kind,ownerId,fileIdx,newCat){
   try{renderExistingFiles(elId,modalKind,ownerId);}catch(e){}
 }
 
-let storageOfficeFilter='';
+let storageOfficeFilter='西成';
 let storageExpandedIds={};
 let storageViewMode='card'; // 'card' or 'file'
 
@@ -5396,9 +5407,9 @@ function renderStorage(){
       const isUncat=o==='未分類';
       const bg=isActive?'background:#4a90e2;color:#fff;border:1px solid #4a90e2':'background:#f7f7f7;border:1px solid '+(isUncat?'#e53935':'#ddd')+';color:'+(isUncat?'#e53935':'#555');
       const subLabel=isUncat?'ドライバー:'+cnt.d+' / 車両:'+cnt.v+' / ファイル:'+uncatTotal:'ドライバー '+cnt.d+' / 車両 '+cnt.v;
-      return '<div style="padding:8px 16px;border-radius:20px;cursor:pointer;text-align:center;min-width:70px;'+bg+'" onclick="storageSetOffice(\''+(isActive?'':o)+'\')">'+
-        '<div style="font-size:13px;font-weight:600;margin-bottom:2px">'+o+'</div>'+
-        '<div style="font-size:10px;opacity:.7">'+subLabel+'</div>'+
+      return '<div style="padding:6px 4px;border-radius:8px;cursor:pointer;text-align:center;'+bg+'" onclick="storageSetOffice(\''+(isActive?'':o)+'\')">'+
+        '<div style="font-size:12px;font-weight:600">'+o+'</div>'+
+        '<div style="font-size:9px;opacity:.7">'+(isUncat?uncatTotal+'件':cnt.d+'人/'+cnt.v+'台')+'</div>'+
       '</div>';
     }).filter(Boolean).join('');
   }
@@ -5462,7 +5473,7 @@ function renderStorage(){
       cardHtml+='<div style="display:flex;align-items:center;gap:10px">';
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
       cardHtml+='<div><div style="font-weight:600;font-size:15px;color:#222"><span class="storage-link" onclick="event.stopPropagation();navigateToDriver(\''+esc(d.name)+'\')">'+d.name+'</span> <span style="font-size:10px;color:#999;font-weight:400">'+(d.kana||'')+'</span></div>';
-      var plateLink=cv?'<span style="cursor:pointer;color:#4a90e2;text-decoration:underline" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')">'+plateStr+'</span>':plateStr;
+      var plateLink=cv?'<span class="storage-link" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')">'+plateStr+'</span>':plateStr;
       cardHtml+='<div style="font-size:11px;color:#555">'+(d._offices.join('・')||'未設定')+'</div></div>';
       cardHtml+='</div>';
       cardHtml+='<div style="display:flex;flex-direction:column;gap:3px;align-items:flex-end">';
