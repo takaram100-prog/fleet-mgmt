@@ -38,10 +38,10 @@ body{font-family:'Hiragino Kaku Gothic ProN','Meiryo',sans-serif;background:#f5f
 .nav-group-arrow{font-size:10px;color:#4a90e2;font-weight:700;margin-left:auto}
 .nav-group-body{overflow:hidden;transition:max-height .2s ease}
 .nav-group-body.collapsed{max-height:0!important;overflow:hidden}
-.storage-grid{display:grid;grid-template-columns:1fr;gap:8px;grid-auto-rows:min-content;align-items:start}
-@media(min-width:768px){.storage-grid{grid-template-columns:repeat(2,1fr)}}
-@media(min-width:1200px){.storage-grid{grid-template-columns:repeat(3,1fr)}}
-.storage-grid>div{min-width:0}
+.storage-grid{column-count:1;column-gap:8px}
+@media(min-width:768px){.storage-grid{column-count:2}}
+@media(min-width:1200px){.storage-grid{column-count:3}}
+.storage-grid>div{break-inside:avoid;margin-bottom:8px;display:inline-block;width:100%}
 .nav-add-btn{width:20px;height:20px;border:1px solid #ddd;border-radius:4px;background:transparent;cursor:pointer;color:#888;font-size:14px;display:flex;align-items:center;justify-content:center}
 .nav-add-btn:hover{background:#f5f5f5}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:6px;cursor:pointer;color:#666;transition:all .15s;margin:1px 6px;font-size:12px}
@@ -240,7 +240,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   .form-grid{grid-template-columns:1fr}
   .doc-fields{grid-template-columns:1fr}
   .subcon-grid{grid-template-columns:1fr}
-  .storage-grid{grid-template-columns:1fr!important}
+  .storage-grid{column-count:1!important}
 
   /* ===== テーブル（横スクロール対応） ===== */
   .table-wrap{border-radius:6px;overflow-x:auto!important;-webkit-overflow-scrolling:touch;max-width:calc(100vw - 16px)}
@@ -3823,7 +3823,7 @@ function rebuildPrintSelect(){
   const cur=sel.value;
   sel.innerHTML='<option value="">全営業所</option>'+getDocOffices().map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');
 }
-function filterOffice(office,el){currentOfficeFilter=office;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-vehicles').classList.add('active');document.getElementById('vehicle-office-label').textContent='— '+office;renderVehicles(office);closeSidebar();window.scrollTo(0,0);}
+function filterOffice(office,el){storageOfficeFilter=office;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-storage').classList.add('active');renderStorage();closeSidebar();window.scrollTo(0,0);}
 function filterVehicleChip(o){currentOfficeFilter=o==='全て'?null:o;renderVehicles(currentOfficeFilter);}
 function filterDriverChip(o){currentOfficeFilter=o==='全て'?null:o;renderDrivers(currentOfficeFilter);}
 
@@ -5673,7 +5673,7 @@ function renderStorage(){
         if(coId) cardHtml+='<button class="btn btn-sm" style="font-size:10px;padding:2px 10px" onclick="event.stopPropagation();openCompanyDriverModal('+coId+','+d.id+')">編集</button>';
       }
       cardHtml+='<span style="font-size:10px;padding:3px 10px;border-radius:20px;cursor:pointer;background:#4a90e2;color:#fff" onclick="event.stopPropagation();openQuickUpload(\'driver\','+d.id+',\'\')">+ 追加</span>';
-      cardHtml+='<span style="color:#999;font-size:11px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">▼</span>';
+      cardHtml+='<span style="color:#999;font-size:11px;cursor:pointer" onclick="event.stopPropagation();storageToggleExpand(\''+key+'\')">▼</span>';
       cardHtml+='</div>';
       cardHtml+='</div>';
 
@@ -5806,7 +5806,7 @@ function renderStorage(){
       cardHtml+='<div style="display:flex;gap:6px;align-items:center">';
       cardHtml+='<button class="btn btn-sm" style="font-size:10px;padding:3px 10px" onclick="event.stopPropagation();openVehicleModal('+v.id+')">編集</button>';
       cardHtml+='<span style="font-size:10px;padding:3px 10px;border-radius:20px;cursor:pointer;background:#4a90e2;color:#fff" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+v.id+',\'\')">+ 追加</span>';
-      cardHtml+='<span style="color:#999;font-size:11px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">▼</span>';
+      cardHtml+='<span style="color:#999;font-size:11px;cursor:pointer" onclick="event.stopPropagation();storageToggleExpand(\''+key+'\')">▼</span>';
       cardHtml+='</div></div>';
 
       // 期限バッジ
