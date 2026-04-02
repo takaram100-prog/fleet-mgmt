@@ -1206,6 +1206,27 @@ function toggleDocExclude(office){
 
 let isDirty=false;
 function dedup(arr){if(!Array.isArray(arr))return[];const seen={};return arr.filter(x=>{const k=String(x.id);if(seen[k])return false;seen[k]=true;return true;});}
+function cleanUnassignedFiles(){
+  // 全登録済みfileIdを収集
+  var regIds={};
+  drivers.forEach(function(d){(d.attachedFiles||[]).forEach(function(f){if(f.fileId)regIds[f.fileId]=true;});});
+  vehicles.forEach(function(v){(v.attachedFiles||[]).forEach(function(f){if(f.fileId)regIds[f.fileId]=true;});});
+  companies.forEach(function(c){
+    (c.drivers||[]).forEach(function(d){(d.attachedFiles||[]).forEach(function(f){if(f.fileId)regIds[f.fileId]=true;});});
+    (c.vehicles||[]).forEach(function(v){(v.attachedFiles||[]).forEach(function(f){if(f.fileId)regIds[f.fileId]=true;});});
+  });
+  // 登録済みを除外 + fileId重複排除
+  var seen={};
+  var before=unassignedFiles.length;
+  unassignedFiles=unassignedFiles.filter(function(f){
+    if(!f.fileId) return true;
+    if(regIds[f.fileId]) return false; // 登録済み→除外
+    if(seen[f.fileId]) return false; // 重複→除外
+    seen[f.fileId]=true;
+    return true;
+  });
+  if(unassignedFiles.length!==before) console.log('[cleanUnassigned] removed '+(before-unassignedFiles.length)+' registered/duplicate files');
+}
 const LOGO_THUMB='data:image/jpeg;base64,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';
 function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_office_areas',JSON.stringify(officeAreas));localStorage.setItem('fleet_office_post',JSON.stringify(officePostMap));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));isDirty=true;scheduleAutoSave();}
 function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};const p=plate.trim().replace(/\s+/g,' ').split(' ');if(p.length>=4)return{chiiki:p[0],bunrui:p[1],kana:p[2],num:p[3]};const m=plate.match(/^([^\d]+?)(\d{3})\s*([あ-ん])\s*(\d+)/);if(m)return{chiiki:m[1].trim(),bunrui:m[2],kana:m[3],num:m[4]};return{chiiki:plate,bunrui:'',kana:'',num:''};}
@@ -1342,6 +1363,8 @@ async function syncAll(saveFirst){
           }catch(e){}
         }
       }
+      // ★ 未分類ファイルのクリーンアップ: 登録済みfileIdを除外+重複排除
+      cleanUnassignedFiles();
       saveLocal();saveCompanies();renderAll();
     }
     // Step3: 受信更新
@@ -8529,6 +8552,7 @@ setTodayDate();
 // 起動時の重複排除
 drivers=dedup(drivers);vehicles=dedup(vehicles);
 companies.forEach(c=>{c.drivers=dedup(c.drivers||[]);c.vehicles=dedup(c.vehicles||[]);});
+cleanUnassignedFiles();
 initSelfForm();
 // ===== テンプレート書類管理 =====
 const TPL_DEFS=[
