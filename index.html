@@ -598,13 +598,9 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-dashboard" class="page active">
         <div class="topbar"><h1>ダッシュボード</h1><span id="today-label" style="font-size:11px;color:#888"></span></div>
         <div class="content">
-          <div class="sync-bar">
-            <span style="font-size:11px;color:#888;white-space:nowrap">Googleスプレッドシート同期</span>
-            <button class="btn btn-sm btn-primary" onclick="syncAll()" id="sync-all-btn">一括同期</button>
-            <button class="btn btn-sm" onclick="syncToSheet()">保存</button>
-            <button class="btn btn-sm" onclick="syncFromSheet()">読込</button>
-            <button class="btn btn-sm" onclick="syncInboxFromSheet().then(()=>alert('受信ボックスを更新しました'))">受信更新</button>
-            <span class="sync-status" id="sync-status" style="margin-left:auto;font-size:11px"></span>
+          <div class="sync-bar" style="justify-content:space-between">
+            <span class="sync-status" id="sync-status" style="font-size:11px">自動同期中</span>
+            <button class="btn btn-sm" onclick="syncAll(true)" id="sync-all-btn" style="font-size:10px">手動同期</button>
           </div>
           <div class="stats" id="dash-stats"></div>
           <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave(event)" ondrop="tdDrop(event)">
@@ -1194,7 +1190,7 @@ function toggleDocExclude(office){
 let isDirty=false;
 function dedup(arr){if(!Array.isArray(arr))return[];const seen={};return arr.filter(x=>{const k=String(x.id);if(seen[k])return false;seen[k]=true;return true;});}
 const LOGO_THUMB='data:image/jpeg;base64,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';
-function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_office_areas',JSON.stringify(officeAreas));localStorage.setItem('fleet_office_post',JSON.stringify(officePostMap));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));isDirty=true;}
+function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_office_areas',JSON.stringify(officeAreas));localStorage.setItem('fleet_office_post',JSON.stringify(officePostMap));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));isDirty=true;scheduleAutoSave();}
 function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};const p=plate.trim().replace(/\s+/g,' ').split(' ');if(p.length>=4)return{chiiki:p[0],bunrui:p[1],kana:p[2],num:p[3]};const m=plate.match(/^([^\d]+?)(\d{3})\s*([あ-ん])\s*(\d+)/);if(m)return{chiiki:m[1].trim(),bunrui:m[2],kana:m[3],num:m[4]};return{chiiki:plate,bunrui:'',kana:'',num:''};}
 
 // ====== 同期 ======
@@ -1265,16 +1261,18 @@ async function syncToSheet(){
 }
 function setSyncStatus(msg,cls){const el=document.getElementById('sync-status');el.textContent=msg;el.className='sync-status '+(cls||'');}
 
-async function syncAll(){
+async function syncAll(saveFirst){
   const btn=document.getElementById('sync-all-btn');
   if(btn){btn.disabled=true;btn.textContent='同期中...';}
   try{
-    // Step1: 保存（companies含む）
-    setSyncStatus('保存中...','');
-    const saveRes=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'saveAll',drivers,vehicles,companies})});
-    const saveJson=await saveRes.json();
-    if(!saveJson.ok) throw new Error('保存エラー');
-    // Step2: 読み込み
+    if(saveFirst){
+      // 明示的に「保存→読込」する場合のみ保存を先に行う
+      setSyncStatus('保存中...','');
+      const saveRes=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'saveAll',drivers,vehicles,companies})});
+      const saveJson=await saveRes.json();
+      if(!saveJson.ok) throw new Error('保存エラー');
+    }
+    // 読み込み（常に実行）
     setSyncStatus('読み込み中...','');
     const res=await fetch(API_URL+'?action=getAll');
     const json=await res.json();
@@ -1327,7 +1325,7 @@ function isOsakaVehicle(v){const o=v.owner||'',u=v.vehicleUser||'';return COMPAN
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ====== ログイン ======
-function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){sessionStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncAll();}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
+function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){sessionStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncAll(false);}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
 async function doLogout(){
   if(isDirty){
     setSyncStatus('保存中...','');
@@ -6794,7 +6792,7 @@ let editingCompanyDriverId = null;
 let editingCompanyVehicleId = null;
 let currentCompanyId = null;
 
-function saveCompanies(){localStorage.setItem('fleet_companies',JSON.stringify(companies));contractors=companies;isDirty=true;}
+function saveCompanies(){localStorage.setItem('fleet_companies',JSON.stringify(companies));contractors=companies;isDirty=true;scheduleAutoSave();}
 
 function renderContractorsList(){
   const el=document.getElementById('contractors-list-content');
@@ -8133,22 +8131,51 @@ function loadScript(url){
 var link=document.createElement('link');link.rel='icon';link.type='image/jpeg';link.href=LOGO_THUMB;document.head.appendChild(link);
 })();
 
-// ====== 自動保存 + ページ離脱時同期 ======
-// 5分ごとに自動保存（変更がある場合のみ）
+// ====== 自動保存 + 自動読込 + ページ離脱時同期 ======
+// データ変更から10秒後に自動保存（連続変更はデバウンス）
+var _autoSaveTimer=null;
+function scheduleAutoSave(){
+  if(_autoSaveTimer) clearTimeout(_autoSaveTimer);
+  _autoSaveTimer=setTimeout(function(){
+    _autoSaveTimer=null;
+    if(!isDirty) return;
+    if(sessionStorage.getItem('fleet_session')!=='ok') return;
+    fetch(API_URL,{method:'POST',body:JSON.stringify({action:'saveAll',drivers,vehicles,companies})})
+      .then(r=>r.json())
+      .then(j=>{
+        if(j.ok){
+          isDirty=false;
+          var ts=new Date().toLocaleTimeString();
+          localStorage.setItem('fleet_last_sync',ts);
+          setSyncStatus('自動保存 '+ts,'sync-ok');
+        }
+      }).catch(()=>{});
+  }, 10*1000);
+}
+
+// 3分ごとに自動読込（他端末の変更を取得）
 setInterval(function(){
-  if(!isDirty) return;
+  if(isDirty) return;
   if(sessionStorage.getItem('fleet_session')!=='ok') return;
-  fetch(API_URL,{method:'POST',body:JSON.stringify({action:'saveAll',drivers,vehicles,companies})})
+  fetch(API_URL+'?action=getAll')
     .then(r=>r.json())
-    .then(j=>{
-      if(j.ok){
-        isDirty=false;
-        const ts=new Date().toLocaleTimeString();
-        localStorage.setItem('fleet_last_sync',ts);
-        setSyncStatus('自動保存 '+ts,'sync-ok');
-      }
+    .then(json=>{
+      if(!json.ok||!json.data) return;
+      var updated=false;
+      if(json.data.drivers?.length&&JSON.stringify(json.data.drivers)!==JSON.stringify(drivers)){updated=true;}
+      if(json.data.vehicles?.length&&JSON.stringify(json.data.vehicles)!==JSON.stringify(vehicles)){updated=true;}
+      if(!updated) return;
+      if(json.data.drivers?.length){drivers=json.data.drivers.map(d=>{['license','other','sub','offices','otherDocs','leave','attachedFiles'].forEach(k=>{if(typeof d[k]==='string')try{d[k]=JSON.parse(d[k]);}catch(e){d[k]=['offices','otherDocs','attachedFiles'].includes(k)?[]:{};} });if(!Array.isArray(d.attachedFiles))d.attachedFiles=[];if(!Array.isArray(d.offices))d.offices=typeof d.offices==='string'?[d.offices]:[];if(!d.license)d.license={};if(!d.other)d.other={};if(!d.sub)d.sub={};return d;});}
+      if(json.data.vehicles?.length){vehicles=json.data.vehicles.map(v=>{['shaken','jibai','nin','attachedFiles'].forEach(k=>{if(typeof v[k]==='string')try{v[k]=JSON.parse(v[k]);}catch(e){v[k]=k==='attachedFiles'?[]:{};} });if(!Array.isArray(v.attachedFiles))v.attachedFiles=[];if(!v.shaken)v.shaken={};if(!v.jibai)v.jibai={};if(!v.nin)v.nin={};return v;});}
+      if(json.data.companies?.length){companies=json.data.companies.map(c=>{['drivers','vehicles'].forEach(k=>{if(typeof c[k]==='string')try{c[k]=JSON.parse(c[k]);}catch(e){c[k]=[];}if(!Array.isArray(c[k]))c[k]=[];});return c;});contractors=companies;}
+      drivers=dedup(drivers);vehicles=dedup(vehicles);
+      companies.forEach(c=>{c.drivers=dedup(c.drivers||[]);c.vehicles=dedup(c.vehicles||[]);});
+      saveLocal();isDirty=false;
+      try{renderAll();}catch(e){}
+      var ts=new Date().toLocaleTimeString();
+      setSyncStatus('自動読込 '+ts,'sync-ok');
     }).catch(()=>{});
-}, 5*60*1000);
+}, 3*60*1000);
 
 // タブ閉じ/ブラウザ閉じ時にsendBeaconで確実送信
 window.addEventListener('beforeunload', function(){
@@ -8159,14 +8186,20 @@ window.addEventListener('beforeunload', function(){
   isDirty=false;
 });
 
-// タブが非表示になった時にも保存（スマホでアプリ切替時など）
+// タブが再表示になった時に自動読込（スマホでアプリ切替時など）
 document.addEventListener('visibilitychange', function(){
-  if(document.visibilityState!=='hidden') return;
-  if(!isDirty) return;
-  if(sessionStorage.getItem('fleet_session')!=='ok') return;
-  const payload=JSON.stringify({action:'saveAll',drivers,vehicles,companies});
-  navigator.sendBeacon(API_URL, payload);
-  isDirty=false;
+  if(document.visibilityState==='hidden'){
+    // 非表示時: 変更があれば保存
+    if(!isDirty) return;
+    if(sessionStorage.getItem('fleet_session')!=='ok') return;
+    const payload=JSON.stringify({action:'saveAll',drivers,vehicles,companies});
+    navigator.sendBeacon(API_URL, payload);
+    isDirty=false;
+  } else {
+    // 表示時: シートから読込
+    if(sessionStorage.getItem('fleet_session')!=='ok') return;
+    syncAll(false);
+  }
 });
 
 // ====== 自動ログイン（同一タブ内のリロード時のみセッション維持）======
