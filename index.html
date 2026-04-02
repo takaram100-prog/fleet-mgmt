@@ -5610,7 +5610,7 @@ function renderStorage(){
       const hasJibai=vaf2.some(f=>(f.category||'').includes('自賠'));
       const hasNin=vaf2.some(f=>(f.category||'').includes('任意'));
 
-      let cardHtml='<div style="background:#cfd4dc;border:1.5px solid #777;border-radius:10px;padding:4px 16px 14px;overflow:hidden">';
+      let cardHtml='<div style="background:#cfd4dc;border:1.5px solid #777;border-radius:10px;padding:4px 16px 14px;overflow:hidden;grid-column:1/-1">';
       cardHtml+='<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;cursor:pointer" onclick="storageToggleExpand(\''+key+'\')">';
       cardHtml+='<div style="display:flex;align-items:center;gap:10px">';
       cardHtml+='<div style="width:34px;height:34px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px">'+typeIcon+'</div>';
