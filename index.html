@@ -462,11 +462,11 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div class="self-form-group">
         <label class="self-form-label">姓（フリガナ）</label>
-        <input type="text" id="sf-sei-kana" class="self-form-input" placeholder="ヤマダ">
+        <input type="text" id="sf-sei-kana" class="kana-input self-form-input" placeholder="ひらがな可">
       </div>
       <div class="self-form-group">
         <label class="self-form-label">名（フリガナ）</label>
-        <input type="text" id="sf-mei-kana" class="self-form-input" placeholder="タロウ">
+        <input type="text" id="sf-mei-kana" class="kana-input self-form-input" placeholder="ひらがな可">
       </div>
 
       <!-- 新規登録追加項目 -->
@@ -669,7 +669,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div id="page-storage" class="page">
         <div class="topbar">
-          <h1>データ管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
+          <h1>データ管理</h1><div style="flex:1"></div><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
         </div>
         <div class="content">
           <div style="display:flex;gap:6px;align-items:center;margin-bottom:10px">
@@ -685,7 +685,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div id="page-print" class="page">
         <div class="topbar">
           <h1>印刷用一覧</h1>
-          <div style="display:flex;gap:8px;align-items:center">
+          <div style="display:flex;gap:8px;align-items:center;margin-left:auto">
             <select id="print-office" class="status-select" style="font-size:12px;padding:5px 10px" onchange="renderPrint()">
               <option value="">全営業所</option>
             </select>
@@ -735,7 +735,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-history" class="page">
         <div class="topbar">
-          <h1>提出履歴</h1>
+          <h1>提出履歴</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
           <div style="display:flex;gap:6px">
             <button class="btn btn-sm" onclick="clearOldHistory()">1年以上前を削除</button>
             <button class="btn btn-sm btn-danger" onclick="clearAllHistory()">全件削除</button>
@@ -760,7 +760,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       </div>
       <div id="page-filemgr" class="page">
         <div class="topbar">
-          <h1>書類・写真管理</h1>
+          <h1>書類・写真管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
           <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
             <input type="text" id="filemgr-search" placeholder="氏名または車両番号で検索..." style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;width:200px" oninput="renderFileMgr()">
             <select id="filemgr-type" style="padding:5px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px" onchange="renderFileMgr()">
@@ -779,8 +779,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
       <div id="page-contractors" class="page">
         <div class="topbar">
-          <h1>委託会社管理</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
-          <button class="btn btn-primary" onclick="openCompanyModal()">＋ 委託会社を追加</button>
+          <h1>委託会社管理</h1>
+          <button class="btn btn-primary" onclick="openCompanyModal()" style="margin-left:auto">＋ 委託会社を追加</button><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
         </div>
         <div class="content" id="contractors-list-content"></div>
       </div>
@@ -913,8 +913,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>姓（漢字）*</label><input type="text" id="d-sei" placeholder="山田" class="modal-field"></div>
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="d-mei" placeholder="太郎" class="modal-field"></div>
-      <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="d-sei-kana" placeholder="ヤマダ" class="modal-field"></div>
-      <div class="form-group"><label>名（フリガナ）</label><input type="text" id="d-mei-kana" placeholder="タロウ" class="modal-field"></div>
+      <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="d-sei-kana" class="kana-input" placeholder="ひらがな可" class="modal-field"></div>
+      <div class="form-group"><label>名（フリガナ）</label><input type="text" id="d-mei-kana" class="kana-input" placeholder="ひらがな可" class="modal-field"></div>
       <div class="form-group"><label>区分</label><select id="d-type" onchange="toggleSubconFields();toggleContractorField()" class="modal-field"><option value="社員">社員</option><option value="外注">外注（個人）</option><option value="委託会社">委託会社所属</option></select></div>
       <div class="form-group" id="d-contractor-group" style="display:none"><label>所属委託会社</label><select id="d-contractor" class="modal-field"><option value="">選択してください</option></select></div>
       <div class="form-group" style="grid-column:1/-1"><label>担当営業所（複数選択可）</label><div id="d-office-checks" class="office-checkboxes"></div></div>
@@ -936,7 +936,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <div class="subcon-title">🏢 外注情報（再委託承認願・誓約書・適合証明書に使用）</div>
         <div class="subcon-grid">
           <div class="form-group"><label>外注先会社名（法人の場合）</label><input type="text" id="d-sub-company" placeholder="〇〇運送株式会社（個人は空欄）" class="modal-field"></div>
-          <div class="form-group"><label>代表者ふりがな</label><input type="text" id="d-sub-kana" placeholder="やまだ たろう" class="modal-field"></div>
+          <div class="form-group"><label>代表者ふりがな</label><input type="text" id="d-sub-kana" class="kana-input" placeholder="ひらがな可" class="modal-field"></div>
           <div class="form-group"><label>代表者生年月日</label><input type="date" id="d-sub-birth" class="modal-field"></div>
           <div class="form-group"><label>受持地域</label><input type="text" id="d-sub-area" placeholder="西成区全域" class="modal-field"></div>
           <div class="form-group"><label>社員数（個人は1）</label><input type="number" id="d-sub-count" placeholder="1" min="1" value="1" class="modal-field"></div>
@@ -965,7 +965,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
     <div class="modal-body">
       <div class="form-group" style="margin-bottom:10px"><label>会社名 *</label><input type="text" id="cm-name" placeholder="〇〇運送株式会社"></div>
       <div class="form-group" style="margin-bottom:10px"><label>代表者名</label><input type="text" id="cm-rep" placeholder="山田 太郎"></div>
-      <div class="form-group" style="margin-bottom:10px"><label>代表者ふりがな</label><input type="text" id="cm-rep-kana" placeholder="やまだ たろう"></div>
+      <div class="form-group" style="margin-bottom:10px"><label>代表者ふりがな</label><input type="text" id="cm-rep-kana" class="kana-input" placeholder="ひらがな可"></div>
       <div class="form-group" style="margin-bottom:10px"><label>代表者生年月日</label><input type="date" id="cm-rep-birth"></div>
       <div class="form-group" style="margin-bottom:10px"><label>住所</label><div style="display:flex;gap:6px;align-items:center"><input type="text" id="cm-zip" placeholder="郵便番号" style="width:100px;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" oninput="autoZipLookup(this,'cm-addr')" maxlength="8"><input type="text" id="cm-addr" placeholder="都道府県市区町村..." style="flex:1;padding:7px 10px;font-size:13px;border:1px solid #ddd;border-radius:6px" onblur="autoAddrToZip(this,'cm-zip')"></div></div>
       <div class="form-group" style="margin-bottom:10px"><label>電話番号</label><input type="tel" id="cm-tel" onblur="this.value=formatPhone(this.value)"></div>
@@ -1000,8 +1000,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="section-title">基本情報</div>
       <div class="form-group"><label>姓（漢字）*</label><input type="text" id="cd-sei" placeholder="山田" class="modal-field"></div>
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="cd-mei" placeholder="太郎" class="modal-field"></div>
-      <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="cd-sei-kana" placeholder="ヤマダ" class="modal-field"></div>
-      <div class="form-group"><label>名（フリガナ）</label><input type="text" id="cd-mei-kana" placeholder="タロウ" class="modal-field"></div>
+      <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="cd-sei-kana" class="kana-input" placeholder="ひらがな可" class="modal-field"></div>
+      <div class="form-group"><label>名（フリガナ）</label><input type="text" id="cd-mei-kana" class="kana-input" placeholder="ひらがな可" class="modal-field"></div>
       <div class="form-group" style="grid-column:1/-1">
         <label>担当営業所（複数選択可）*</label>
         <div id="cd-offices" class="office-multi-select"></div>
@@ -3604,7 +3604,7 @@ function renderArchive(){
     const isActive=filterType===t;
     badgeHtml+='<span style="padding:6px 14px;border-radius:20px;cursor:pointer;font-size:11px;font-weight:500;'+(isActive?'background:#4a90e2;color:#fff':'background:#f7f7f7;border:1px solid #ddd;color:#555')+'" onclick="archSetFilter(\'type\',\''+t+'\')">'+t+'</span>';
   });
-  badgeHtml+='<span style="font-size:11px;color:#888;padding:5px 0;margin-left:8px">D '+archivedD.length+'名 / V '+scrapped.length+'台</span>';
+  badgeHtml+='<span style="font-size:11px;color:#888;padding:5px 0;margin-left:8px">ドライバー '+archivedD.length+'名 / 車両 '+scrapped.length+'台</span>';
   badgeHtml+='</div>';
 
   document.getElementById('archive-filters').innerHTML=badgeHtml;
@@ -8344,6 +8344,18 @@ document.addEventListener('visibilitychange', function(){
     // 表示時: シートから読込
     if(sessionStorage.getItem('fleet_session')!=='ok') return;
     syncAll(false);
+  }
+});
+
+// ====== フリガナ自動カタカナ変換 ======
+document.addEventListener('input',function(e){
+  if(!e.target.classList.contains('kana-input')) return;
+  var v=e.target.value;
+  var converted=v.replace(/[\u3041-\u3096]/g,function(c){return String.fromCharCode(c.charCodeAt(0)+96);});
+  if(converted!==v){
+    var pos=e.target.selectionStart;
+    e.target.value=converted;
+    e.target.setSelectionRange(pos,pos);
   }
 });
 
