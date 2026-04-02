@@ -5203,19 +5203,24 @@ function parseFileNameHints(fileName){
   var name=(fileName||'').replace(/\.[^.]+$/,''); // 拡張子除去
   name=name.replace(/[_\-＿－]/g,' ').replace(/\s+/g,' ').trim();
   var hints={driverName:'',vehiclePlate:'',guessType:''};
+  // 書類名を除外してから人名を検索
+  var docWords='履歴書|免許証|車検証|自賠責|任意保険|保険証|誓約書|契約書|適合証明|証明書|現況届|報告書|雇用証明|運転免許|健康診断|納税証明|委任状|委託契約|再委託|表|裏|コピー|写し|スキャン';
+  var cleanName=name.replace(new RegExp(docWords,'g'),' ').replace(/\s+/g,' ').trim();
   // 車両ナンバーパターン: 地名+数字+かな+数字
   var plateMatch=name.match(/([^\s]{1,4})\s*(\d{1,3})\s*([あ-んア-ヲ])\s*(\d{1,4})/);
   if(plateMatch){hints.vehiclePlate=plateMatch[0].replace(/\s+/g,' ');hints.guessType='vehicle';}
   // 4桁数字（ナンバー末尾）
   var numMatch=name.match(/\b(\d{4})\b/);
   if(numMatch&&!plateMatch){hints.vehiclePlate=numMatch[1];hints.guessType='vehicle';}
-  // 日本語2-5文字（姓名推測）
-  var jpMatch=name.match(/([\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]{1,5})\s*([\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]{1,5})/);
-  if(jpMatch){hints.driverName=(jpMatch[1]+' '+jpMatch[2]).trim();hints.guessType=hints.guessType||'driver';}
-  // 単独の漢字2-4文字（姓のみ）
-  if(!hints.driverName){
-    var seiMatch=name.match(/([\u4E00-\u9FFF]{2,4})/);
-    if(seiMatch){hints.driverName=seiMatch[1];hints.guessType=hints.guessType||'driver';}
+  // 日本語2-5文字の姓名推測（書類名除外後）
+  if(cleanName.length>=2){
+    var jpMatch=cleanName.match(/([\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]{1,5})\s+([\u4E00-\u9FFF\u3040-\u309F\u30A0-\u30FF]{1,5})/);
+    if(jpMatch){hints.driverName=(jpMatch[1]+' '+jpMatch[2]).trim();hints.guessType=hints.guessType||'driver';}
+    // 単独の漢字2-4文字（姓のみ）
+    if(!hints.driverName){
+      var seiMatch=cleanName.match(/([\u4E00-\u9FFF]{2,4})/);
+      if(seiMatch&&seiMatch[1].length>=2){hints.driverName=seiMatch[1];hints.guessType=hints.guessType||'driver';}
+    }
   }
   return hints;
 }
@@ -5292,9 +5297,6 @@ function assignUnassignedFile(idx){
   '</div>';
   document.body.appendChild(modal);
   modal.onclick=function(e){if(e.target===modal)modal.remove();};
-  // 推測名で検索欄を事前入力
-  if(hints.driverName&&!suggestions.length) document.getElementById('assign-search').value=hints.driverName;
-  else if(hints.vehiclePlate&&!suggestions.length) document.getElementById('assign-search').value=hints.vehiclePlate;
   renderAssignList();
 }
 
