@@ -3823,7 +3823,7 @@ function rebuildPrintSelect(){
   const cur=sel.value;
   sel.innerHTML='<option value="">全営業所</option>'+getDocOffices().map(o=>`<option${o===cur?' selected':''}>${o}</option>`).join('');
 }
-function filterOffice(office,el){storageOfficeFilter=office;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-storage').classList.add('active');renderStorage();closeSidebar();window.scrollTo(0,0);}
+function filterOffice(office,el){storageOfficeFilter=office;storageFromSidebar=true;document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));el.classList.add('active');document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));document.getElementById('page-storage').classList.add('active');renderStorage();closeSidebar();window.scrollTo(0,0);}
 function filterVehicleChip(o){currentOfficeFilter=o==='全て'?null:o;renderVehicles(currentOfficeFilter);}
 function filterDriverChip(o){currentOfficeFilter=o==='全て'?null:o;renderDrivers(currentOfficeFilter);}
 
@@ -5530,6 +5530,7 @@ function applyCatChange(kind,ownerId,fileIdx,newCat){
 let storageOfficeFilter='西成';
 let storageExpandedIds={};
 let storageViewMode='card'; // 'card' or 'file'
+let storageFromSidebar=false;
 
 function toggleStorageView(){
   storageViewMode=storageViewMode==='card'?'file':'card';
@@ -5540,6 +5541,7 @@ function toggleStorageView(){
 
 function storageSetOffice(office){
   storageOfficeFilter=office;
+  storageFromSidebar=false;
   renderStorage();
 }
 
@@ -5583,23 +5585,36 @@ function renderStorage(){
   });
 
   if(badgesEl){
-    const allKeys=[];
-    const uncatTotal=unassignedFiles.length;
-    if(uncatTotal>0) allKeys.push('未分類');
-    allKeys.push(...offices);
-    badgesEl.innerHTML=allKeys.map(o=>{
+    if(storageFromSidebar && storageOfficeFilter){
+      // サイドバー経由: 選択営業所のみ表示
+      const o=storageOfficeFilter;
       const cnt=officeCounts[o]||{d:0,v:0};
-      const total=cnt.d+cnt.v;
-      if(!total&&o!=='未分類') return '';
-      const isActive=storageOfficeFilter===o;
-      const isUncat=o==='未分類';
-      const bg=isActive?'background:#4a90e2;color:#fff;border:1px solid #4a90e2':'background:#f7f7f7;border:1px solid '+(isUncat?'#e53935':'#ddd')+';color:'+(isUncat?'#e53935':'#555');
-      const subLabel=isUncat?'ドライバー:'+cnt.d+' / 車両:'+cnt.v+' / ファイル:'+uncatTotal:'ドライバー '+cnt.d+' / 車両 '+cnt.v;
-      return '<div style="padding:8px 6px;border-radius:8px;cursor:pointer;text-align:center;'+bg+'" onclick="storageSetOffice(\''+(isActive?'':o)+'\')">'+
-        '<div style="font-size:12px;font-weight:600;white-space:nowrap">'+o+'</div>'+
-        '<div style="font-size:9px;opacity:.7;white-space:nowrap">'+(isUncat?uncatTotal+'件':cnt.d+'人/'+cnt.v+'台')+'</div>'+
+      badgesEl.innerHTML='<div style="display:flex;gap:8px;align-items:center">'+
+        '<div style="padding:8px 12px;border-radius:8px;background:#4a90e2;color:#fff;border:1px solid #4a90e2;text-align:center">'+
+          '<div style="font-size:12px;font-weight:600">'+o+'</div>'+
+          '<div style="font-size:9px;opacity:.7">'+cnt.d+'人/'+cnt.v+'台</div>'+
+        '</div>'+
+        '<div style="padding:8px 12px;border-radius:8px;background:#f7f7f7;border:1px solid #ddd;color:#555;cursor:pointer;text-align:center;font-size:11px" onclick="storageFromSidebar=false;storageOfficeFilter=\'\';renderStorage()">全営業所</div>'+
       '</div>';
-    }).filter(Boolean).join('');
+    } else {
+      // 通常: 全バッジ表示
+      const allKeys=[];
+      const uncatTotal=unassignedFiles.length;
+      if(uncatTotal>0) allKeys.push('未分類');
+      allKeys.push(...offices);
+      badgesEl.innerHTML=allKeys.map(o=>{
+        const cnt=officeCounts[o]||{d:0,v:0};
+        const total=cnt.d+cnt.v;
+        if(!total&&o!=='未分類') return '';
+        const isActive=storageOfficeFilter===o;
+        const isUncat=o==='未分類';
+        const bg=isActive?'background:#4a90e2;color:#fff;border:1px solid #4a90e2':'background:#f7f7f7;border:1px solid '+(isUncat?'#e53935':'#ddd')+';color:'+(isUncat?'#e53935':'#555');
+        return '<div style="padding:8px 6px;border-radius:8px;cursor:pointer;text-align:center;'+bg+'" onclick="storageSetOffice(\''+(isActive?'':o)+'\')">'+
+          '<div style="font-size:12px;font-weight:600;white-space:nowrap">'+o+'</div>'+
+          '<div style="font-size:9px;opacity:.7;white-space:nowrap">'+(isUncat?uncatTotal+'件':cnt.d+'人/'+cnt.v+'台')+'</div>'+
+        '</div>';
+      }).filter(Boolean).join('');
+    }
   }
 
   // フィルタ適用
@@ -6462,13 +6477,9 @@ function renderInbox(){
   const pending = inbox.filter(i=>i.status!=='登録済');
   const registered = inbox.filter(i=>i.status==='登録済');
 
-  const tabsHTML = `<div style="display:flex;border-bottom:1px solid #e0e0e0;margin-bottom:8px">
-    <div onclick="inboxSetTab('unread')" style="padding:7px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid ${currentTab==='unread'?'#4a90e2':'transparent'};color:${currentTab==='unread'?'#4a90e2':'#888'};font-weight:${currentTab==='unread'?'600':'400'}">
-      未確認・確認済 <span style="background:#e53935;color:#fff;border-radius:99px;padding:1px 6px;font-size:10px;margin-left:4px">${unread||''}</span>
-    </div>
-    <div onclick="inboxSetTab('registered')" style="padding:7px 14px;font-size:12px;cursor:pointer;border-bottom:2px solid ${currentTab==='registered'?'#43a047':'transparent'};color:${currentTab==='registered'?'#43a047':'#888'};font-weight:${currentTab==='registered'?'600':'400'}">
-      登録済 (${registered.length})
-    </div>
+  const tabsHTML = `<div style="display:flex;gap:12px;align-items:center;margin-bottom:10px">
+    <span onclick="inboxSetTab('unread')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;${currentTab==='unread'?'font-weight:500;color:#333':'color:#888'}" id="inbox-tab-unread"><span style="width:6px;height:6px;border-radius:50%;background:#EF9F27"></span> 未確認・確認済 <span style="font-weight:400;color:#888">${pending.length}件</span>${unread?'<span style="min-width:16px;height:16px;border-radius:50%;background:#e53935;color:#fff;font-size:9px;display:inline-flex;align-items:center;justify-content:center;margin-left:2px">'+unread+'</span>':''}</span>
+    <span onclick="inboxSetTab('registered')" style="display:flex;align-items:center;gap:4px;cursor:pointer;font-size:12px;${currentTab==='registered'?'font-weight:500;color:#333':'color:#888'}" id="inbox-tab-registered"><span style="width:6px;height:6px;border-radius:50%;background:#5DCAA5"></span> 登録済 <span style="font-weight:400;color:#888">${registered.length}件</span></span>
   </div>`;
 
   const renderItem = (item, isCompact) => {
