@@ -4139,7 +4139,7 @@ async function processTopFiles(files){
           fileName:f.name,mimeType:f.type||'application/octet-stream',dataUrl:dataUrl
         })});
         var upJson=await upRes.json();
-        if(!upJson.ok) continue;
+        if(!upJson.ok){console.error('Upload failed:',f.name,upJson.error||'');st.textContent='❌ アップロード失敗: '+f.name;continue;}
         uploaded++;
         var finalFileId=upJson.fileId;
         var finalName=f.name;
@@ -4167,6 +4167,8 @@ async function processTopFiles(files){
     msg+='（データ管理で確認）';
     st.textContent=msg;
     st.style.color='#2e7d32';
+    // ドロップ後は未分類フィルターに切り替え
+    storageOfficeFilter='未分類';
     try{renderStorage();}catch(e){}
   }catch(e){
     st.textContent='❌ エラー: '+e.message;
