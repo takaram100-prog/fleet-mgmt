@@ -604,10 +604,10 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           </div>
           <div class="stats" id="dash-stats"></div>
           <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave(event)" ondrop="tdDrop(event)">
-            <input type="file" accept=".pdf,image/*" multiple onchange="tdFile(event)">
-            <div style="font-size:28px;color:#bbb">📄</div>
-            <div style="font-size:13px;font-weight:500;color:#555">書類PDFをドロップして期限を読み取る</div>
-            <div style="font-size:11px;color:#999">車検証・自賠責・任意保険・免許証など</div>
+            <input type="file" accept=".pdf,image/*,.docx,.xlsx,.doc,.xls" multiple onchange="tdFile(event)" id="top-drop-file">
+            <div style="font-size:28px;color:#bbb">📁</div>
+            <div style="font-size:13px;font-weight:500;color:#555">ファイル・フォルダをドロップ</div>
+            <div style="font-size:11px;color:#999">PDF・画像・Word・Excel対応 / フォルダごとドロップOK</div>
             <div id="top-drop-state" style="font-size:12px;color:#4a90e2;margin-top:4px">クリックまたはドロップ</div>
           </div>
           <div style="margin-bottom:8px;font-size:12px;font-weight:500;color:#888">期限アラート（期限切れ・60日以内）</div>
@@ -3998,49 +3998,95 @@ function closeBg(e,id){if(e.target===document.getElementById(id))closeModal(id);
 // ====== ダッシュボードPDFドロップ ======
 function tdOver(e){e.preventDefault();e.currentTarget.classList.add('drag-over');}
 function tdLeave(e){e.currentTarget.classList.remove('drag-over');}
-function tdDrop(e){e.preventDefault();e.currentTarget.classList.remove('drag-over');processTopPdf(e.dataTransfer.files);}
-function tdFile(e){processTopPdf(e.target.files);e.target.value='';}
-async function readFile(f){return new Promise(res=>{const r=new FileReader();r.onload=()=>{const b64=r.result.split(',')[1];res({b64,type:f.type||'image/jpeg',isPdf:f.type==='application/pdf',name:f.name});};r.readAsDataURL(f);});}
-async function processTopPdf(files){
-  if(!files?.length)return;
-  const st=document.getElementById('top-drop-state');
-  st.textContent='📎 '+files.length+'件選択中...';
+function tdFile(e){processTopFiles(Array.from(e.target.files));e.target.value='';}
+async function tdDrop(e){
+  e.preventDefault();e.currentTarget.classList.remove('drag-over');
+  var st=document.getElementById('top-drop-state');
+  st.textContent='📂 フォルダ読み込み中...';st.style.color='#E65100';
+  // フォルダ対応: webkitGetAsEntry でフォルダ内を再帰的に取得
+  var items=e.dataTransfer.items;
+  if(items&&items.length&&items[0].webkitGetAsEntry){
+    var allFiles=[];
+    var entries=[];
+    for(var i=0;i<items.length;i++){var entry=items[i].webkitGetAsEntry();if(entry)entries.push(entry);}
+    await readEntriesRecursive(entries,allFiles);
+    if(allFiles.length) processTopFiles(allFiles);
+    else{st.textContent='対応ファイルが見つかりません';st.style.color='#e53935';}
+  } else {
+    processTopFiles(Array.from(e.dataTransfer.files));
+  }
+}
+function readEntriesRecursive(entries,allFiles){
+  return Promise.all(entries.map(function(entry){
+    if(entry.isFile){
+      return new Promise(function(res){
+        entry.file(function(f){
+          var ext=(f.name||'').split('.').pop().toLowerCase();
+          if(['pdf','jpg','jpeg','png','gif','docx','doc','xlsx','xls'].includes(ext)) allFiles.push(f);
+          res();
+        },function(){res();});
+      });
+    } else if(entry.isDirectory){
+      return new Promise(function(res){
+        var reader=entry.createReader();
+        reader.readEntries(function(subEntries){
+          readEntriesRecursive(Array.from(subEntries),allFiles).then(res);
+        },function(){res();});
+      });
+    }
+    return Promise.resolve();
+  }));
+}
+async function readFileAsDataUrl(f){return new Promise(function(res){var r=new FileReader();r.onload=function(){res(r.result);};r.readAsDataURL(f);});}
+async function processTopFiles(files){
+  if(!files||!files.length)return;
+  var st=document.getElementById('top-drop-state');
+  st.textContent='📎 '+files.length+'件を処理中...';
   st.style.color='#E65100';
   try{
-    const fd=[];for(const f of files){fd.push(await readFile(f));}
-    const aiKey=localStorage.getItem('fleet_ai_key')||'';
-    if(!aiKey){
-      // AI未設定: Driveの未分類にアップロード
-      st.textContent='📤 未分類にアップロード中...（'+fd.length+'件）';
-      var uploaded=0;
-      for(var i=0;i<files.length;i++){
-        try{
-          var reader2=new FileReader();
-          var dataUrl=await new Promise(function(resolve){reader2.onload=function(e){resolve(e.target.result);};reader2.readAsDataURL(files[i]);});
-          var res2=await fetch(API_URL,{method:'POST',body:JSON.stringify({action:'uploadFile',folder:'_未分類',subFolder:'',fileName:files[i].name,mimeType:files[i].type,dataUrl:dataUrl})});
-          var json2=await res2.json();
-          if(json2.ok){
-            uploaded++;
-            if(!unassignedFiles) unassignedFiles=[];
-            unassignedFiles.push({name:files[i].name,fileId:json2.fileId,url:json2.url,type:files[i].type,uploadedAt:new Date().toISOString()});
-          }
-        }catch(ue){}
-      }
-      saveLocal();
-      st.textContent='✓ '+uploaded+'件を未分類にアップロードしました（データ管理で確認）';
-      st.style.color='#2e7d32';
-      try{renderStorage();}catch(e){}
-      return;
+    var uploaded=0,converted=0;
+    if(!unassignedFiles) unassignedFiles=[];
+    for(var i=0;i<files.length;i++){
+      var f=files[i];
+      var ext=(f.name||'').split('.').pop().toLowerCase();
+      st.textContent='📤 アップロード中... ('+(i+1)+'/'+files.length+') '+f.name;
+      try{
+        var dataUrl=await readFileAsDataUrl(f);
+        // Driveにアップロード
+        var upRes=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+          action:'uploadFile',folder:'_未分類',subFolder:'',
+          fileName:f.name,mimeType:f.type||'application/octet-stream',dataUrl:dataUrl
+        })});
+        var upJson=await upRes.json();
+        if(!upJson.ok) continue;
+        uploaded++;
+        var finalFileId=upJson.fileId;
+        var finalName=f.name;
+        // Word/Excelの場合 → PDF変換
+        if(['docx','doc','xlsx','xls'].includes(ext)){
+          st.textContent='🔄 PDF変換中... ('+(i+1)+'/'+files.length+') '+f.name;
+          try{
+            var cvRes=await fetch(API_URL,{method:'POST',body:JSON.stringify({
+              action:'convertToPdf',fileId:upJson.fileId,fileName:f.name.replace(/\.[^.]+$/,'')
+            })});
+            var cvJson=await cvRes.json();
+            if(cvJson.ok&&cvJson.fileId){
+              finalFileId=cvJson.fileId;
+              finalName=f.name.replace(/\.[^.]+$/,'.pdf');
+              converted++;
+            }
+          }catch(ce){}
+        }
+        unassignedFiles.push({name:finalName,fileId:finalFileId,url:upJson.url||'',type:f.type,uploadedAt:new Date().toISOString()});
+      }catch(ue){console.log('Upload error:',f.name,ue);}
     }
-    st.textContent='🔍 AIが読み取り中...（'+fd.length+'件）';
-    const content=fd.flatMap(f=>[f.isPdf?{type:'document',source:{type:'base64',media_type:'application/pdf',data:f.b64}}:{type:'image',source:{type:'base64',media_type:f.type,data:f.b64}},{type:'text',text:'この書類の種別と期限をJSONで返してください。{"docType":"shaken|jibai|nin|license","exp":"YYYY-MM-DD","label":"書類の日本語名"} JSONのみ。'}]);
-    const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':aiKey,'anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:800,messages:[{role:'user',content}]})});
-    const data=await resp.json();
-    const text=(data.content||[]).map(c=>c.text||'').join('').replace(/```json|```/g,'').trim();
-    let results=[];try{const p=JSON.parse(text);results=Array.isArray(p)?p:[p];}catch(e){}
-    const lines=results.filter(r=>r.exp).map(r=>`${r.label||r.docType}: ${r.exp.replace(/-/g,'/')}`);
-    st.textContent=lines.length?'✓ '+lines.join(' / '):'読み取れませんでした';
-    st.style.color=lines.length?'#2e7d32':'#e53935';
+    saveLocal();
+    var msg='✓ '+uploaded+'件アップロード';
+    if(converted) msg+='（'+converted+'件PDF変換済）';
+    msg+='（データ管理で確認）';
+    st.textContent=msg;
+    st.style.color='#2e7d32';
+    try{renderStorage();}catch(e){}
   }catch(e){
     st.textContent='❌ エラー: '+e.message;
     st.style.color='#e53935';
