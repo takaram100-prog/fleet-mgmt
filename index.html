@@ -5764,15 +5764,28 @@ function storageSetOffice(office){
 }
 
 function storageToggleExpand(key){
-  storageExpandedIds[key]=!storageExpandedIds[key];
-  // DOM直接切替（再レンダリングなし=他カード不動）
+  var opening=!storageExpandedIds[key];
+  if(opening){
+    // 他の展開カードを全て閉じる（排他展開）
+    Object.keys(storageExpandedIds).forEach(function(k){
+      if(storageExpandedIds[k]&&k!==key){
+        storageExpandedIds[k]=false;
+        var c=document.getElementById('sc-c-'+k);
+        var e=document.getElementById('sc-e-'+k);
+        if(c)c.style.display='block';
+        if(e)e.style.display='none';
+      }
+    });
+  }
+  storageExpandedIds[key]=opening;
+  // DOM直接切替（再レンダリングなし=他カード位置不動）
   var collapsed=document.getElementById('sc-c-'+key);
   var expanded=document.getElementById('sc-e-'+key);
   if(collapsed&&expanded){
-    if(storageExpandedIds[key]){collapsed.style.display='none';expanded.style.display='block';}
+    if(opening){collapsed.style.display='none';expanded.style.display='block';}
     else{collapsed.style.display='block';expanded.style.display='none';}
   } else {
-    renderStorage(); // フォールバック
+    renderStorage();
   }
 }
 
@@ -6030,7 +6043,8 @@ function renderStorage(){
             '<div style="font-size:10px;color:#555">'+(v._offices.join('・')||v.office||'未設定')+'</div></div>'+
           '</div>'+
           '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">'+
-            expBadge(minExp([v.shaken?.exp,v.jibai?.exp,v.nin?.exp]))+
+            expBadge(v.shaken?.exp,hasShaken)+
+            '<span style="font-size:9px;color:#666;margin-right:2px">車検</span>'+
             '<span style="font-size:10px;background:#fff;color:#444;padding:2px 8px;border-radius:6px;border:1px solid #aab">'+vaf.length+'件</span>'+
             '<span style="font-size:10px;color:#999">▶</span>'+
           '</div>'+
@@ -6101,7 +6115,7 @@ function renderStorage(){
     // 一括操作バー
     html+='<div id="uf-bulk-bar" style="display:none;padding:8px 12px;background:#fce4ec;border:1px solid #ef9a9a;border-radius:8px;margin-bottom:8px;align-items:center;gap:8px;flex-wrap:wrap">';
     html+='<span style="font-size:12px;font-weight:600;color:#c62828" id="uf-bulk-count">0件選択中</span>';
-    html+='<button class="btn btn-sm btn-primary" onclick="ufBulkAssign()" style="font-size:11px">📂 振分</button>';
+    html+='<button class="btn btn-sm btn-primary" onclick="ufBulkAssign()" style="font-size:11px">📂 登録</button>';
     html+='<button class="btn btn-sm btn-danger" onclick="ufBulkDelete()" style="font-size:11px">🗑 削除</button>';
     html+='<button class="btn btn-sm" onclick="ufBulkClear()" style="font-size:11px">選択解除</button>';
     html+='<label style="margin-left:auto;font-size:11px;cursor:pointer;color:#888"><input type="checkbox" onchange="ufToggleAll(this.checked)" style="margin-right:4px">全選択</label>';
