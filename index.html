@@ -2443,8 +2443,11 @@ async function injectStampsIntoDocx(zip, driver){
   // プレースホルダーが1つもなければスキップ
   if(docXml.indexOf('{{会社印}}')===-1&&docXml.indexOf('{{代表印}}')===-1&&docXml.indexOf('{{代表印}}')===-1) return;
 
-  // 名前空間を追加
-  if(docXml.indexOf('xmlns:wp=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ');
+  // 名前空間を個別に追加（既存のものはスキップ）
+  if(docXml.indexOf('xmlns:wp=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ');
+  if(docXml.indexOf('xmlns:a=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" ');
+  if(docXml.indexOf('xmlns:pic=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" ');
+  if(docXml.indexOf('xmlns:r=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ');
 
   var stamps=[];// [{rId, data, fileName}]
   var imgIdx=0;
