@@ -3054,135 +3054,132 @@ function openMailSendModal(taskId){
   const allVehicles=[...vehicles,...companies.flatMap(c=>c.vehicles||[])];
   const extraVOpts=allVehicles.filter(v=>String(v.id)!==t.vehicleId).map(v=>`<option value="${v.id}">${v.plate} ${v.model||''}</option>`).join('');
 
-  // ファイルチェックリスト（退職時はすべて未選択）
+  // ファイルチェックリスト
   const isRetire=t.type==='退職';
   const fileChk=isRetire?'':'checked';
-  const dFilesHtml=(t.driverFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" ${fileChk} class="ms-file" data-src="driver" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
-  const vFilesHtml=(t.vehicleFiles||[]).map((f,i)=>`<label style="display:flex;align-items:center;gap:6px;font-size:12px;padding:3px 0"><input type="checkbox" ${fileChk} class="ms-file" data-src="vehicle" data-idx="${i}" data-fileid="${f.fileId||''}"> ${esc(f.name)}</label>`).join('');
 
-  const isShaIn=t.driverType==='社員';
-  const vPlateLabel=t.vehiclePlate?' ('+esc(t.vehiclePlate)+')':'';
-
-  // 添付ファイルセクション組み立て（タブ方式）
+  // === 添付ファイルセクション（renderMailAttachmentsと同一レイアウト） ===
   let attachHtml='';
-
-  // === タブナビゲーション ===
-  attachHtml+='<div style="display:flex;gap:0;border-bottom:2px solid #ddd;margin-bottom:10px">';
-  attachHtml+='<div class="ms-tab active" data-mstab="tab-genpdf" onclick="switchMsTab(this)" style="padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;border-bottom:2px solid #1565C0;margin-bottom:-2px;color:#1565C0">現況・雇用・報告</div>';
-  attachHtml+='<div class="ms-tab" data-mstab="tab-files" onclick="switchMsTab(this)" style="padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#888">ドライバー・車両書類</div>';
-  attachHtml+='<div class="ms-tab" data-mstab="tab-subdocs" onclick="switchMsTab(this)" style="padding:6px 12px;font-size:11px;font-weight:600;cursor:pointer;color:#888">再委託先書類</div>';
+  // タブナビゲーション
+  attachHtml+='<div style="display:flex;gap:0;border-bottom:2px solid #ddd;margin-bottom:8px">';
+  attachHtml+='<div class="mm-tab active" data-mmtab="mms-genpdf" onclick="switchMmTab(this)" style="padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;border-bottom:2px solid #1565C0;margin-bottom:-2px;color:#1565C0">現況・雇用・報告</div>';
+  attachHtml+='<div class="mm-tab" data-mmtab="mms-files" onclick="switchMmTab(this)" style="padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;color:#888">ドライバー・車両書類</div>';
+  attachHtml+='<div class="mm-tab" data-mmtab="mms-subdocs" onclick="switchMmTab(this)" style="padding:5px 10px;font-size:11px;font-weight:600;cursor:pointer;color:#888">再委託先書類</div>';
   attachHtml+='</div>';
 
   // === タブ1: 現況・雇用・報告 ===
-  attachHtml+='<div id="ms-tab-genpdf" class="ms-tab-panel">';
-  attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
-  var existPdfs=(t.genPdfs||[]).map(p=>p.type);
-  var officePdfs=[
-    {type:'現況届',chk:existPdfs.includes('現況届')},
-    {type:'雇用証明書',chk:existPdfs.includes('雇用証明書')},
-    {type:'報告書',chk:existPdfs.includes('報告書')},
-  ];
-  officePdfs.forEach(p=>{
-    attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:4px 8px;background:#E3F2FD;border:1px solid #BBDEFB;border-radius:6px;flex:1;min-width:90px"><input type="checkbox" '+(p.chk?'checked':'')+' class="ms-gen-pdf" data-pdf-type="'+p.type+'" data-office="'+esc(t.office)+'"> '+p.type+'</label>';
-  });
-  attachHtml+='</div></div>';
+  attachHtml+='<div id="mms-genpdf" class="mm-tab-panel">';
+  attachHtml+='<div style="margin-bottom:8px;padding:6px 8px;background:#E3F2FD;border-radius:6px">';
+  attachHtml+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:4px">現況・雇用・報告（送信時に自動生成）</div>';
+  attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:6px">';
+  var existPdfs=(t.genPdfs||[]).map(function(p){return p.type;});
+  attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" '+(existPdfs.includes('現況届')?'checked':'')+' class="mail-attach-check" data-group="pdf" data-pdf-type="genkyo"> 現況届</label>';
+  attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" '+(existPdfs.includes('雇用証明書')?'checked':'')+' class="mail-attach-check" data-group="pdf" data-pdf-type="koyou"> 雇用証明書</label>';
+  attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:11px;cursor:pointer"><input type="checkbox" '+(existPdfs.includes('報告書')?'checked':'')+' class="mail-attach-check" data-group="pdf" data-pdf-type="houkoku"> 報告書</label>';
+  attachHtml+='</div></div></div>';
 
-  // === タブ2: ドライバー・車両書類選択 ===
-  attachHtml+='<div id="ms-tab-files" class="ms-tab-panel" style="display:none">';
-  // 複数ドライバー対応（t.drivers配列 or 後方互換で単一ドライバー）
+  // === タブ2: ドライバー・車両書類（renderMailAttachmentsと同一レイアウト） ===
+  attachHtml+='<div id="mms-files" class="mm-tab-panel" style="display:none">';
+  // 絞り込みバッジ
   var taskDrivers=t.drivers||[{driverId:t.driverId,driverName:t.driverName,driverType:t.driverType,driverFiles:t.driverFiles||[],vehicleId:t.vehicleId,vehiclePlate:t.vehiclePlate,vehicleFiles:t.vehicleFiles||[]}];
-  var isDefaultCatMs=function(cat){return['運転免許証','免許','車検','自賠責','任意保険'].some(function(k){return(cat||'').includes(k);});};
+  var msEmp=taskDrivers.filter(function(d){return d.driverType==='社員';});
+  var msSub=taskDrivers.filter(function(d){return d.driverType!=='社員';});
+  attachHtml+='<div style="margin-bottom:6px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">';
+  attachHtml+='<span style="font-size:10px;font-weight:600;color:#555">絞込：</span>';
+  if(msEmp.length) attachHtml+='<span class="mail-badge active" style="padding:2px 8px;border-radius:10px;font-size:10px;cursor:pointer;background:#eaf2ff;color:#4a90e2">社員('+msEmp.length+')</span>';
+  if(msSub.length) attachHtml+='<span class="mail-badge active" style="padding:2px 8px;border-radius:10px;font-size:10px;cursor:pointer;background:#FFF3E0;color:#E65100">外注('+msSub.length+')</span>';
+  attachHtml+='<span style="font-size:9px;color:#4a90e2;cursor:pointer;margin-left:auto" onclick="document.querySelectorAll(\'[id^=mms-fold-]\').forEach(function(e){e.style.display=\'block\';})">全展開</span>';
+  attachHtml+='<span style="font-size:9px;color:#4a90e2;cursor:pointer" onclick="document.querySelectorAll(\'[id^=mms-fold-]\').forEach(function(e){e.style.display=\'none\';})">全折畳</span>';
+  attachHtml+='</div>';
+  // ドライバーリスト（書類生成メール送信と同一構造）
+  var isDefaultCatMs=function(cat){return['免許','車検','自賠責','任意保険'].some(function(k){return(cat||'').includes(k);});};
   taskDrivers.forEach(function(dr,di){
-    var totalF=(dr.driverFiles||[]).length+(dr.vehicleFiles||[]).length;
-    attachHtml+='<div style="border:1px solid #eee;border-radius:6px;padding:4px 8px;margin-bottom:3px;font-size:11px">';
+    var dFiles=dr.driverFiles||[];
+    var vFiles=dr.vehicleFiles||[];
+    var totalF=dFiles.length+vFiles.length;
+    var typeLabel=dr.driverType||'';
+    attachHtml+='<div class="mail-driver-row" style="border:1px solid #eee;border-radius:6px;padding:4px 8px;margin-bottom:3px;font-size:11px">';
     attachHtml+='<div style="display:flex;align-items:center;gap:4px">';
-    attachHtml+='<input type="checkbox" checked class="ms-driver-check" data-di="'+di+'">';
-    attachHtml+='<span style="cursor:pointer;flex:1;font-weight:500" onclick="var f=document.getElementById(\'ms-dfold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">'+esc(dr.driverName)+' <span style="font-size:10px;color:#888;font-weight:400">'+(dr.driverType||'')+' / '+totalF+'件</span></span>';
-    attachHtml+='<span style="cursor:pointer;font-size:9px;color:#4a90e2" onclick="var f=document.getElementById(\'ms-dfold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">▶</span>';
+    attachHtml+='<input type="checkbox" checked class="mail-driver-check" data-idx="'+di+'">';
+    attachHtml+='<span style="cursor:pointer;flex:1;font-weight:500" onclick="var f=document.getElementById(\'mms-fold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">'+esc(dr.driverName)+' <span style="font-size:10px;color:#888;font-weight:400">'+typeLabel+' / '+totalF+'件</span></span>';
+    attachHtml+='<span style="cursor:pointer;font-size:9px;color:#4a90e2" onclick="var f=document.getElementById(\'mms-fold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">▶</span>';
     attachHtml+='</div>';
-    attachHtml+='<div id="ms-dfold-'+di+'" style="display:none;padding:4px 0 0 8px">';
+    attachHtml+='<div id="mms-fold-'+di+'" style="display:none;padding:4px 0 0 8px">';
     // ドライバー書類（折り畳み）
-    if((dr.driverFiles||[]).length){
+    if(dFiles.length){
       attachHtml+='<div style="margin-bottom:4px">';
-      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E3F2FD;border-radius:4px;font-size:10px;font-weight:500;color:#1565C0" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">ドライバー書類 '+dr.driverFiles.length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
+      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E3F2FD;border-radius:4px;font-size:10px;font-weight:500;color:#1565C0" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">ドライバー書類 '+dFiles.length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
       attachHtml+='<div style="padding:2px 0 0 12px">';
-      dr.driverFiles.forEach(function(f,fi){
+      dFiles.forEach(function(f,fi){
         var chk=isDefaultCatMs(f.name)?'checked':'';
-        attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="ms-file" data-src="driver" data-di="'+di+'" data-idx="'+fi+'" data-fileid="'+(f.fileId||'')+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
+        attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="mail-attach-check" data-file-id="'+(f.fileId||'')+'" data-group="driver" data-driver-idx="'+di+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
       });
       attachHtml+='</div></div>';
     }
     // 車両書類（折り畳み）
     if(dr.vehiclePlate){
       attachHtml+='<div>';
-      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E8F5E9;border-radius:4px;font-size:10px;font-weight:500;color:#2E7D32" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">車両: '+esc(dr.vehiclePlate)+' '+(dr.vehicleFiles||[]).length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
+      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E8F5E9;border-radius:4px;font-size:10px;font-weight:500;color:#2E7D32" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">車両: '+esc(dr.vehiclePlate)+' '+vFiles.length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
       attachHtml+='<div style="padding:2px 0 0 12px">';
-      if((dr.vehicleFiles||[]).length){
-        dr.vehicleFiles.forEach(function(f,fi){
+      if(vFiles.length){
+        vFiles.forEach(function(f,fi){
           var chk=isDefaultCatMs(f.name)?'checked':'';
-          attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="ms-file" data-src="vehicle" data-di="'+di+'" data-idx="'+fi+'" data-fileid="'+(f.fileId||'')+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
+          attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="mail-attach-check" data-file-id="'+(f.fileId||'')+'" data-group="vehicle" data-driver-idx="'+di+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
         });
       } else {
         attachHtml+='<span style="color:#aaa;font-size:10px">車両書類なし</span>';
       }
       attachHtml+='</div></div>';
     }
-    if(!(dr.driverFiles||[]).length&&!dr.vehiclePlate) attachHtml+='<span style="color:#aaa;font-size:10px">書類なし</span>';
+    if(!dFiles.length&&!dr.vehiclePlate) attachHtml+='<span style="color:#aaa;font-size:10px">書類なし</span>';
     attachHtml+='</div></div>';
   });
   attachHtml+='</div>';
 
-  // === タブ3: 再委託先書類 ===
-  attachHtml+='<div id="ms-tab-subdocs" class="ms-tab-panel" style="display:none">';
-  // 営業所の外注ドライバー＋委託会社を取得
+  // === タブ3: 再委託先書類（renderMailAttachmentsと同一レイアウト） ===
+  attachHtml+='<div id="mms-subdocs" class="mm-tab-panel" style="display:none">';
   var offD=drivers.filter(function(d){return belongsToOffice(d,t.office)&&(!d.status||d.status==='在籍');});
-  var msSubcons=offD.filter(function(d){return d.type==='外注';}).sort(function(a,b){return b.id-a.id;});
-  var msCoCompanies=[];
+  var employees=offD.filter(function(d){return d.type==='社員';});
+  var subPersons=offD.filter(function(d){return d.type==='外注';});
+  var companyEntries=[];
   companies.forEach(function(c){
-    var cDrivers=(c.drivers||[]).filter(function(d){return(d.offices||[]).includes(t.office);}).sort(function(a,b){return b.id-a.id;});
-    if(cDrivers.length) msCoCompanies.push({name:c.name,cDrivers:cDrivers});
+    var cds=(c.drivers||[]).filter(function(d){return(d.offices||[]).includes(t.office);});
+    if(cds.length) companyEntries.push({name:c.name,drivers:cds,id:c.id,addr:c.addr||'',tel:c.tel||'',rep:c.rep||'',repKana:c.repKana||'',repBirth:c.repBirth||'',count:c.count||1});
   });
-  var subDocTypes=['再委託承認願','誓約書（再委託先）','適合証明書（再委託先）'];
-  // 大阪急配用書類（営業所単位）
-  attachHtml+='<div style="margin-bottom:8px;padding:6px 8px;background:#E3F2FD;border-radius:6px">';
-  attachHtml+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:4px">大阪急配（営業所共通）</div>';
+  // 委託会社チェック
+  if(companyEntries.length){
+    companyEntries.forEach(function(co){
+      attachHtml+='<div style="margin-bottom:4px;padding:5px 8px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
+      attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;font-weight:600;color:#7B1FA2"><input type="checkbox" class="mail-co-check mail-sub-target" data-co="'+co.name+'" data-target-type="company" data-company-name="'+esc(co.name)+'"> '+co.name+' <span style="font-size:9px;color:#999;font-weight:400">— 再委託先書類を生成</span></label>';
+      co.drivers.forEach(function(cd){
+        attachHtml+='<div style="padding:2px 0 0 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">';
+        attachHtml+='<span style="font-size:10px;color:#555;min-width:70px">'+cd.name+'</span>';
+        attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:9px;cursor:pointer;color:#7B1FA2;padding:1px 6px;background:#fff;border:1px solid #e0d5f5;border-radius:4px"><input type="checkbox" class="mail-sub-target" data-target-type="co-driver" data-driver-id="'+(cd.id||'')+'" data-company-name="'+esc(co.name)+'"> 再委託先書類</label>';
+        attachHtml+='</div>';
+      });
+      attachHtml+='</div>';
+    });
+  }
+  // 再委託先書類セクション
+  attachHtml+='<div style="margin-top:6px;padding:6px 8px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
+  attachHtml+='<div style="font-size:10px;font-weight:600;color:#7B1FA2;margin-bottom:6px">再委託先書類（送信時に自動生成）</div>';
+  attachHtml+='<div style="margin-bottom:6px;padding:4px 6px;background:#fff;border:1px solid #e0d5f5;border-radius:4px">';
+  attachHtml+='<div style="font-size:9px;font-weight:600;color:#7B1FA2;margin-bottom:4px">対象選択（外注個人・社員）</div>';
+  employees.forEach(function(d){
+    attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:2px 0"><input type="checkbox" class="mail-sub-target" data-target-type="person" data-driver-id="'+d.id+'" data-driver-name="'+esc(d.name)+'"> '+esc(d.name)+'<span style="font-size:9px;color:#888;margin-left:2px">（社員）</span></label>';
+  });
+  subPersons.forEach(function(d){
+    var label=d.sub&&d.sub.company?d.sub.company:d.name;
+    attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:11px;cursor:pointer;padding:2px 0"><input type="checkbox" class="mail-sub-target" data-target-type="person" data-driver-id="'+d.id+'" data-driver-name="'+esc(d.name)+'"> '+esc(label)+'<span style="font-size:9px;color:#888;margin-left:2px">（外注個人）</span></label>';
+  });
+  if(!employees.length&&!subPersons.length) attachHtml+='<div style="font-size:10px;color:#888;padding:4px 0">該当なし</div>';
+  attachHtml+='</div>';
+  attachHtml+='<div style="font-size:9px;font-weight:600;color:#7B1FA2;margin:6px 0 4px">書類選択</div>';
   attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
-  ['誓約書（大阪急配）','適合証明書（大阪急配）'].forEach(function(dtype){
-    attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:3px 6px;background:#fff;border:1px solid #BBDEFB;border-radius:4px"><input type="checkbox" '+(existPdfs.includes(dtype)?'checked':'')+' class="ms-gen-pdf" data-pdf-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype+'</label>';
+  ['再委託承認願','誓約書（大阪急配）','誓約書（再委託先）','適合証明書（大阪急配）','適合証明書（再委託先）'].forEach(function(doc){
+    attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 6px;background:#fff;border:1px solid #e0d5f5;border-radius:4px"><input type="checkbox" class="mail-sub-doc-check" data-doc="'+doc+'"> '+doc+'</label>';
   });
   attachHtml+='</div></div>';
-  // 外注（個人）
-  if(msSubcons.length){
-    attachHtml+='<div style="font-size:10px;font-weight:600;color:#E65100;margin-bottom:4px">外注（個人）</div>';
-    msSubcons.forEach(function(d){
-      var label=d.sub&&d.sub.company?d.sub.company:d.name;
-      attachHtml+='<div style="margin-bottom:4px;padding:4px 6px;background:#FFF3E0;border:1px solid #FFE0B2;border-radius:6px">';
-      attachHtml+='<div style="font-size:11px;font-weight:500;color:#E65100;margin-bottom:3px">'+esc(label)+'</div>';
-      attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:3px;padding-left:8px">';
-      subDocTypes.forEach(function(dtype){
-        attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 4px;background:#fff;border:1px solid #ffe0b2;border-radius:3px"><input type="checkbox" class="ms-sub-doc-check" data-driver-id="'+d.id+'" data-doc-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype.replace(/（再委託先）/,'')+'</label>';
-      });
-      attachHtml+='</div></div>';
-    });
-  }
-  // 委託会社
-  msCoCompanies.forEach(function(co){
-    attachHtml+='<div style="margin-bottom:4px;padding:4px 6px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
-    attachHtml+='<div style="font-size:11px;font-weight:500;color:#7B1FA2;margin-bottom:3px">'+esc(co.name)+'（会社）</div>';
-    co.cDrivers.forEach(function(d){
-      attachHtml+='<div style="padding:2px 0 2px 8px">';
-      attachHtml+='<div style="font-size:10px;color:#555;margin-bottom:2px">└ '+esc(d.name)+'</div>';
-      attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:3px;padding-left:12px">';
-      subDocTypes.forEach(function(dtype){
-        attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 4px;background:#fff;border:1px solid #e0d5f5;border-radius:3px"><input type="checkbox" class="ms-sub-doc-check" data-driver-id="'+d.id+'" data-doc-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype.replace(/（再委託先）/,'')+'</label>';
-      });
-      attachHtml+='</div></div>';
-    });
-    attachHtml+='</div>';
-  });
-  if(!msSubcons.length&&!msCoCompanies.length){
-    attachHtml+='<div style="font-size:11px;color:#aaa;text-align:center;padding:12px">この営業所に外注ドライバーがいません</div>';
-  }
   attachHtml+='</div>';
 
   const modal=document.createElement('div');
