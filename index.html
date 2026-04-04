@@ -471,11 +471,11 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <input type="text" id="sf-mei" class="self-form-input" placeholder="太郎">
       </div>
       <div class="self-form-group">
-        <label class="self-form-label">姓（フリガナ）</label>
+        <label class="self-form-label">姓（フリガナ）<span id="sf-kana-req" style="display:none;color:#e53935"> *</span></label>
         <input type="text" id="sf-sei-kana" class="kana-input self-form-input" placeholder="ひらがな可">
       </div>
       <div class="self-form-group">
-        <label class="self-form-label">名（フリガナ）</label>
+        <label class="self-form-label">名（フリガナ）<span id="sf-kana-req2" style="display:none;color:#e53935"> *</span></label>
         <input type="text" id="sf-mei-kana" class="kana-input self-form-input" placeholder="ひらがな可">
       </div>
 
@@ -491,7 +491,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
           <input type="tel" id="sf-tel" class="self-form-input" placeholder="090-0000-0000" onblur="this.value=formatPhone(this.value)">
         </div>
         <div class="self-form-group">
-          <label class="self-form-label">住所</label>
+          <label class="self-form-label">住所 *</label>
           <div style="display:flex;gap:6px"><input type="text" id="sf-zip" class="self-form-input" placeholder="郵便番号" style="width:100px" oninput="autoZipLookup(this,'sf-addr')" maxlength="8"><input type="text" id="sf-addr" class="self-form-input" placeholder="都道府県市区町村..." style="flex:1" onblur="autoAddrToZip(this,'sf-zip')"></div>
         </div>
       </div>
@@ -521,53 +521,21 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         </div>
       </div>
 
-      <!-- 共通：提出書類（書類更新・新規登録どちらでも表示） -->
-      <div class="self-form-group" id="sf-docs-group">
-        <label class="self-form-label">提出書類（複数選択可）</label>
-        <div style="display:flex;flex-direction:column;gap:10px;padding:12px;border:1.5px solid #ddd;border-radius:8px;background:#fff">
-          <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-license" value="運転免許証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0;margin-top:2px" onchange="sfLicenseChanged()">
-            <div>運転免許証（更新）<div style="font-size:11px;color:#e65100;margin-top:2px">※ 表面・裏面の両方の写真が必要です</div></div>
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-shaken" value="車検証" style="width:18px;height:18px;cursor:pointer;flex-shrink:0"> 車検証（更新）
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-jibai" value="自賠責保険" style="width:18px;height:18px;cursor:pointer;flex-shrink:0"> 自賠責保険（更新）
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-nin" value="任意保険" style="width:18px;height:18px;cursor:pointer;flex-shrink:0"> 任意保険（更新）
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-health" value="健康診断書" style="width:18px;height:18px;cursor:pointer;flex-shrink:0"> 健康診断書
-          </label>
-          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;font-size:14px;color:#1a1a1a">
-            <input type="checkbox" id="sf-doc-other" value="その他" style="width:18px;height:18px;cursor:pointer;flex-shrink:0" onchange="sfOtherChanged()"> その他
-          </label>
-          <div id="sf-other-docs" style="display:none;padding:8px 0 0 28px">
-            <div id="sf-other-list"></div>
-            <button type="button" onclick="sfAddOtherDoc()" style="font-size:12px;color:#4a90e2;background:none;border:none;cursor:pointer;padding:4px 0">＋ 書類を追加</button>
-          </div>
-        </div>
-      </div>
-
+      <!-- 共通：メモ -->
       <div class="self-form-group">
         <label class="self-form-label">メモ（任意）</label>
         <input type="text" id="sf-note" class="self-form-input" placeholder="例：免許証を更新しました">
       </div>
 
       <div class="self-form-group" id="sf-upload-group">
-        <label class="self-form-label" id="sf-upload-label">写真・書類の画像</label>
-        <div id="sf-license-notice" style="display:none;background:#fff3e0;border:1px solid #ffcc80;border-radius:7px;padding:9px 12px;margin-bottom:8px;font-size:12px;color:#e65100">
-          運転免許証は<strong>表面・裏面の両方</strong>を撮影してください（2枚必須）
-        </div>
+        <label class="self-form-label" id="sf-upload-label">写真・書類の画像 *</label>
         <div class="self-form-upload" id="sf-upload" ondragover="sfDragOver(event)" ondragleave="sfDragLeave(event)" ondrop="sfDrop(event)">
-          <input type="file" accept="image/*" multiple onchange="sfFileChange(event)">
+          <input type="file" accept="image/*,.pdf" multiple onchange="sfFileChange(event)">
           <div class="self-form-upload-icon">📷</div>
           <div class="self-form-upload-text">タップして撮影または選択</div>
-          <div class="self-form-upload-sub" id="sf-upload-sub">免許証・書類の写真（複数可）</div>
+          <div class="self-form-upload-sub" id="sf-upload-sub">免許証・車検証・保険証書の写真（複数可）</div>
         </div>
-        <div class="self-form-previews" id="sf-previews"></div>
+        <div id="sf-previews" style="margin-top:10px"></div>
       </div>
 
       <button class="self-form-btn" id="sf-submit" onclick="submitSelfForm()">送信する</button>
@@ -4349,8 +4317,11 @@ function sfSetMode(mode){
   document.getElementById('sf-new-office-group').style.display = isNew ? 'block' : 'none';
   document.getElementById('sf-new-fields').style.display = isNew ? 'block' : 'none';
   document.getElementById('sf-vehicle-detail-group').style.display = isNew ? 'block' : 'none';
-  // 提出書類は常に表示
-  document.getElementById('sf-docs-group').style.display = 'block';
+  // フリガナ必須マーク
+  var kReq1=document.getElementById('sf-kana-req');
+  var kReq2=document.getElementById('sf-kana-req2');
+  if(kReq1)kReq1.style.display=isNew?'inline':'none';
+  if(kReq2)kReq2.style.display=isNew?'inline':'none';
   document.getElementById('sf-subtitle').textContent = isNew ? '新規登録フォーム' : '書類提出フォーム';
 }
 
@@ -4359,34 +4330,6 @@ function sfDragLeave(e){document.getElementById('sf-upload').classList.remove('d
 function sfDrop(e){e.preventDefault();document.getElementById('sf-upload').classList.remove('drag-over');sfAddFiles(e.dataTransfer.files);}
 function sfFileChange(e){sfAddFiles(e.target.files);}
 
-// 免許証チェック変更時に案内表示切替
-function sfLicenseChanged(){
-  const checked=document.getElementById('sf-doc-license')?.checked;
-  const notice=document.getElementById('sf-license-notice');
-  const label=document.getElementById('sf-upload-label');
-  const sub=document.getElementById('sf-upload-sub');
-  if(notice){notice.style.display=checked?'block':'none';}
-  if(label){label.textContent=checked?'写真・書類の画像（免許証は裏表2枚必須）':'写真・書類の画像';}
-  if(sub){sub.textContent=checked?'免許証 表面・裏面 + その他書類':'免許証・書類の写真（複数可）';}
-}
-let sfOtherCount=0;
-function sfOtherChanged(){
-  const checked=document.getElementById('sf-doc-other')?.checked;
-  document.getElementById('sf-other-docs').style.display=checked?'block':'none';
-  if(checked && !document.getElementById('sf-other-list').children.length){
-    sfAddOtherDoc();
-  }
-}
-function sfAddOtherDoc(){
-  sfOtherCount++;
-  const id=sfOtherCount;
-  const el=document.createElement('div');
-  el.id='sf-other-'+id;
-  el.style.cssText='display:flex;gap:6px;align-items:center;margin-bottom:6px';
-  el.innerHTML='<input type="text" class="self-form-input sf-other-name" placeholder="書類名（例：健康診断書）" style="flex:1;padding:8px 10px;font-size:13px">'+
-    '<button type="button" onclick="this.parentElement.remove()" style="width:24px;height:24px;border-radius:99px;border:1px solid #ddd;background:#fff;color:#888;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center">×</button>';
-  document.getElementById('sf-other-list').appendChild(el);
-}
 function sfAddFiles(files){
   for(const f of files){
     const reader=new FileReader();
@@ -4398,7 +4341,28 @@ function sfAddFiles(files){
   }
 }
 function renderSfPreviews(){
-  document.getElementById('sf-previews').innerHTML=sfFiles.map((f,i)=>`<div class="self-form-preview"><img src="${f.dataUrl}"><button class="self-form-preview-del" onclick="sfRemoveFile(${i})">×</button></div>`).join('');
+  var catOptions='<option value="">選択</option><option value="免許証（表）">免許証（表）</option><option value="免許証（裏）">免許証（裏）</option><option value="免許証（表裏）">免許証（表裏1枚）</option><option value="車検証">車検証</option><option value="自賠責保険">自賠責保険</option><option value="任意保険">任意保険</option><option value="健康診断書">健康診断書</option><option value="その他">その他</option>';
+  document.getElementById('sf-previews').innerHTML=sfFiles.map(function(f,i){
+    var selVal=f.category||'';
+    var opts=catOptions.replace('value="'+selVal+'"','value="'+selVal+'" selected');
+    var otherInput=selVal==='その他'?'<input type="text" class="self-form-input" style="padding:6px 8px;font-size:11px;margin-top:4px" placeholder="書類名を入力 *" value="'+esc(f.otherName||'')+'" onchange="sfSetOtherName('+i+',this.value)">':'';
+    return '<div style="display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid #e0e0e0;border-radius:8px;background:#fafafa;margin-bottom:6px">'+
+      '<div style="width:70px;height:70px;border-radius:6px;overflow:hidden;flex-shrink:0;border:1px solid #ddd"><img src="'+f.dataUrl+'" style="width:100%;height:100%;object-fit:cover"></div>'+
+      '<div style="flex:1;min-width:0">'+
+        '<div style="font-size:10px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">'+esc(f.name)+'</div>'+
+        '<select class="self-form-select" style="padding:7px 10px;font-size:12px" onchange="sfSetCategory('+i+',this.value)">'+opts+'</select>'+
+        otherInput+
+      '</div>'+
+      '<button onclick="sfRemoveFile('+i+')" style="width:24px;height:24px;border-radius:99px;background:none;border:1px solid #ddd;color:#888;cursor:pointer;font-size:14px;flex-shrink:0;display:flex;align-items:center;justify-content:center">×</button>'+
+    '</div>';
+  }).join('');
+}
+function sfSetCategory(i,val){
+  if(sfFiles[i])sfFiles[i].category=val;
+  if(val==='その他')renderSfPreviews();
+}
+function sfSetOtherName(i,val){
+  if(sfFiles[i])sfFiles[i].otherName=val;
 }
 function sfRemoveFile(i){sfFiles.splice(i,1);renderSfPreviews();}
 
@@ -4564,18 +4528,44 @@ async function submitSelfForm(){
   // 共通：登録番号取得（正規化）
   const regcode = normalizeRegCode(document.getElementById('sf-regcode')?.value||'');
 
+  // ★ 写真のカテゴリチェック
+  if(!sfFiles.length){errEl.textContent='写真を1枚以上アップロードしてください';return;}
+  var uncategorized=sfFiles.filter(function(f){return !f.category;});
+  if(uncategorized.length){errEl.textContent='すべての写真にカテゴリを選択してください（未選択: '+uncategorized.length+'枚）';return;}
+  // その他カテゴリの書類名チェック
+  var otherNoName=sfFiles.filter(function(f){return f.category==='その他'&&!f.otherName;});
+  if(otherNoName.length){errEl.textContent='「その他」の書類名を入力してください';return;}
+  // 免許証チェック: 表or裏が1枚だけの場合、確認
+  var licFront=sfFiles.filter(function(f){return f.category==='免許証（表）';}).length;
+  var licBack=sfFiles.filter(function(f){return f.category==='免許証（裏）';}).length;
+  var licBoth=sfFiles.filter(function(f){return f.category==='免許証（表裏）';}).length;
+  var licTotal=licFront+licBack+licBoth;
+  if(licTotal>0&&!licBoth&&(licFront<1||licBack<1)){
+    if(!confirm('免許証は通常、表面・裏面の2枚が必要です。\n\n現在: 表 '+licFront+'枚 / 裏 '+licBack+'枚\n\nこのまま送信しますか？'))return;
+  }
+
+  // カテゴリからdoctypeを生成
+  var categories=[];
+  sfFiles.forEach(function(f){
+    var cat=f.category==='その他'?'その他('+f.otherName+')':f.category;
+    if(cat&&!categories.includes(cat))categories.push(cat);
+  });
+  var doctype=categories.join('・');
+
   let payload={};
 
   if(sfMode==='new'){
-    // 新規登録モード
     const birthRaw=document.getElementById('sf-birth').value;
     const birth=normalizeBirthDate(birthRaw);
     const tel=formatPhone(document.getElementById('sf-tel').value.trim());
+    const addr=document.getElementById('sf-addr')?.value?.trim()||'';
     const newOffice=document.getElementById('sf-new-office')?.value||'';
     if(!newOffice){errEl.textContent='営業所を選択してください';return;}
+    if(!kana){errEl.textContent='フリガナを入力してください';return;}
     if(!birth){errEl.textContent='生年月日を入力してください';return;}
     if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)){errEl.textContent='生年月日の形式が正しくありません（例：19900123）';return;}
     if(!tel){errEl.textContent='電話番号を入力してください';return;}
+    if(!addr){errEl.textContent='住所を入力してください';return;}
     const vModel=document.getElementById('sf-v-model')?.value?.trim()||'';
     const vColor=document.getElementById('sf-v-color')?.value?.trim()||'';
     const vKind=document.getElementById('sf-v-kind')?.value||'';
@@ -4585,37 +4575,24 @@ async function submitSelfForm(){
     let companyId=null, companyName='';
     payload={
       action:'submitForm', mode:'new',
-      name, kana, birth, tel,
+      name, kana, birth, tel, addr,
       office: newOffice,
-      addr:document.getElementById('sf-addr').value,
       regcode, companyId, companyName,
       plate, vModel, vColor, vKind,
-      note, doctype:'新規登録',
+      note, doctype:doctype||'新規登録',
       timestamp:new Date().toISOString(),
-      files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
+      files:sfFiles.map(f=>({name:f.name,category:f.category||'',otherName:f.otherName||'',dataUrl:f.dataUrl.slice(0,200)}))
     };
   } else {
-    // 書類更新モード
     const office=document.getElementById('sf-office').value;
     if(!office){errEl.textContent='営業所を選択してください';return;}
-    const docIds=['sf-doc-license','sf-doc-shaken','sf-doc-jibai','sf-doc-nin','sf-doc-health','sf-doc-other'];
-    const selectedDocs=docIds.map(id=>document.getElementById(id)).filter(el=>el&&el.checked).map(el=>el.value);
-    // その他書類名を収集
-    if(selectedDocs.includes('その他')){
-      const otherNames=Array.from(document.querySelectorAll('.sf-other-name')).map(el=>el.value.trim()).filter(Boolean);
-      if(otherNames.length){
-        selectedDocs.splice(selectedDocs.indexOf('その他'),1,...otherNames.map(n=>'その他('+n+')'));
-      }
-    }
-    if(!selectedDocs.length){errEl.textContent='提出書類を1つ以上選択してください';return;}
-    if(selectedDocs.includes('運転免許証')&&sfFiles.length<2){errEl.textContent='運転免許証は表面・裏面の写真2枚が必要です';return;}
     payload={
       action:'submitForm', mode:'update',
       office, name, kana,
       plate, regcode,
-      doctype:selectedDocs.join('・'), note,
+      doctype:doctype, note,
       timestamp:new Date().toISOString(),
-      files:sfFiles.map(f=>({name:f.name,dataUrl:f.dataUrl.slice(0,200)}))
+      files:sfFiles.map(f=>({name:f.name,category:f.category||'',otherName:f.otherName||'',dataUrl:f.dataUrl.slice(0,200)}))
     };
   }
 
@@ -4705,7 +4682,6 @@ async function submitSelfForm(){
 function resetSelfForm(){
   sfFiles=[];
   ['sf-sei','sf-mei','sf-sei-kana','sf-mei-kana','sf-regcode','sf-birth','sf-tel','sf-zip','sf-addr','sf-note','sf-plate','sf-v-model','sf-v-color'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
-  ['sf-doc-license','sf-doc-shaken','sf-doc-jibai','sf-doc-nin','sf-doc-health','sf-doc-other'].forEach(id=>{const el=document.getElementById(id);if(el)el.checked=false;});
   const sfNewOffice=document.getElementById('sf-new-office');if(sfNewOffice)sfNewOffice.value='';
   const sfVKind=document.getElementById('sf-v-kind');if(sfVKind)sfVKind.value='軽四';
   document.getElementById('sf-err').textContent='';
@@ -6746,10 +6722,11 @@ function renderInbox(){
           const driveThumbUrl = fFileId ? 'https://drive.google.com/thumbnail?id='+fFileId+'&sz=w80' : '';
           const imgSrc = fdataUrl || driveThumbUrl;
           if(imgSrc && isImg){
-            return `<img src="${imgSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0;cursor:pointer" onclick="openInboxFilePreview(${item.id},${fi})" title="${esc(fname)}">`;
+            return `<div style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer" onclick="openInboxFilePreview(${item.id},${fi})"><img src="${imgSrc}" style="width:60px;height:60px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0" title="${esc(fname)}"><span style="font-size:8px;color:#888;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(fname)}</span></div>`;
           }
-          return `<div onclick="openInboxFilePreview(${item.id},${fi})" style="display:flex;align-items:center;gap:3px;padding:2px 6px;background:#f0f4ff;border-radius:4px;font-size:10px;color:#4a90e2;cursor:pointer;border:1px solid #c5d8f8">
-            <img src="${LOGO_THUMB}" style="width:20px;height:20px;object-fit:contain"> ${esc(fname)}
+          return `<div onclick="openInboxFilePreview(${item.id},${fi})" style="display:inline-flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer">
+            <div style="width:60px;height:60px;display:flex;align-items:center;justify-content:center;background:#f0f4ff;border-radius:4px;border:1px solid #c5d8f8"><img src="${LOGO_THUMB}" style="width:30px;height:30px;object-fit:contain"></div>
+            <span style="font-size:8px;color:#4a90e2;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${esc(fname)}</span>
           </div>`;
         }).join('')}
       </div>` : '';
@@ -7403,12 +7380,13 @@ function execRegisterFromInbox(id){
   // ★ 入社メールタスクを自動生成
   createMailTask('入社', newId, item.name, isCompany?'委託':selectedType, selectedOffice, newVehicleId);
 
-  let msg = `「${item.name}」を${where}のドライバーとして登録しました。`;
+  let msg = '「'+item.name+'」を'+where+'のドライバーとして登録しました。';
   if(newVehicleId){
-    msg += `\n車両「${regPlate}」も同時に登録しました。`;
+    msg += '\n車両「'+regPlate+'」も同時に登録しました。';
   }
+  msg += '\n\n📧 入社メールタスクを自動作成しました。\nメール送信ページの「未送信」タブで確認・送信できます。';
   if(files.length){
-    msg += `\n\n続けて「保存」ボタンで添付ファイルを振り分けてください。`;
+    msg += '\n\n続けて「保存」ボタンで添付ファイルを振り分けてください。';
     alert(msg);
   } else {
     item.status='登録済';
