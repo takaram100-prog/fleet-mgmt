@@ -2781,7 +2781,7 @@ function createMailTask(type, driverId, driverName, driverType, office, vehicleI
   }
 
   const task={
-    id:String(Date.now()),
+    id:String(Date.now())+'_'+Math.random().toString(36).slice(2,6),
     type, driverId:String(driverId), driverName, driverType:driverType||'',
     office, vehicleId:v?String(v.id):'', vehiclePlate,
     driverFiles, vehicleFiles, genPdfs,
@@ -2897,17 +2897,62 @@ function execCreateMailTask(){
   const type=document.getElementById('mt-type')?.value;
   const checked=Array.from(document.querySelectorAll('.mt-driver-check:checked'));
   if(!checked.length){alert('ドライバーを1人以上選択してください');return;}
-  let count=0;
+
+  // 営業所でグループ化して1営業所1タスク
+  const byOffice={};
   checked.forEach(cb=>{
-    const dId=Number(cb.value);
-    const dName=cb.dataset.name||'';
-    const dType=cb.dataset.type||'';
-    const dOffice=cb.dataset.office||'';
-    createMailTask(type, dId, dName, dType, dOffice);
-    count++;
+    const off=cb.dataset.office||'';
+    if(!byOffice[off]) byOffice[off]=[];
+    byOffice[off].push({id:Number(cb.value),name:cb.dataset.name||'',type:cb.dataset.type||''});
   });
+
+  let taskCount=0;
+  Object.keys(byOffice).forEach(office=>{
+    const drvs=byOffice[office];
+    // 全ドライバーの添付ファイル・車両を収集
+    let allDriverEntries=[];
+    let allGenPdfs=[];
+    drvs.forEach(dr=>{
+      let driverFiles=[];
+      const d=drivers.find(x=>x.id==dr.id);
+      if(d) driverFiles=(d.attachedFiles||[]).map(f=>({name:f.category||f.name,fileId:f.fileId||'',url:f.url||''}));
+      else companies.forEach(c=>{const cd=(c.drivers||[]).find(x=>x.id==dr.id);if(cd) driverFiles=(cd.attachedFiles||[]).map(f=>({name:f.category||f.name,fileId:f.fileId||'',url:f.url||''}));});
+      let v=vehicles.find(x=>x.driverId==dr.id||x.driver===dr.name);
+      if(!v) companies.forEach(c=>{if(!v) v=(c.vehicles||[]).find(x=>x.driverId==dr.id||x.driver===dr.name);});
+      allDriverEntries.push({
+        driverId:String(dr.id),driverName:dr.name,driverType:dr.type,
+        driverFiles:driverFiles,
+        vehicleId:v?String(v.id):'',vehiclePlate:v?v.plate||'':'',
+        vehicleFiles:v?(v.attachedFiles||[]).map(f=>({name:f.category||f.name,fileId:f.fileId||'',url:f.url||''})):[]
+      });
+    });
+    // 生成PDF（営業所単位で1セット）
+    if(type==='入社'||type==='退職'||type==='営業所移動'){
+      allGenPdfs.push({name:'現況届_'+office+'.pdf',type:'現況届',office});
+      if(drvs.some(dr=>dr.type==='社員')) allGenPdfs.push({name:'雇用証明書_'+office+'.pdf',type:'雇用証明書',office});
+    }
+    // 後方互換：1人目の情報をトップレベルにも保持
+    const first=allDriverEntries[0]||{};
+    const task={
+      id:String(Date.now())+'_'+Math.random().toString(36).slice(2,6),
+      type, office,
+      driverId:first.driverId||'', driverName:drvs.map(d=>d.name).join('・'),
+      driverType:first.driverType||'',
+      vehicleId:first.vehicleId||'', vehiclePlate:first.vehiclePlate||'',
+      driverFiles:first.driverFiles||[], vehicleFiles:first.vehicleFiles||[],
+      genPdfs:allGenPdfs,
+      // 複数ドライバー情報
+      drivers:allDriverEntries,
+      status:'pending',
+      createdAt:new Date().toISOString(),
+      sentAt:null
+    };
+    mailTasks.unshift(task);
+    taskCount++;
+  });
+  saveMailTasks();renderMailTasks();
   document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
-  alert(''+count+'件のデータ送信タスクを作成しました');
+  alert(taskCount+'件のメール送信タスクを作成しました（'+checked.length+'名分）');
 }
 
 // 送信モーダル
@@ -3029,31 +3074,47 @@ function openMailSendModal(taskId){
 
   // === タブ2: ドライバー・車両書類選択 ===
   attachHtml+='<div id="ms-tab-files" class="ms-tab-panel" style="display:none">';
-  // ドライバー書類（折り畳み）
-  attachHtml+='<div style="margin-bottom:8px">';
-  attachHtml+='<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 8px;background:#E3F2FD;border-radius:6px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.ms-arrow\').textContent=this.nextElementSibling.style.display===\'none\'?\'▶\':\'▼\'">';
-  attachHtml+='<span style="font-size:11px;font-weight:600;color:#1565C0">ドライバー書類（'+esc(t.driverName)+'）<span style="font-size:10px;font-weight:400;color:#888"> '+((t.driverFiles||[]).length)+'件</span></span>';
-  attachHtml+='<span class="ms-arrow" style="font-size:10px;color:#888">▼</span></div>';
-  attachHtml+='<div style="padding:4px 8px">';
-  if(dFilesHtml){
-    attachHtml+=dFilesHtml;
-  } else {
-    attachHtml+='<div style="font-size:11px;color:#e65100;padding:4px 0">添付ファイルなし</div>';
-  }
-  attachHtml+='</div></div>';
-
-  // 車両書類（折り畳み）
-  attachHtml+='<div>';
-  attachHtml+='<div style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 8px;background:#E8F5E9;border-radius:6px" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display===\'none\'?\'block\':\'none\';this.querySelector(\'.ms-arrow\').textContent=this.nextElementSibling.style.display===\'none\'?\'▶\':\'▼\'">';
-  attachHtml+='<span style="font-size:11px;font-weight:600;color:#2E7D32">車両書類'+(t.vehiclePlate?' ('+esc(t.vehiclePlate)+')':'')+'<span style="font-size:10px;font-weight:400;color:#888"> '+((t.vehicleFiles||[]).length)+'件</span></span>';
-  attachHtml+='<span class="ms-arrow" style="font-size:10px;color:#888">▼</span></div>';
-  attachHtml+='<div style="padding:4px 8px">';
-  if(vFilesHtml){
-    attachHtml+=vFilesHtml;
-  } else {
-    attachHtml+='<div style="font-size:11px;color:#e65100;padding:4px 0">添付ファイルなし</div>';
-  }
-  attachHtml+='</div></div>';
+  // 複数ドライバー対応（t.drivers配列 or 後方互換で単一ドライバー）
+  var taskDrivers=t.drivers||[{driverId:t.driverId,driverName:t.driverName,driverType:t.driverType,driverFiles:t.driverFiles||[],vehicleId:t.vehicleId,vehiclePlate:t.vehiclePlate,vehicleFiles:t.vehicleFiles||[]}];
+  var isDefaultCatMs=function(cat){return['運転免許証','免許','車検','自賠責','任意保険'].some(function(k){return(cat||'').includes(k);});};
+  taskDrivers.forEach(function(dr,di){
+    var totalF=(dr.driverFiles||[]).length+(dr.vehicleFiles||[]).length;
+    attachHtml+='<div style="border:1px solid #eee;border-radius:6px;padding:4px 8px;margin-bottom:3px;font-size:11px">';
+    attachHtml+='<div style="display:flex;align-items:center;gap:4px">';
+    attachHtml+='<input type="checkbox" checked class="ms-driver-check" data-di="'+di+'">';
+    attachHtml+='<span style="cursor:pointer;flex:1;font-weight:500" onclick="var f=document.getElementById(\'ms-dfold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">'+esc(dr.driverName)+' <span style="font-size:10px;color:#888;font-weight:400">'+(dr.driverType||'')+' / '+totalF+'件</span></span>';
+    attachHtml+='<span style="cursor:pointer;font-size:9px;color:#4a90e2" onclick="var f=document.getElementById(\'ms-dfold-'+di+'\');f.style.display=f.style.display===\'none\'?\'block\':\'none\'">▶</span>';
+    attachHtml+='</div>';
+    attachHtml+='<div id="ms-dfold-'+di+'" style="display:none;padding:4px 0 0 8px">';
+    // ドライバー書類（折り畳み）
+    if((dr.driverFiles||[]).length){
+      attachHtml+='<div style="margin-bottom:4px">';
+      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E3F2FD;border-radius:4px;font-size:10px;font-weight:500;color:#1565C0" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">ドライバー書類 '+dr.driverFiles.length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
+      attachHtml+='<div style="padding:2px 0 0 12px">';
+      dr.driverFiles.forEach(function(f,fi){
+        var chk=isDefaultCatMs(f.name)?'checked':'';
+        attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="ms-file" data-src="driver" data-di="'+di+'" data-idx="'+fi+'" data-fileid="'+(f.fileId||'')+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
+      });
+      attachHtml+='</div></div>';
+    }
+    // 車両書類（折り畳み）
+    if(dr.vehiclePlate){
+      attachHtml+='<div>';
+      attachHtml+='<div style="display:flex;align-items:center;gap:4px;cursor:pointer;padding:3px 6px;background:#E8F5E9;border-radius:4px;font-size:10px;font-weight:500;color:#2E7D32" onclick="var t=this.nextElementSibling;t.style.display=t.style.display===\'none\'?\'block\':\'none\'">車両: '+esc(dr.vehiclePlate)+' '+(dr.vehicleFiles||[]).length+'件 <span style="margin-left:auto;font-size:9px">▼</span></div>';
+      attachHtml+='<div style="padding:2px 0 0 12px">';
+      if((dr.vehicleFiles||[]).length){
+        dr.vehicleFiles.forEach(function(f,fi){
+          var chk=isDefaultCatMs(f.name)?'checked':'';
+          attachHtml+='<label style="display:flex;align-items:center;gap:4px;font-size:10px;padding:1px 0;cursor:pointer"><input type="checkbox" '+chk+' class="ms-file" data-src="vehicle" data-di="'+di+'" data-idx="'+fi+'" data-fileid="'+(f.fileId||'')+'" data-cat="'+esc(f.name)+'" onchange="mailCheckSensitiveFile(this)"> '+esc(f.name)+'</label>';
+        });
+      } else {
+        attachHtml+='<span style="color:#aaa;font-size:10px">車両書類なし</span>';
+      }
+      attachHtml+='</div></div>';
+    }
+    if(!(dr.driverFiles||[]).length&&!dr.vehiclePlate) attachHtml+='<span style="color:#aaa;font-size:10px">書類なし</span>';
+    attachHtml+='</div></div>';
+  });
   attachHtml+='</div>';
 
   // === タブ3: 再委託先書類 ===
