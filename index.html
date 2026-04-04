@@ -4180,16 +4180,9 @@ function readEntriesRecursive(entries,allFiles,pathPrefix){
         entry.file(function(f){
           var ext=(f.name||'').split('.').pop().toLowerCase();
           if(['pdf','jpg','jpeg','png','gif','docx','doc','xlsx','xls'].includes(ext)){
-            // フォルダパスをファイル名に付与（松枝憲明/5560/車検証.pdf → 松枝憲明_5560_車検証.pdf）
-            if(pathPrefix){
-              var prefixedName=pathPrefix.replace(/\//g,'_')+f.name;
-              var newFile=new File([f],prefixedName,{type:f.type,lastModified:f.lastModified});
-              newFile._originalName=f.name;
-              newFile._folderPath=pathPrefix;
-              allFiles.push(newFile);
-            } else {
-              allFiles.push(f);
-            }
+            // フォルダパスはメタデータとして保持（ファイル名は変更しない）
+            f._folderPath=pathPrefix;
+            allFiles.push(f);
           }
           res();
         },function(){res();});
@@ -4198,7 +4191,6 @@ function readEntriesRecursive(entries,allFiles,pathPrefix){
       return new Promise(function(res){
         var reader=entry.createReader();
         var allEntries=[];
-        // readEntriesは100件ずつ返すので繰り返し呼ぶ
         function readAll(){
           reader.readEntries(function(batch){
             if(batch.length){
@@ -4255,7 +4247,7 @@ async function processTopFiles(files){
             }
           }catch(ce){}
         }
-        unassignedFiles.push({name:finalName,fileId:finalFileId,url:upJson.url||'',type:f.type,uploadedAt:new Date().toISOString()});
+        unassignedFiles.push({name:finalName,fileId:finalFileId,url:upJson.url||'',type:f.type,folderPath:f._folderPath||'',uploadedAt:new Date().toISOString()});
       }catch(ue){console.log('Upload error:',f.name,ue);}
     }
     saveLocal();
@@ -5456,8 +5448,9 @@ function assignUnassignedFile(idx){
   window._assignTargets=[...allD,...allV];
   window._assignIdx=idx;
 
-  // ファイル名から推測
-  var hints=parseFileNameHints(f.name);
+  // ファイル名+フォルダパスから推測
+  var hintStr=((f.folderPath||'').replace(/\//g,' ')+' '+f.name).trim();
+  var hints=parseFileNameHints(hintStr);
   window._assignHints=hints;
 
   // 既存データとマッチング
@@ -5501,7 +5494,7 @@ function assignUnassignedFile(idx){
   modal.innerHTML='<div class="modal" style="max-width:420px" onclick="event.stopPropagation()">'+
     '<div class="modal-header"><span class="modal-title">振り分け先を選択</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
     '<div class="modal-body" style="padding:8px 12px;max-height:65vh;overflow-y:auto">'+
-      '<div style="font-size:11px;color:#888;margin-bottom:6px;padding:4px 0;border-bottom:1px solid #eee">ファイル: '+(f.name||'未分類')+'</div>'+
+      '<div style="font-size:11px;color:#888;margin-bottom:6px;padding:4px 0;border-bottom:1px solid #eee">'+(f.folderPath?'<span style="font-size:10px;color:#999">📁'+esc(f.folderPath)+'</span><br>':'')+'ファイル: '+esc(f.name||'未分類')+'</div>'+
       newRegHtml+
       suggestHtml+
       '<div style="display:flex;gap:6px;margin-bottom:8px">'+
@@ -6073,7 +6066,9 @@ function renderStorage(){
       html+='<button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:2" onclick="event.stopPropagation();deleteUnassignedFile('+i+')">×</button>';
       html+='</div>';
       // ファイル名+ボタン
-      html+='<div style="padding:4px 6px;font-size:9px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #eee" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
+      var fpLabel=f.folderPath?'<div style="font-size:8px;color:#999;padding:2px 6px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #eee" title="'+esc(f.folderPath)+'">📁'+esc(f.folderPath.replace(/\/$/,''))+'</div>':'';
+      html+=fpLabel;
+      html+='<div style="padding:'+(f.folderPath?'1px':'4px')+' 6px;font-size:9px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+(f.folderPath?'':'border-top:1px solid #eee')+'" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
       html+='<div style="padding:4px 6px 6px">';
       html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500;position:relative;z-index:1" onclick="event.stopPropagation();assignUnassignedFile('+i+')">振り分け</button>';
       html+='</div>';
