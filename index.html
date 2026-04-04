@@ -6994,10 +6994,10 @@ function saveInboxFilesToDriver(inboxId){
   // 車両ナンバーマッチ
   let vehicleAutoVal = item._registeredVehicleId ? 'vehicle:'+item._registeredVehicleId : '';
   if(!vehicleAutoVal && item.plate){
-    const plateQ = item.plate.replace(/\s/g,'');
+    const plateQ = String(item.plate).replace(/\s/g,'');
     const allV = [...vehicles, ...companies.flatMap(c=>c.vehicles||[])];
     const matchV = allV.find(v=>{
-      const vp = (v.plate||'').replace(/\s/g,'');
+      const vp = String(v.plate||'').replace(/\s/g,'');
       return vp === plateQ || vp.includes(plateQ) || plateQ.includes(vp);
     });
     if(matchV) vehicleAutoVal = 'vehicle:'+matchV.id;
