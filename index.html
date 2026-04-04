@@ -6043,8 +6043,8 @@ function renderStorage(){
             '<div style="font-size:10px;color:#555">'+(v._offices.join('・')||v.office||'未設定')+'</div></div>'+
           '</div>'+
           '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">'+
-            expBadge(v.shaken?.exp,hasShaken)+
             '<span style="font-size:9px;color:#666;margin-right:2px">車検</span>'+
+            expBadge(v.shaken?.exp,hasShaken)+
             '<span style="font-size:10px;background:#fff;color:#444;padding:2px 8px;border-radius:6px;border:1px solid #aab">'+vaf.length+'件</span>'+
             '<span style="font-size:10px;color:#999">▶</span>'+
           '</div>'+
@@ -7907,7 +7907,7 @@ function saveCompanyDriver(){
       saveCompanies(); renderCompanyPage(currentCompanyId);
     })();
   }
-  saveCompanies();closeModal('company-driver-modal');renderCompanyPage(currentCompanyId);renderDashboard();
+  saveCompanies();closeModal('company-driver-modal');renderCompanyPage(currentCompanyId);renderDashboard();try{renderStorage();}catch(e){}
 }
 
 function deleteCompanyDriver(companyId, driverId){
@@ -7997,7 +7997,7 @@ function saveCompanyVehicle(){
       saveCompanies(); renderCompanyPage(currentCompanyId);
     })();
   }
-  saveCompanies();closeModal('company-vehicle-modal');renderCompanyPage(currentCompanyId);renderDashboard();
+  saveCompanies();closeModal('company-vehicle-modal');renderCompanyPage(currentCompanyId);renderDashboard();try{renderStorage();}catch(e){}
 }
 
 function deleteCompanyVehicle(companyId, vehicleId){
