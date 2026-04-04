@@ -6476,8 +6476,8 @@ function renderStorage(){
             '<div style="font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(d._offices.join('・'))+'">'+officesFull+'</div></div>'+
           '</div>'+
           '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">'+
-            plateBadge+
             expBadge(d.license?.exp,hasLic)+
+            plateBadge+
             fileInfo+
             '<span style="font-size:10px;color:#999;margin-left:2px">▶</span>'+
           '</div>'+
@@ -6619,7 +6619,7 @@ function renderStorage(){
 
       // --- 折り畳み版 ---
       var vOfficesFull=(v._offices.join('・')||v.office||'未設定');
-      var collapsedHtml='<div id="sc-c-'+key+'" style="display:'+(expanded?'none':'block')+'"><div style="background:#e8ecf0;border:1.5px solid #bbb;border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:.75" onclick="storageToggleExpand(\''+key+'\')">'+
+      var collapsedHtml='<div id="sc-c-'+key+'" style="display:'+(expanded?'none':'block')+'"><div style="background:#8dd6f7;border:1.5px solid #5bb8db;border-radius:8px;padding:8px 12px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:8px;opacity:.75" onclick="storageToggleExpand(\''+key+'\')">'+
           '<div style="min-width:0;display:flex;align-items:center;gap:8px;flex:1">'+
             '<div style="width:28px;height:28px;min-width:28px;min-height:28px;max-width:28px;max-height:28px;border-radius:50%;background:#546E7A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;flex-shrink:0">車</div>'+
             '<div style="min-width:0;overflow:hidden"><div style="font-weight:600;font-size:13px;color:#222;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+v.plate+' <span style="font-size:10px;color:#555;font-weight:400">'+(v.model||'')+'</span></div>'+
@@ -6634,7 +6634,7 @@ function renderStorage(){
         '</div></div>';
 
       // --- 展開版 ---
-      var cardHtml='<div id="sc-e-'+key+'" style="display:'+(expanded?'block':'none')+'"><div style="background:#e2e6eb;border:1.5px solid #aaa;border-radius:10px;padding:4px 16px 14px;overflow:hidden;opacity:.8">';
+      var cardHtml='<div id="sc-e-'+key+'" style="display:'+(expanded?'block':'none')+'"><div style="background:#8dd6f7;border:1.5px solid #5bb8db;border-radius:10px;padding:4px 16px 14px;overflow:hidden;opacity:.8">';
       cardHtml+='<div style="display:flex;align-items:flex-start;margin-bottom:6px;cursor:pointer;gap:8px" onclick="storageToggleExpand(\''+key+'\')">';
       cardHtml+='<div style="display:flex;align-items:flex-start;gap:10px;flex:1;min-width:0">';
       cardHtml+='<div style="width:34px;height:34px;min-width:34px;min-height:34px;max-width:34px;max-height:34px;border-radius:50%;background:#546E7A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:500;font-size:12px;flex-shrink:0;margin-top:2px">車</div>';
