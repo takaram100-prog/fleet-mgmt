@@ -819,6 +819,39 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
             <div style="font-size:10px;color:#888;margin-top:8px">※ APIキーはブラウザのlocalStorageに保存されます。第三者には共有されません。</div>
           </div>
 
+          <div style="margin-top:28px;font-size:12px;font-weight:600;margin-bottom:10px;color:#888">自社電子印設定</div>
+          <div style="background:#fce4ec;border:1px solid #ef9a9a;border-radius:10px;padding:16px">
+            <div style="font-size:12px;color:#555;margin-bottom:10px">書類生成時に捺印する自社の電子印を設定します</div>
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1">
+                  <label style="font-size:11px;color:#666;font-weight:500;display:block;margin-bottom:3px">会社印（社名）</label>
+                  <input type="text" id="stamp-company-name" placeholder="大阪急配" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px" oninput="previewSettingsStamp()">
+                </div>
+                <div id="stamp-company-preview" style="flex-shrink:0"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1">
+                  <label style="font-size:11px;color:#666;font-weight:500;display:block;margin-bottom:3px">代表者印（姓）</label>
+                  <input type="text" id="stamp-rep-name" placeholder="川村" style="width:100%;padding:6px 10px;font-size:12px;border:1px solid #ef9a9a;border-radius:6px" oninput="previewSettingsStamp()">
+                </div>
+                <div id="stamp-rep-preview" style="flex-shrink:0"></div>
+              </div>
+              <div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="checkbox" id="stamp-company-enabled" style="width:16px;height:16px"> 会社印を書類に捺印する
+                </label>
+              </div>
+              <div>
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px">
+                  <input type="checkbox" id="stamp-rep-enabled" style="width:16px;height:16px"> 代表者印を書類に捺印する
+                </label>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-primary" style="margin-top:10px" onclick="saveStampSettings()">電子印設定を保存</button>
+            <div id="stamp-settings-msg" style="font-size:10px;color:#888;margin-top:6px;min-height:14px"></div>
+          </div>
+
           <div style="margin-top:28px;font-size:12px;font-weight:600;margin-bottom:10px;color:#888">メール送信設定</div>
           <div style="background:#e3f2fd;border:1px solid #90caf9;border-radius:10px;padding:16px">
             <div style="font-size:12px;color:#555;margin-bottom:10px">営業所ごとのPDF書類＋ドライバー免許証データを郵便局担当者にメール送信します。</div>
@@ -964,6 +997,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <button class="btn btn-sm btn-primary" onclick="addOtherDoc()" style="font-size:10px;padding:2px 8px">＋ 追加</button>
       </div>
       <div id="other-docs-list" style="grid-column:1/-1;display:flex;flex-direction:column;gap:8px"></div>
+      <div style="grid-column:1/-1;margin-top:8px;padding:10px 14px;background:#fce4ec;border:1px solid #ef9a9a;border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:500">
+          <input type="checkbox" id="d-stamp" style="width:16px;height:16px" onchange="previewDriverStamp()"> 書類生成時に電子印を捺印する
+        </label>
+        <div id="d-stamp-preview" style="margin-top:6px;display:none"></div>
+      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
   </div>
@@ -985,6 +1024,21 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
         <label style="color:#1565c0;font-weight:600">登録番号（自動発行・変更可）</label>
         <input type="text" id="cm-regcode" placeholder="KYH001" style="width:100%;padding:8px;margin-top:5px;font-size:16px;font-weight:700;letter-spacing:.15em;border:1.5px solid #90caf9;border-radius:6px;background:#fff;color:#1565c0;text-transform:uppercase">
         <div style="font-size:10px;color:#888;margin-top:4px">QRフォームの新規登録で使用します</div>
+      </div>
+      <div style="margin-top:8px;padding:10px 14px;background:#fce4ec;border:1px solid #ef9a9a;border-radius:8px">
+        <div style="font-size:11px;font-weight:600;color:#c62828;margin-bottom:6px">電子印設定</div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;flex:1">
+            <input type="checkbox" id="cm-stamp-co" style="width:16px;height:16px" onchange="previewCompanyStamps()"> 会社印
+          </label>
+          <div id="cm-stamp-co-preview"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:12px;flex:1">
+            <input type="checkbox" id="cm-stamp-rep" style="width:16px;height:16px" onchange="previewCompanyStamps()"> 代表者印
+          </label>
+          <div id="cm-stamp-rep-preview"></div>
+        </div>
       </div>
     </div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('company-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompany()">保存する</button></div>
@@ -1027,6 +1081,12 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
       <div class="form-group"><label>免許の条件等</label><input type="text" id="cd-license-cond" placeholder="眼鏡等 / なし" class="modal-field"></div>
       <div class="section-title">搭乗車両</div>
       <div class="form-group" style="grid-column:1/-1"><label>搭乗車両（同委託会社内）</label><select id="cd-vehicle" class="modal-field"><option value="">未割当</option></select></div>
+      <div style="grid-column:1/-1;margin-top:8px;padding:10px 14px;background:#fce4ec;border:1px solid #ef9a9a;border-radius:8px">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;font-weight:500">
+          <input type="checkbox" id="cd-stamp" style="width:16px;height:16px" onchange="previewCompanyDriverStamp()"> 書類生成時に電子印を捺印する
+        </label>
+        <div id="cd-stamp-preview" style="margin-top:6px;display:none"></div>
+      </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('company-driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveCompanyDriver()">保存する</button></div>
   </div>
@@ -3974,6 +4034,8 @@ function openDriverModal(id){
   modalFiles['d-files']=[];
   renderFilePreview('d-files');
   otherDocCount=0;
+  document.getElementById('d-stamp').checked=false;
+  var dsp=document.getElementById('d-stamp-preview');if(dsp)dsp.style.display='none';
   if(id){
     const d=drivers.find(x=>x.id==id);
     if(d){
@@ -4000,6 +4062,8 @@ function openDriverModal(id){
       docs.forEach(doc=>addOtherDoc(doc));
       if(d.status==='退職'||d.status==='休止'){document.getElementById('archive-fields').style.display='block';document.getElementById('d-leave-date').value=d.leave?.date||'';document.getElementById('d-leave-reason').value=d.leave?.reason||'';document.getElementById('d-leave-note').value=d.leave?.note||'';}
       if(d.type==='外注（個人）'){document.getElementById('subcon-fields').style.display='block';document.getElementById('d-sub-company').value=d.sub?.company||'';document.getElementById('d-sub-kana').value=d.sub?.kana||'';document.getElementById('d-sub-birth').value=d.sub?.birth||'';document.getElementById('d-sub-area').value=d.sub?.area||'';document.getElementById('d-sub-count').value=d.sub?.count||1;document.getElementById('d-sub-tel').value=d.sub?.tel||'';}
+      document.getElementById('d-stamp').checked=!!d.stampEnabled;
+      previewDriverStamp();
     }
   }
   document.getElementById('driver-modal').style.display='flex';
@@ -4110,7 +4174,7 @@ function saveDriver(){
   const obj={id:editingDriverId||Date.now(),name,kana,type,status,
     office: selectedOffices[0]||'',
     offices: selectedOffices,
-    tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,zip:document.getElementById('d-zip').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{}};
+    tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,zip:document.getElementById('d-zip').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{},stampEnabled:!!document.getElementById('d-stamp')?.checked};
   if(editingDriverId){const i=drivers.findIndex(d=>d.id==editingDriverId);if(i>=0)drivers[i]=obj;else drivers.push(obj);}else drivers.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const dFiles = modalFiles['d-files'] || [];
@@ -7866,10 +7930,16 @@ function openCompanyModal(id){
       document.getElementById('cm-tel').value=c.tel||'';
       document.getElementById('cm-count').value=c.count||1;
       document.getElementById('cm-regcode').value=c.regCode||'';
+      document.getElementById('cm-stamp-co').checked=!!c.stampCompany;
+      document.getElementById('cm-stamp-rep').checked=!!c.stampRep;
+      previewCompanyStamps();
     }
   } else {
-    // 新規時は仮の登録番号を表示
     document.getElementById('cm-regcode').value=generateRegCode();
+    document.getElementById('cm-stamp-co').checked=false;
+    document.getElementById('cm-stamp-rep').checked=false;
+    var cp1=document.getElementById('cm-stamp-co-preview');if(cp1)cp1.innerHTML='';
+    var cp2=document.getElementById('cm-stamp-rep-preview');if(cp2)cp2.innerHTML='';
   }
   document.getElementById('company-modal').style.display='flex';
 }
@@ -7906,6 +7976,8 @@ function saveCompany(){
     count:document.getElementById('cm-count').value,
     drivers: editingCompanyId ? (companies.find(x=>x.id==editingCompanyId)?.drivers||[]) : [],
     vehicles: editingCompanyId ? (companies.find(x=>x.id==editingCompanyId)?.vehicles||[]) : [],
+    stampCompany:!!document.getElementById('cm-stamp-co')?.checked,
+    stampRep:!!document.getElementById('cm-stamp-rep')?.checked
   };
   if(editingCompanyId){const i=companies.findIndex(x=>x.id==editingCompanyId);if(i>=0)companies[i]=obj;else companies.push(obj);}
   else companies.push(obj);
@@ -7936,6 +8008,8 @@ function openCompanyDriverModal(companyId, driverId){
   var coVehicles=(co?.vehicles||[]);
   var vSel=document.getElementById('cd-vehicle');
   vSel.innerHTML='<option value="">未割当</option>'+coVehicles.map(v=>'<option value="'+v.id+'">'+v.plate+(v.model?' '+v.model:'')+'</option>').join('');
+  document.getElementById('cd-stamp').checked=false;
+  var cdsp=document.getElementById('cd-stamp-preview');if(cdsp)cdsp.style.display='none';
   if(driverId){
     const d=co?.drivers?.find(x=>x.id==driverId);
     if(d){
@@ -7957,6 +8031,8 @@ function openCompanyDriverModal(companyId, driverId){
       // 搭乗車両の割り当て
       var assignedV=coVehicles.find(v=>String(v.driverId)===String(driverId)||v.driver===d.name);
       if(assignedV) vSel.value=assignedV.id;
+      document.getElementById('cd-stamp').checked=!!d.stampEnabled;
+      previewCompanyDriverStamp();
     }
   }
   document.getElementById('company-driver-modal').style.display='flex';
@@ -8044,6 +8120,7 @@ function saveCompanyDriver(){
     addr:document.getElementById('cd-addr').value,
     zip:document.getElementById('cd-zip').value,
     license:{exp:document.getElementById('cd-license-exp').value,no:document.getElementById('cd-license-no').value,type:document.getElementById('cd-license-type').value,cond:document.getElementById('cd-license-cond').value},
+    stampEnabled:!!document.getElementById('cd-stamp')?.checked
   };
   const c=companies.find(x=>x.id==currentCompanyId);
   if(!c) return;
@@ -8947,7 +9024,134 @@ function renderAll(){
   if(mailBadge) mailBadge.textContent=mailPending?String(mailPending):'';
   renderInbox(); // 受信バッジ更新
 }
-function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings();renderMailSettings();loadAlertSettings();}
+// ====== 電子印（簡易スタンプ）生成 ======
+function generateStamp(name, size){
+  size=size||160;
+  var c=document.createElement('canvas');
+  c.width=size;c.height=size;
+  var ctx=c.getContext('2d');
+  var cx=size/2,cy=size/2,r=size/2-6;
+  ctx.clearRect(0,0,size,size);
+  // 外円
+  ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);
+  ctx.strokeStyle='#c62828';ctx.lineWidth=size*0.04;ctx.stroke();
+  // 内円
+  ctx.beginPath();ctx.arc(cx,cy,r*0.82,0,Math.PI*2);
+  ctx.strokeStyle='#c62828';ctx.lineWidth=size*0.015;ctx.stroke();
+  // 文字
+  ctx.fillStyle='#c62828';ctx.textAlign='center';ctx.textBaseline='middle';
+  var chars=name.split('');
+  if(chars.length<=2){
+    ctx.font='600 '+Math.floor(size*0.4)+'px serif';
+    ctx.fillText(name,cx,cy+2);
+  } else if(chars.length<=4){
+    var fs=Math.floor(size*0.26);
+    ctx.font='600 '+fs+'px serif';
+    var total=chars.length*fs;
+    var sy=cy-total/2+fs/2;
+    chars.forEach(function(ch,i){ctx.fillText(ch,cx,sy+i*fs);});
+  } else {
+    var fs=Math.floor(size*0.2);
+    ctx.font='600 '+fs+'px serif';
+    var lines=[];
+    for(var i=0;i<chars.length;i+=3)lines.push(chars.slice(i,i+3).join(''));
+    var totalH=lines.length*fs;
+    var sy=cy-totalH/2+fs/2;
+    lines.forEach(function(l,i){ctx.fillText(l,cx,sy+i*fs);});
+  }
+  return c.toDataURL('image/png');
+}
+function getStampName(fullName){
+  // 姓のみ取得（スペース区切りの最初の部分）
+  return (fullName||'').split(/[\s　]/)[0]||fullName||'';
+}
+function previewDriverStamp(){
+  var checked=document.getElementById('d-stamp')?.checked;
+  var el=document.getElementById('d-stamp-preview');
+  if(!el)return;
+  if(!checked){el.style.display='none';return;}
+  var sei=document.getElementById('d-sei')?.value?.trim()||'';
+  if(!sei){el.innerHTML='<span style="font-size:11px;color:#888">姓を入力するとプレビューが表示されます</span>';el.style.display='block';return;}
+  var img=generateStamp(sei,160);
+  el.innerHTML='<img src="'+img+'" style="width:50px;height:50px"> <span style="font-size:11px;color:#888;vertical-align:middle">「'+sei+'」印</span>';
+  el.style.display='block';
+}
+function previewCompanyDriverStamp(){
+  var checked=document.getElementById('cd-stamp')?.checked;
+  var el=document.getElementById('cd-stamp-preview');
+  if(!el)return;
+  if(!checked){el.style.display='none';return;}
+  var sei=document.getElementById('cd-sei')?.value?.trim()||'';
+  if(!sei){el.innerHTML='<span style="font-size:11px;color:#888">姓を入力するとプレビューが表示されます</span>';el.style.display='block';return;}
+  var img=generateStamp(sei,160);
+  el.innerHTML='<img src="'+img+'" style="width:50px;height:50px"> <span style="font-size:11px;color:#888;vertical-align:middle">「'+sei+'」印</span>';
+  el.style.display='block';
+}
+function previewCompanyStamps(){
+  var coChecked=document.getElementById('cm-stamp-co')?.checked;
+  var repChecked=document.getElementById('cm-stamp-rep')?.checked;
+  var coEl=document.getElementById('cm-stamp-co-preview');
+  var repEl=document.getElementById('cm-stamp-rep-preview');
+  var name=document.getElementById('cm-name')?.value?.trim()||'';
+  var rep=document.getElementById('cm-rep')?.value?.trim()||'';
+  if(coEl){
+    if(coChecked&&name){
+      var short=name.replace(/^(株式会社|有限会社|合同会社)/,'');
+      coEl.innerHTML='<img src="'+generateStamp(short||name,160)+'" style="width:40px;height:40px">';
+    } else { coEl.innerHTML=''; }
+  }
+  if(repEl){
+    if(repChecked&&rep){
+      var sei=rep.split(/[\s　]/)[0];
+      repEl.innerHTML='<img src="'+generateStamp(sei,160)+'" style="width:40px;height:40px">';
+    } else { repEl.innerHTML=''; }
+  }
+}
+
+function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings();renderMailSettings();loadAlertSettings();loadStampSettings();}
+
+// ====== 自社電子印設定 ======
+function loadStampSettings(){
+  var s=JSON.parse(localStorage.getItem('fleet_stamp_settings')||'{}');
+  var el1=document.getElementById('stamp-company-name');
+  var el2=document.getElementById('stamp-rep-name');
+  var el3=document.getElementById('stamp-company-enabled');
+  var el4=document.getElementById('stamp-rep-enabled');
+  if(el1) el1.value=s.companyName||'';
+  if(el2) el2.value=s.repName||'';
+  if(el3) el3.checked=!!s.companyEnabled;
+  if(el4) el4.checked=!!s.repEnabled;
+  previewSettingsStamp();
+}
+function saveStampSettings(){
+  var s={
+    companyName:(document.getElementById('stamp-company-name')?.value||'').trim(),
+    repName:(document.getElementById('stamp-rep-name')?.value||'').trim(),
+    companyEnabled:!!document.getElementById('stamp-company-enabled')?.checked,
+    repEnabled:!!document.getElementById('stamp-rep-enabled')?.checked
+  };
+  localStorage.setItem('fleet_stamp_settings',JSON.stringify(s));
+  var msg=document.getElementById('stamp-settings-msg');
+  if(msg){msg.textContent='電子印設定を保存しました';msg.style.color='#2e7d32';}
+}
+function previewSettingsStamp(){
+  var name1=(document.getElementById('stamp-company-name')?.value||'').trim();
+  var name2=(document.getElementById('stamp-rep-name')?.value||'').trim();
+  var el1=document.getElementById('stamp-company-preview');
+  var el2=document.getElementById('stamp-rep-preview');
+  if(el1){
+    if(name1){
+      var img=generateStamp(name1,160);
+      el1.innerHTML='<img src="'+img+'" style="width:50px;height:50px">';
+    } else { el1.innerHTML=''; }
+  }
+  if(el2){
+    if(name2){
+      var img=generateStamp(name2,160);
+      el2.innerHTML='<img src="'+img+'" style="width:50px;height:50px">';
+    } else { el2.innerHTML=''; }
+  }
+}
 
 // ====== 期限アラートメール設定 ======
 function loadAlertSettings(){
