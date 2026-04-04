@@ -5912,15 +5912,18 @@ function renderStorage(){
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
     unassignedFiles.forEach(function(f,i){
       var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
-      var isImg=f.name&&f.name.match(/\.(jpg|jpeg|png|gif)$/i);
       var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w160':'');
-      var thumb=thumbSrc?'<img src="'+thumbSrc+'" style="width:100%;aspect-ratio:1;object-fit:cover;display:block" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'flex\'"><div style="aspect-ratio:1;display:none;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:60%;height:60%;object-fit:contain"></div>':'<div style="aspect-ratio:1;display:flex;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:60%;height:60%;object-fit:contain"></div>';
-      html+='<div style="border:1px solid #e53935;border-radius:6px;background:#fff;position:relative">';
-      html+='<div style="cursor:pointer;border-radius:6px 6px 0 0;overflow:hidden" onclick="openUnassignedPreview('+i+')">'+thumb+'</div>';
-      html+='<button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();deleteUnassignedFile('+i+')">×</button>';
-      html+='<div style="font-size:9px;color:#555;padding:4px 6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #eee" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
+      var thumbImg=thumbSrc?'<img src="'+esc(thumbSrc)+'" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\';this.parentElement.querySelector(\'.uf-fallback\').style.display=\'flex\'"><div class="uf-fallback" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:50%;height:50%;object-fit:contain"></div>':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:50%;height:50%;object-fit:contain"></div>';
+      html+='<div style="border:1px solid #e53935;border-radius:6px;background:#fff;display:flex;flex-direction:column">';
+      // サムネ部分（固定高さ、overflow:hidden）
+      html+='<div style="position:relative;width:100%;height:0;padding-bottom:100%;overflow:hidden;border-radius:6px 6px 0 0;cursor:pointer" onclick="openUnassignedPreview('+i+')">';
+      html+='<div style="position:absolute;top:0;left:0;width:100%;height:100%">'+thumbImg+'</div>';
+      html+='<button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:2" onclick="event.stopPropagation();deleteUnassignedFile('+i+')">×</button>';
+      html+='</div>';
+      // ファイル名+ボタン部分（サムネとは完全分離）
+      html+='<div style="padding:4px 6px;font-size:9px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #eee" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
       html+='<div style="padding:4px 6px 6px">';
-      html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500" onclick="event.stopPropagation();assignUnassignedFile('+i+')">振り分け</button>';
+      html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500;position:relative;z-index:1" onclick="event.stopPropagation();assignUnassignedFile('+i+')">振り分け</button>';
       html+='</div>';
       html+='</div>';
     });
