@@ -1741,9 +1741,9 @@ function navigateToCompany(companyName){
   if(!companyName)return;
   const c=companies.find(x=>x.name===companyName);
   if(c){
-    currentCompanyId=c.id;
-    showPage('contractors',document.querySelector('[data-page="contractors"]'));
-    renderCompanyPage(c.id);
+    // サイドバーの委託会社ナビからマッチするリンクを探す
+    var navEl=document.querySelector('[data-company="'+c.id+'"]');
+    showCompanyPage(c.id, navEl);
   }
 }
 
