@@ -2238,11 +2238,11 @@ function renderDocPage(){
     const offD=drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
     const offV=vehicles.filter(v=>belongsToOffice(v,office));
     const employees=offD.filter(d=>d.type==='社員');
-    const subcons=offD.filter(d=>d.type==='外注');
+    const subcons=offD.filter(d=>d.type==='外注').sort((a,b)=>b.id-a.id);
     // 委託会社情報を構築
     const coCompanies=[];
     companies.forEach(c=>{
-      const cDrivers=(c.drivers||[]).filter(d=>(d.offices||[]).includes(office));
+      const cDrivers=(c.drivers||[]).filter(d=>(d.offices||[]).includes(office)).sort((a,b)=>b.id-a.id);
       if(cDrivers.length) coCompanies.push({name:c.name,addr:c.addr||'',tel:c.tel||'',cDrivers:cDrivers});
     });
     const tabId='tab-'+targetOffices.indexOf(office);
@@ -2811,7 +2811,7 @@ function openCreateMailTask(){
   const activeDrivers=[
     ...drivers.filter(d=>!d.status||d.status==='在籍').map(d=>({id:d.id,name:d.name,type:d.type||'社員',office:(Array.isArray(d.offices)&&d.offices.length?d.offices[0]:d.office)||''})),
     ...companies.flatMap(c=>(c.drivers||[]).map(d=>({id:d.id,name:d.name,type:'委託('+c.name+')',office:(d.offices||[])[0]||''})))
-  ];
+  ].sort((a,b)=>b.id-a.id);
   window._mtAllDrivers=activeDrivers;
 
   const officeOpts='<option value="">すべての営業所</option>'+offices.map(o=>'<option value="'+o+'">'+o+'</option>').join('');
@@ -2857,6 +2857,8 @@ function mtFilterByOffice(){
     if(!byOffice[o]) byOffice[o]=[];
     byOffice[o].push(d);
   });
+  // 各営業所内を登録日が新しい順に
+  Object.keys(byOffice).forEach(o=>{byOffice[o].sort((a,b)=>b.id-a.id);});
 
   let html='<div style="display:flex;justify-content:flex-end;margin-bottom:6px"><label style="font-size:10px;cursor:pointer;color:#888"><input type="checkbox" onchange="mtToggleAll(this.checked)" style="margin-right:3px">全選択</label></div>';
 
