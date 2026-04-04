@@ -1346,6 +1346,7 @@ async function syncAll(saveFirst){
       // 重複排除
       drivers=dedup(drivers);
       vehicles=dedup(vehicles);
+      companies=dedup(companies);
       companies.forEach(c=>{c.drivers=dedup(c.drivers||[]);c.vehicles=dedup(c.vehicles||[]);});
       // 設定データの読み込み
       if(json.data.settings?.length){
@@ -3939,6 +3940,23 @@ function saveVehicle(){
     window._pendingFileAssign=null;
     try{renderStorage();}catch(e){}
   }
+  // ★ 一括振分からの新規登録: 複数ファイルを自動添付
+  if(window._pendingBulkFileAssign&&window._pendingBulkFileAssign.kind==='vehicle'){
+    var bpf=window._pendingBulkFileAssign;
+    var saved=vehicles.find(v=>v.id===obj.id);
+    if(saved){
+      if(!saved.attachedFiles)saved.attachedFiles=[];
+      bpf.idxs.sort(function(a,b){return b-a;});
+      bpf.idxs.forEach(function(idx){
+        var uf=unassignedFiles[idx];
+        if(uf){saved.attachedFiles.push({name:uf.name,type:uf.type||'',url:uf.url||'',fileId:uf.fileId||'',uploadedAt:new Date().toISOString()});unassignedFiles.splice(idx,1);}
+      });
+      saveLocal();
+      alert(bpf.idxs.length+'件を '+obj.plate+' に振り分けました');
+    }
+    window._pendingBulkFileAssign=null;
+    try{renderStorage();}catch(e){}
+  }
   if(vStatus==='廃車') renderArchive();
 }
 function openDriverModal(id){
@@ -4133,6 +4151,23 @@ function saveDriver(){
       if(saved){if(!saved.attachedFiles)saved.attachedFiles=[];saved.attachedFiles.push({name:uf.name,type:uf.type,url:uf.url,fileId:uf.fileId,uploadedAt:new Date().toISOString()});unassignedFiles.splice(pf.idx,1);saveLocal();}
     }
     window._pendingFileAssign=null;
+    try{renderStorage();}catch(e){}
+  }
+  // ★ 一括振分からの新規登録: 複数ファイルを自動添付
+  if(window._pendingBulkFileAssign&&window._pendingBulkFileAssign.kind==='driver'){
+    var bpf=window._pendingBulkFileAssign;
+    var saved=drivers.find(d=>d.id===obj.id);
+    if(saved){
+      if(!saved.attachedFiles)saved.attachedFiles=[];
+      bpf.idxs.sort(function(a,b){return b-a;});
+      bpf.idxs.forEach(function(idx){
+        var uf=unassignedFiles[idx];
+        if(uf){saved.attachedFiles.push({name:uf.name,type:uf.type||'',url:uf.url||'',fileId:uf.fileId||'',uploadedAt:new Date().toISOString()});unassignedFiles.splice(idx,1);}
+      });
+      saveLocal();
+      alert(bpf.idxs.length+'件を '+obj.name+' に振り分けました');
+    }
+    window._pendingBulkFileAssign=null;
     try{renderStorage();}catch(e){}
   }
   if(status==='退職'||status==='休止'){
@@ -5346,6 +5381,10 @@ function ufBulkAssign(){
     '<div class="modal-header"><span class="modal-title">振分（'+idxs.length+'件）</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
     '<div class="modal-body" style="padding:8px 12px;max-height:65vh;overflow-y:auto">'+
       '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:8px">'+namesHtml+'</div>'+
+      '<div style="display:flex;gap:6px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid #eee">'+
+        '<button class="btn btn-sm" style="flex:1;font-size:11px;padding:8px 6px;background:#E3F2FD;border:1px solid #90CAF9;color:#1565C0" onclick="ufBulkNewDriver()">＋ 新規ドライバー登録</button>'+
+        '<button class="btn btn-sm" style="flex:1;font-size:11px;padding:8px 6px;background:#E8F5E9;border:1px solid #A5D6A7;color:#2E7D32" onclick="ufBulkNewVehicle()">＋ 新規車両登録</button>'+
+      '</div>'+
       '<div style="display:flex;gap:6px;margin-bottom:8px">'+
         '<select id="uf-bulk-office" style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #ddd;border-radius:5px" onchange="ufBulkRenderList()">'+officeOpts+'</select>'+
         '<input type="text" id="uf-bulk-search" placeholder="名前・番号で検索" style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #ddd;border-radius:5px" oninput="ufBulkRenderList()">'+
@@ -5404,6 +5443,22 @@ function execUfBulkAssign(kind,targetId){
   if(modal) modal.remove();
   renderStorage();
   alert(count+'件を '+(target.name||target.plate)+' に振り分けました');
+}
+function ufBulkNewDriver(){
+  var idxs=window._ufBulkIdxs||[];
+  var modal=document.getElementById('uf-bulk-modal');
+  if(modal) modal.remove();
+  // 新規ドライバーモーダルを開く
+  openDriverModal();
+  // 保存後に選択ファイルを自動添付するためのフラグ
+  window._pendingBulkFileAssign={idxs:idxs.slice(),kind:'driver'};
+}
+function ufBulkNewVehicle(){
+  var idxs=window._ufBulkIdxs||[];
+  var modal=document.getElementById('uf-bulk-modal');
+  if(modal) modal.remove();
+  openVehicleModal();
+  window._pendingBulkFileAssign={idxs:idxs.slice(),kind:'vehicle'};
 }
 
 // ファイル名からドライバー名・車両ナンバーを推測
@@ -6070,7 +6125,7 @@ function renderStorage(){
       html+=fpLabel;
       html+='<div style="padding:'+(f.folderPath?'1px':'4px')+' 6px;font-size:9px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'+(f.folderPath?'':'border-top:1px solid #eee')+'" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
       html+='<div style="padding:4px 6px 6px">';
-      html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500;position:relative;z-index:1" onclick="event.stopPropagation();assignUnassignedFile('+i+')">振り分け</button>';
+      html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500;position:relative;z-index:1" onclick="event.stopPropagation();assignUnassignedFile('+i+')">登録</button>';
       html+='</div>';
       html+='</div>';
     });
@@ -7704,9 +7759,11 @@ function saveCompany(){
 }
 
 function deleteCompany(id){
-  const c=companies.find(x=>x.id==id);
-  if(!c||!confirm(`「${c.name}」を削除しますか？`))return;
-  companies=companies.filter(x=>x.id!=id);
+  const idx=companies.findIndex(x=>x.id==id);
+  if(idx<0) return;
+  const c=companies[idx];
+  if(!confirm('「'+c.name+'」を削除しますか？'))return;
+  companies.splice(idx,1); // filterではなくsplice（1件だけ削除）
   saveCompanies();renderCompanyNav();
   showPage('dashboard',document.querySelector('.nav-item[data-page="dashboard"]'));
 }
@@ -8711,6 +8768,7 @@ function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings
 setTodayDate();
 // 起動時の重複排除
 drivers=dedup(drivers);vehicles=dedup(vehicles);
+companies=dedup(companies);
 companies.forEach(c=>{c.drivers=dedup(c.drivers||[]);c.vehicles=dedup(c.vehicles||[]);});
 cleanUnassignedFiles();
 initSelfForm();
