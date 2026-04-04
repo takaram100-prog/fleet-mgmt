@@ -3007,18 +3007,56 @@ function openMailSendModal(taskId){
 
   // === タブ3: 再委託先書類 ===
   attachHtml+='<div id="ms-tab-subdocs" class="ms-tab-panel" style="display:none">';
-  var subDocPdfs=[
-    {type:'再委託承認願',chk:existPdfs.includes('再委託承認願')},
-    {type:'誓約書（大阪急配）',chk:existPdfs.includes('誓約書（大阪急配）')},
-    {type:'誓約書（再委託先）',chk:existPdfs.includes('誓約書（再委託先）')},
-    {type:'適合証明書（大阪急配）',chk:existPdfs.includes('適合証明書（大阪急配）')},
-    {type:'適合証明書（再委託先）',chk:existPdfs.includes('適合証明書（再委託先）')},
-  ];
+  // 営業所の外注ドライバー＋委託会社を取得
+  var offD=drivers.filter(function(d){return belongsToOffice(d,t.office)&&(!d.status||d.status==='在籍');});
+  var msSubcons=offD.filter(function(d){return d.type==='外注';}).sort(function(a,b){return b.id-a.id;});
+  var msCoCompanies=[];
+  companies.forEach(function(c){
+    var cDrivers=(c.drivers||[]).filter(function(d){return(d.offices||[]).includes(t.office);}).sort(function(a,b){return b.id-a.id;});
+    if(cDrivers.length) msCoCompanies.push({name:c.name,cDrivers:cDrivers});
+  });
+  var subDocTypes=['再委託承認願','誓約書（再委託先）','適合証明書（再委託先）'];
+  // 大阪急配用書類（営業所単位）
+  attachHtml+='<div style="margin-bottom:8px;padding:6px 8px;background:#E3F2FD;border-radius:6px">';
+  attachHtml+='<div style="font-size:10px;font-weight:600;color:#1565C0;margin-bottom:4px">大阪急配（営業所共通）</div>';
   attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:4px">';
-  subDocPdfs.forEach(p=>{
-    attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:3px 6px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:4px"><input type="checkbox" '+(p.chk?'checked':'')+' class="ms-gen-pdf" data-pdf-type="'+p.type+'" data-office="'+esc(t.office)+'"> '+p.type+'</label>';
+  ['誓約書（大阪急配）','適合証明書（大阪急配）'].forEach(function(dtype){
+    attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:3px 6px;background:#fff;border:1px solid #BBDEFB;border-radius:4px"><input type="checkbox" '+(existPdfs.includes(dtype)?'checked':'')+' class="ms-gen-pdf" data-pdf-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype+'</label>';
   });
   attachHtml+='</div></div>';
+  // 外注（個人）
+  if(msSubcons.length){
+    attachHtml+='<div style="font-size:10px;font-weight:600;color:#E65100;margin-bottom:4px">外注（個人）</div>';
+    msSubcons.forEach(function(d){
+      var label=d.sub&&d.sub.company?d.sub.company:d.name;
+      attachHtml+='<div style="margin-bottom:4px;padding:4px 6px;background:#FFF3E0;border:1px solid #FFE0B2;border-radius:6px">';
+      attachHtml+='<div style="font-size:11px;font-weight:500;color:#E65100;margin-bottom:3px">'+esc(label)+'</div>';
+      attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:3px;padding-left:8px">';
+      subDocTypes.forEach(function(dtype){
+        attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 4px;background:#fff;border:1px solid #ffe0b2;border-radius:3px"><input type="checkbox" class="ms-sub-doc-check" data-driver-id="'+d.id+'" data-doc-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype.replace(/（再委託先）/,'')+'</label>';
+      });
+      attachHtml+='</div></div>';
+    });
+  }
+  // 委託会社
+  msCoCompanies.forEach(function(co){
+    attachHtml+='<div style="margin-bottom:4px;padding:4px 6px;background:#f5f0ff;border:1px solid #e0d5f5;border-radius:6px">';
+    attachHtml+='<div style="font-size:11px;font-weight:500;color:#7B1FA2;margin-bottom:3px">'+esc(co.name)+'（会社）</div>';
+    co.cDrivers.forEach(function(d){
+      attachHtml+='<div style="padding:2px 0 2px 8px">';
+      attachHtml+='<div style="font-size:10px;color:#555;margin-bottom:2px">└ '+esc(d.name)+'</div>';
+      attachHtml+='<div style="display:flex;flex-wrap:wrap;gap:3px;padding-left:12px">';
+      subDocTypes.forEach(function(dtype){
+        attachHtml+='<label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;padding:2px 4px;background:#fff;border:1px solid #e0d5f5;border-radius:3px"><input type="checkbox" class="ms-sub-doc-check" data-driver-id="'+d.id+'" data-doc-type="'+dtype+'" data-office="'+esc(t.office)+'"> '+dtype.replace(/（再委託先）/,'')+'</label>';
+      });
+      attachHtml+='</div></div>';
+    });
+    attachHtml+='</div>';
+  });
+  if(!msSubcons.length&&!msCoCompanies.length){
+    attachHtml+='<div style="font-size:11px;color:#aaa;text-align:center;padding:12px">この営業所に外注ドライバーがいません</div>';
+  }
+  attachHtml+='</div>';
 
   const modal=document.createElement('div');
   modal.className='modal-bg';modal.style.display='flex';
