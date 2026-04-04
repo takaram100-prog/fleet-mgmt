@@ -4703,61 +4703,78 @@ function closeSelfForm(){
 
 // ====== 振り分け先リスト共通ヘルパー ======
 function getCascadeData(){
-  const sd = drivers.filter(d=>!d.status||d.status==='在籍').map(d=>{
-    const off=(Array.isArray(d.offices)&&d.offices.length?d.offices:d.office?[d.office]:[]).join('・')||'未設定';
-    return {id:d.id,kind:'driver',name:d.name,office:off,group:off};
+  // ドライバー分類
+  var dSha=[], dKojin=[], dItaku=[];
+  drivers.filter(d=>!d.status||d.status==='在籍').forEach(d=>{
+    var off=(Array.isArray(d.offices)&&d.offices.length?d.offices:d.office?[d.office]:[]).join('・')||'未設定';
+    var item={id:d.id,kind:'driver',name:d.name,office:off,group:off};
+    if(d.type==='外注'||d.type==='外注（個人）') dKojin.push(item);
+    else dSha.push(item);
   });
-  const sv = vehicles.map(v=>({id:v.id,kind:'vehicle',name:v.plate,office:v.office||'未設定',group:v.office||'未設定',driver:v.driver||''}));
-  const cd=[],cv=[];
   companies.forEach(c=>{
     (c.drivers||[]).forEach(d=>{
-      const off=(d.offices||[]).join('・')||'未設定';
-      cd.push({id:d.id,kind:'driver',name:d.name,office:off,group:c.name,company:c.name});
+      var off=(d.offices||[]).join('・')||'未設定';
+      dItaku.push({id:d.id,kind:'driver',name:d.name,office:off,group:c.name,company:c.name});
     });
+  });
+  // 車両分類
+  var vSha=[], vKojin=[], vItaku=[];
+  vehicles.forEach(v=>{
+    var off=(Array.isArray(v.offices)&&v.offices.length?v.offices:v.office?[v.office]:[]).join('・')||'未設定';
+    var item={id:v.id,kind:'vehicle',name:v.plate,office:off,group:off,driver:v.driver||''};
+    if(v.type==='持込') vKojin.push(item);
+    else vSha.push(item);
+  });
+  companies.forEach(c=>{
     (c.vehicles||[]).forEach(v=>{
-      const off=(v.offices||[]).join('・')||'未設定';
-      cv.push({id:v.id,kind:'vehicle',name:v.plate,office:off,group:c.name,company:c.name});
+      var off=(v.offices||[]).join('・')||'未設定';
+      vItaku.push({id:v.id,kind:'vehicle',name:v.plate,office:off,group:c.name,company:c.name,driver:v.driver||''});
     });
   });
   return {
-    'ドライバー（自社）':sd, '車両（自社）':sv,
-    '委託ドライバー':cd, '委託車両':cv
+    'ドライバー／社員':dSha, 'ドライバー／外注（個人）':dKojin, 'ドライバー／外注（委託会社）':dItaku,
+    '車両／社員':vSha, '車両／外注（個人）':vKojin, '車両／外注（委託会社）':vItaku
   };
 }
 
 function buildCascadeHTML(prefix, defaultVal){
   const selS='padding:7px 10px;font-size:12px;border:1px solid #ddd;border-radius:6px;background:#fff;width:100%';
-  return `<div style="display:flex;flex-direction:column;gap:6px" id="${prefix}-wrap">
-    <select id="${prefix}-cat" style="${selS}" onchange="cascadeCatChange('${prefix}')">
-      <option value="">① カテゴリを選択</option>
-      <option value="ドライバー（自社）">ドライバー（自社）</option>
-      <option value="車両（自社）">車両（自社）</option>
-      <option value="委託ドライバー">委託ドライバー</option>
-      <option value="委託車両">委託車両</option>
-    </select>
-    <select id="${prefix}-grp" style="${selS}" onchange="cascadeGrpChange('${prefix}')" disabled>
-      <option value="">② 営業所・委託会社を選択</option>
-    </select>
-    <select id="${prefix}-dtl" style="${selS}" disabled>
-      <option value="">③ 対象を選択</option>
-    </select>
-  </div>`;
+  return '<div style="display:flex;flex-direction:column;gap:6px" id="'+prefix+'-wrap">'+
+    '<select id="'+prefix+'-cat" style="'+selS+'" onchange="cascadeCatChange(\''+prefix+'\')">'+
+      '<option value="">振り分け先を選択</option>'+
+      '<optgroup label="ドライバー">'+
+        '<option value="ドライバー／社員">社員</option>'+
+        '<option value="ドライバー／外注（個人）">外注（個人）</option>'+
+        '<option value="ドライバー／外注（委託会社）">外注（委託会社）</option>'+
+      '</optgroup>'+
+      '<optgroup label="車両">'+
+        '<option value="車両／社員">社員</option>'+
+        '<option value="車両／外注（個人）">外注（個人）</option>'+
+        '<option value="車両／外注（委託会社）">外注（委託会社）</option>'+
+      '</optgroup>'+
+    '</select>'+
+    '<select id="'+prefix+'-grp" style="'+selS+'" onchange="cascadeGrpChange(\''+prefix+'\')" disabled>'+
+      '<option value="">営業所・会社を選択</option>'+
+    '</select>'+
+    '<select id="'+prefix+'-dtl" style="'+selS+'" disabled>'+
+      '<option value="">対象を選択</option>'+
+    '</select>'+
+  '</div>';
 }
 
 function cascadeCatChange(prefix){
   const cat=document.getElementById(prefix+'-cat').value;
   const grpSel=document.getElementById(prefix+'-grp');
   const dtlSel=document.getElementById(prefix+'-dtl');
-  grpSel.innerHTML='<option value="">② 営業所・委託会社を選択</option>';
-  dtlSel.innerHTML='<option value="">③ 対象を選択</option>';
+  grpSel.innerHTML='<option value="">営業所・会社を選択</option>';
+  dtlSel.innerHTML='<option value="">対象を選択</option>';
   dtlSel.disabled=true;
   if(!cat){grpSel.disabled=true;return;}
   const data=getCascadeData()[cat]||[];
   const groups=[...new Set(data.map(d=>d.group))].sort();
   groups.forEach(g=>{
     const o=document.createElement('option');o.value=g;
-    const isCo=cat.includes('委託');
-    o.textContent=(isCo?'🏢 ':'📍 ')+g;
+    o.textContent=g;
     grpSel.appendChild(o);
   });
   grpSel.disabled=false;
@@ -4767,15 +4784,14 @@ function cascadeGrpChange(prefix){
   const cat=document.getElementById(prefix+'-cat').value;
   const grp=document.getElementById(prefix+'-grp').value;
   const dtlSel=document.getElementById(prefix+'-dtl');
-  dtlSel.innerHTML='<option value="">③ 対象を選択</option>';
+  dtlSel.innerHTML='<option value="">対象を選択</option>';
   if(!grp){dtlSel.disabled=true;return;}
   const data=(getCascadeData()[cat]||[]).filter(d=>d.group===grp);
   data.forEach(d=>{
     const o=document.createElement('option');
     o.value=d.kind+':'+d.id;
-    const icon=d.kind==='driver'?'D':'V';
     const extra=d.kind==='vehicle'&&d.driver?' / '+d.driver:'';
-    o.textContent=icon+' '+d.name+(d.office!==grp?' ('+d.office+')':'')+extra;
+    o.textContent=d.name+(d.office!==grp?' ('+d.office+')':'')+extra;
     dtlSel.appendChild(o);
   });
   dtlSel.disabled=false;
@@ -4809,19 +4825,19 @@ function buildTargetSimpleOpts(selectedVal){
   const data=getCascadeData();
   let html='';
   const cats=[
-    ['ドライバー（自社）','D'],['車両（自社）','V'],
-    ['委託ドライバー','D'],['委託車両','V']
+    'ドライバー／社員','ドライバー／外注（個人）','ドライバー／外注（委託会社）',
+    '車両／社員','車両／外注（個人）','車両／外注（委託会社）'
   ];
-  cats.forEach(([cat,icon])=>{
+  cats.forEach(cat=>{
     const items=data[cat]||[];
     if(!items.length) return;
     const groups=[...new Set(items.map(d=>d.group))].sort();
     groups.forEach(g=>{
-      html+=`<optgroup label="${icon} ${cat}（${g}）">`;
+      html+='<optgroup label="'+esc(cat)+'（'+esc(g)+'）">';
       items.filter(d=>d.group===g).forEach(d=>{
         const val=d.kind+':'+d.id;
         const sel=val===selectedVal?' selected':'';
-        html+=`<option value="${val}"${sel}>${icon} ${d.name}</option>`;
+        html+='<option value="'+val+'"'+sel+'>'+esc(d.name)+'</option>';
       });
       html+='</optgroup>';
     });
@@ -6872,28 +6888,43 @@ function inboxBulkDelete(){
 function inboxBulkSave(){
   const ids = inboxGetSelectedIds();
   if(!ids.length){alert('振り分ける項目を選択してください');return;}
-  const inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
-  const items = ids.map(id=>inbox.find(i=>i.id===id)).filter(Boolean);
-  const totalFiles = items.reduce((s,item)=>{
-    const files=(item.files||[]).filter(f=>typeof f==='object'&&(f.url||f.fileId||f.dataUrl));
-    return s+files.length;
-  },0);
-
-  const namesHtml = items.map(item=>'<span style="font-size:11px;padding:2px 7px;background:#eaf2ff;border-radius:99px;color:#1565c0">'+item.name+'</span>').join(' ');
-
-  const modal = document.createElement('div');
-  modal.className = 'modal-bg';
-  modal.style.display = 'flex';
-  modal.innerHTML = '<div class="modal" style="max-width:500px" onclick="event.stopPropagation()">'+
-    '<div class="modal-header"><span class="modal-title">添付 振分（'+ids.length+'件）</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
-    '<div class="modal-body">'+
-      '<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:12px">'+namesHtml+'</div>'+
-      '<div style="font-size:11px;color:#888;margin-bottom:10px">合計 '+totalFiles+' ファイル → 全て同じ先に振り分け</div>'+
-      '<div class="form-group"><label>振り分け先</label>'+buildCascadeHTML('ibk','')+'</div>'+
-    '</div>'+
-    '<div class="modal-footer"><button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button><button class="btn btn-primary" onclick="execInboxBulkSave('+JSON.stringify(ids)+',getCascadeVal(\'ibk\'));this.closest(\'.modal-bg\').remove()">保存する</button></div>'+
-  '</div>';
-  document.body.appendChild(modal);
+  // 1メールずつ順次処理（saveInboxFilesToDriverを呼ぶ）
+  window._bulkSaveQueue=ids.slice();
+  window._bulkSaveTotal=ids.length;
+  inboxBulkSaveNext();
+}
+function inboxBulkSaveNext(){
+  var queue=window._bulkSaveQueue||[];
+  var total=window._bulkSaveTotal||0;
+  if(!queue.length){
+    alert('一括振分完了（'+total+'件処理）');
+    inboxBulkClear();
+    return;
+  }
+  var nextId=queue.shift();
+  var remaining=queue.length;
+  // saveInboxFilesToDriverを呼ぶ（モーダルが閉じたら次へ）
+  saveInboxFilesToDriver(nextId);
+  // モーダルの保存ボタンにnext処理を追加
+  setTimeout(function(){
+    var modal=document.querySelector('.modal-bg:last-child');
+    if(!modal) return;
+    // ヘッダーに進捗表示
+    var title=modal.querySelector('.modal-title');
+    if(title) title.textContent='振り分け（'+(total-remaining)+'/'+total+'件目）';
+    // 保存ボタンのonclickを上書きして次のメールに進む
+    var saveBtn=modal.querySelector('.modal-footer .btn-primary');
+    if(saveBtn){
+      var origOnclick=saveBtn.getAttribute('onclick')||'';
+      saveBtn.setAttribute('onclick',origOnclick.replace('this.closest(\'.modal-bg\').remove()','this.closest(\'.modal-bg\').remove();inboxBulkSaveNext()'));
+    }
+    // キャンセルボタンで残りをスキップ
+    var cancelBtn=modal.querySelector('.modal-footer .btn:not(.btn-primary)');
+    if(cancelBtn){
+      cancelBtn.textContent='残りスキップ';
+      cancelBtn.setAttribute('onclick','this.closest(\'.modal-bg\').remove();window._bulkSaveQueue=[];alert(\'残りの振分をスキップしました\')');
+    }
+  },100);
 }
 
 function execInboxBulkSave(ids, targetVal){
@@ -7035,6 +7066,10 @@ function saveInboxFilesToDriver(inboxId){
   }
 
   // 各ファイルUI
+  window._inboxSaveFiles=files;
+  window._inboxSaveId=inboxId;
+  window._inboxSaveDVal=driverAutoVal;
+  window._inboxSaveVVal=vehicleAutoVal;
   const filesHtml = files.map((f,i)=>{
     const fid = f.fileId||'';
     const isImg = f.name?.match(/\.(jpg|jpeg|png|gif)$/i);
@@ -7043,17 +7078,20 @@ function saveInboxFilesToDriver(inboxId){
       ? '<img src="'+esc(thumbSrc)+'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0">'
       : '<div style="width:80px;height:80px;border-radius:6px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px">'+(f.name?.match(/\.pdf$/i)?'PDF':'IMG')+'</div>';
     var catLabel=f.category||'';
-    var catBg=catLabel.includes('免許')?'#1565C0':catLabel.includes('車検')?'#E65100':catLabel.includes('自賠')?'#0277BD':catLabel.includes('任意')?'#2E7D32':catLabel.includes('健康')?'#6A1B9A':'#888';
-    var catBadge=catLabel?'<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:'+catBg+';color:#fff">'+esc(catLabel==='その他'?(f.otherName||'その他'):catLabel)+'</span>':'<span style="font-size:10px;color:#888">カテゴリなし</span>';
+    // カテゴリ選択ドロップダウン（編集可能）
+    var catOpts=['免許証（表）','免許証（裏）','免許証（表裏）','車検証','自賠責保険','任意保険','健康診断書','その他'].map(function(c){
+      return '<option value="'+c+'"'+(c===catLabel?' selected':'')+'>'+c+'</option>';
+    }).join('');
+    var catSelect='<select style="font-size:10px;padding:2px 6px;border-radius:99px;border:1px solid #ccc;cursor:pointer" onchange="inboxSaveSetCat('+i+',this.value)"><option value=""'+(catLabel?'':' selected')+'>カテゴリ選択</option>'+catOpts+'</select>';
     // 差替え警告
     var existing=getExistingCat(catLabel);
-    var replaceWarning=existing?'<div style="font-size:10px;color:#e65100;margin-top:4px;padding:4px 8px;background:#fff3e0;border-radius:4px">🔄 差替え: 既存の「'+esc(catLabel)+'」('+esc(existing.name||'')+') → 削除済みフォルダに移動</div>':'';
+    var replaceWarning=existing?'<div style="font-size:10px;color:#e65100;margin-top:4px;padding:4px 8px;background:#fff3e0;border-radius:4px">差替え: 既存の '+esc(catLabel)+' → 削除済みフォルダに移動</div>':'';
     return '<div style="padding:10px;background:#f9fbff;border:1px solid '+(existing?'#ffcc80':'#e0e0e0')+';border-radius:8px;margin-bottom:8px">'+
       '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
         thumb+
         '<div style="flex:1;min-width:0">'+
           '<div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">'+esc(f.name||'file')+'</div>'+
-          catBadge+
+          catSelect+
           replaceWarning+
         '</div>'+
       '</div>'+
@@ -7085,6 +7123,29 @@ function saveInboxFilesToDriver(inboxId){
       if(target) cascadeAutoSelect('isp-'+i, target);
     }
   },50);
+}
+
+// カテゴリ変更時: ファイルメタデータ更新+振り分け先再選択
+function inboxSaveSetCat(fileIdx, newCat){
+  var files=window._inboxSaveFiles;
+  if(!files||!files[fileIdx]) return;
+  files[fileIdx].category=newCat;
+  // inboxのlocalStorageも更新
+  var inboxId=window._inboxSaveId;
+  if(inboxId){
+    var inbox=JSON.parse(localStorage.getItem('fleet_inbox')||'[]');
+    var item=inbox.find(function(i){return i.id===inboxId;});
+    if(item&&item.files&&item.files[fileIdx]) item.files[fileIdx].category=newCat;
+    localStorage.setItem('fleet_inbox',JSON.stringify(inbox));
+  }
+  // カテゴリに基づいて振り分け先を再選択
+  var autoTarget=drivers.find(function(d){return d.name===files[0]?._ownerName;})||null;
+  // catToTargetの簡易版
+  var dVal=window._inboxSaveDVal||'';
+  var vVal=window._inboxSaveVVal||'';
+  var target=dVal;
+  if(newCat.includes('車検')||newCat.includes('自賠')||newCat.includes('任意')) target=vVal||dVal;
+  if(target) cascadeAutoSelect('isp-'+fileIdx, target);
 }
 
 function execInboxSavePerFile(inboxId, fileCount){
