@@ -4301,11 +4301,16 @@ function toggleNavGroup(id){
 function showPage(name,el){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById('page-'+name).classList.add('active');
-  document.querySelectorAll('.nav-item[data-page]').forEach(n=>n.classList.remove('active'));
+  // サイドバーのactive状態をリセット（営業所フィルター含む）
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   if(el)el.classList.add('active');
   else{var navEl=document.querySelector('.nav-item[data-page="'+name+'"]');if(navEl)navEl.classList.add('active');}
   sessionStorage.setItem('fleet_current_page',name);
   currentOfficeFilter=null;
+  // データ管理の営業所フィルター+展開状態をリセット
+  storageOfficeFilter=null;
+  storageFromSidebar=false;
+  if(typeof storageExpandedIds!=='undefined') storageExpandedIds=new Set();
   closeSidebar();
   window.scrollTo(0,0);
   if(name==='dashboard')renderDashboard();
