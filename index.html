@@ -4608,6 +4608,10 @@ async function submitSelfForm(){
     document.getElementById('sf-submit').textContent='写真アップロード中...';
     for(let fi=0; fi<sfFiles.length; fi++){
       const f = sfFiles[fi];
+      // カテゴリ+氏名でファイル名を自動生成
+      var catLabel=f.category==='その他'?(f.otherName||'その他'):f.category||'';
+      var ext=(f.name||'').split('.').pop()||'jpg';
+      var renamedName=name+'_'+catLabel+'.'+ext;
       document.getElementById('sf-submit').textContent=`写真アップロード中 (${fi+1}/${sfFiles.length})...`;
       try{
         const upRes = await fetch(API_URL, {
@@ -4616,21 +4620,19 @@ async function submitSelfForm(){
             action: 'uploadFile',
             folder: '_受信ボックス',
             subFolder: name + '_' + new Date().toISOString().slice(0,10),
-            fileName: f.name,
+            fileName: renamedName,
             mimeType: f.type,
             dataUrl: f.dataUrl
           })
         });
         const upData = await upRes.json();
         if(upData.ok){
-          uploadedFiles.push({name:f.name, type:f.type, url:upData.url, fileId:upData.fileId, dataUrl:''});
+          uploadedFiles.push({name:renamedName, type:f.type, url:upData.url, fileId:upData.fileId, dataUrl:'', category:f.category||'', otherName:f.otherName||''});
         } else {
-          console.error('Upload error:', upData.error);
-          uploadedFiles.push({name:f.name, type:f.type, dataUrl:'', url:'', fileId:'', error:upData.error||'upload failed'});
+          uploadedFiles.push({name:renamedName, type:f.type, dataUrl:'', url:'', fileId:'', category:f.category||'', otherName:f.otherName||'', error:upData.error||'upload failed'});
         }
       }catch(e){
-        console.error('Upload fetch error:', e);
-        uploadedFiles.push({name:f.name, type:f.type, dataUrl:'', url:'', fileId:'', error:e.message});
+        uploadedFiles.push({name:renamedName, type:f.type, dataUrl:'', url:'', fileId:'', category:f.category||'', otherName:f.otherName||'', error:e.message});
       }
     }
   }
@@ -4638,7 +4640,7 @@ async function submitSelfForm(){
   // ★ Step2: フォームデータをGASに送信（Drive URLを含む）
   document.getElementById('sf-submit').textContent='データ送信中...';
   payload.id = entryId;
-  payload.files = uploadedFiles.map(f=>({name:f.name, type:f.type||'', url:f.url||'', fileId:f.fileId||''}));
+  payload.files = uploadedFiles.map(f=>({name:f.name, type:f.type||'', url:f.url||'', fileId:f.fileId||'', category:f.category||'', otherName:f.otherName||''}));
   try{
     const formRes = await fetch(API_URL,{method:'POST',body:JSON.stringify(payload)});
     const formJson = await formRes.json();
@@ -6989,7 +6991,7 @@ function saveInboxFilesToDriver(inboxId){
   const autoTarget = drivers.find(d=>d.name===item.name) || companies.flatMap(co=>co.drivers||[]).find(d=>d.name===item.name);
   const driverAutoVal = autoTarget ? 'driver:'+autoTarget.id : (item._registeredId ? item._registeredKind+':'+item._registeredId : '');
 
-  // 車両ナンバー部分一致マッチ（5560 → 堺 480 り 5560 にマッチ）
+  // 車両ナンバーマッチ
   let vehicleAutoVal = item._registeredVehicleId ? 'vehicle:'+item._registeredVehicleId : '';
   if(!vehicleAutoVal && item.plate){
     const plateQ = item.plate.replace(/\s/g,'');
@@ -7001,50 +7003,59 @@ function saveInboxFilesToDriver(inboxId){
     if(matchV) vehicleAutoVal = 'vehicle:'+matchV.id;
   }
 
-  // 各ファイルごとのカスケードピッカーを構築
+  // カテゴリ別振り分け先判定
+  function catToTarget(cat){
+    if(!cat) return driverAutoVal;
+    if(cat.includes('免許')||cat.includes('健康')) return driverAutoVal;
+    if(cat.includes('車検')||cat.includes('自賠')||cat.includes('任意')) return vehicleAutoVal||driverAutoVal;
+    return driverAutoVal;
+  }
+
+  // 各ファイルUI
   const filesHtml = files.map((f,i)=>{
-    const icon = f.name?.match(/\.pdf$/i)?'PDF':f.name?.match(/\.(jpg|jpeg|png|gif)$/i)?'IMG':'FILE';
     const fid = f.fileId||'';
     const isImg = f.name?.match(/\.(jpg|jpeg|png|gif)$/i);
-    const thumbSrc = fid && isImg ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w60' : '';
-    const thumb = thumbSrc ? `<img src="${thumbSrc}" style="width:40px;height:40px;object-fit:cover;border-radius:4px;border:1px solid #e0e0e0">` :
-      `<div style="width:40px;height:40px;border-radius:4px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:18px">${icon}</div>`;
-    return `<div style="padding:10px;background:#f9fbff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        ${thumb}
-        <div style="flex:1;min-width:0;font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${icon} ${esc(f.name||'file')}</div>
-      </div>
-      ${buildCascadeHTML('isp-'+i, '')}
-    </div>`;
+    const thumbSrc = fid ? 'https://drive.google.com/thumbnail?id='+fid+'&sz=w120' : '';
+    const thumb = thumbSrc && isImg
+      ? '<img src="'+esc(thumbSrc)+'" style="width:80px;height:80px;object-fit:cover;border-radius:6px;border:1px solid #e0e0e0">'
+      : '<div style="width:80px;height:80px;border-radius:6px;background:#f5f5f5;border:1px solid #e0e0e0;display:flex;align-items:center;justify-content:center;font-size:20px">'+(f.name?.match(/\.pdf$/i)?'PDF':'IMG')+'</div>';
+    var catLabel=f.category||'';
+    var catBg=catLabel.includes('免許')?'#1565C0':catLabel.includes('車検')?'#E65100':catLabel.includes('自賠')?'#0277BD':catLabel.includes('任意')?'#2E7D32':catLabel.includes('健康')?'#6A1B9A':'#888';
+    var catBadge=catLabel?'<span style="font-size:10px;padding:2px 8px;border-radius:99px;background:'+catBg+';color:#fff">'+esc(catLabel==='その他'?(f.otherName||'その他'):catLabel)+'</span>':'<span style="font-size:10px;color:#888">カテゴリなし</span>';
+    return '<div style="padding:10px;background:#f9fbff;border:1px solid #e0e0e0;border-radius:8px;margin-bottom:8px">'+
+      '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">'+
+        thumb+
+        '<div style="flex:1;min-width:0">'+
+          '<div style="font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:4px">'+esc(f.name||'file')+'</div>'+
+          catBadge+
+        '</div>'+
+      '</div>'+
+      buildCascadeHTML('isp-'+i, '')+
+    '</div>';
   }).join('');
 
   const modal = document.createElement('div');
   modal.className = 'modal-bg';
   modal.style.display = 'flex';
-  modal.innerHTML = `<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title">添付 写真・書類の振り分け</span><button class="modal-close" onclick="this.closest('.modal-bg').remove()">✕</button></div>
-    <div class="modal-body" style="max-height:70vh;overflow-y:auto">
-      <div style="font-size:12px;margin-bottom:10px"><strong>${esc(item.name)}</strong> の添付ファイル ${files.length}件</div>
-      ${files.length>1?`<div style="font-size:11px;color:#4a90e2;margin-bottom:10px;padding:8px 10px;background:#e3f2fd;border-radius:6px">💡 ファイルごとに異なる振り分け先を選択できます（免許証→ドライバー、車検証→車両 など）</div>`:''}
-      ${filesHtml}
-    </div>
-    <div class="modal-footer">
-      <button class="btn" onclick="this.closest('.modal-bg').remove()">キャンセル</button>
-      <button class="btn btn-primary" onclick="execInboxSavePerFile(${inboxId},${files.length});this.closest('.modal-bg').remove()">保存する</button>
-    </div>
-  </div>`;
+  modal.innerHTML = '<div class="modal" style="max-width:560px" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">添付 写真・書類の振り分け</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body" style="max-height:70vh;overflow-y:auto">'+
+      '<div style="font-size:12px;margin-bottom:10px"><strong>'+esc(item.name)+'</strong> の添付ファイル '+files.length+'件</div>'+
+      (files.length>1?'<div style="font-size:11px;color:#4a90e2;margin-bottom:10px;padding:8px 10px;background:#e3f2fd;border-radius:6px">💡 カテゴリに基づいて振り分け先を自動選択しています（変更可能）</div>':'')+
+      filesHtml+
+    '</div>'+
+    '<div class="modal-footer">'+
+      '<button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button>'+
+      '<button class="btn btn-primary" onclick="execInboxSavePerFile('+inboxId+','+files.length+');this.closest(\'.modal-bg\').remove()">保存する</button>'+
+    '</div>'+
+  '</div>';
   document.body.appendChild(modal);
 
-  // 自動選択を適用（1枚目=ドライバー、2枚目以降=車両があれば車両、なければドライバー）
+  // カテゴリに基づいて自動選択
   setTimeout(()=>{
     for(let i=0;i<files.length;i++){
-      if(i===0 && driverAutoVal){
-        cascadeAutoSelect('isp-'+i, driverAutoVal);
-      } else if(i>=1 && vehicleAutoVal){
-        cascadeAutoSelect('isp-'+i, vehicleAutoVal);
-      } else if(driverAutoVal){
-        cascadeAutoSelect('isp-'+i, driverAutoVal);
-      }
+      var target=catToTarget(files[i].category||'');
+      if(target) cascadeAutoSelect('isp-'+i, target);
     }
   },50);
 }
