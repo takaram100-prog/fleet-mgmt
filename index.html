@@ -86,7 +86,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 .badge-danger{background:#fde8e8;color:#c62828}
 .badge-info{background:#e3f2fd;color:#1565c0}
 .badge-gray{background:#f5f5f5;color:#757575;border:1px solid #e0e0e0}
-.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;z-index:100;padding:16px}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:16px;padding-top:40px;overflow-y:auto}
+body.modal-open{overflow:hidden}
 .modal{background:#fff;border-radius:12px;border:1px solid #e0e0e0;width:100%;max-width:700px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)}
 .modal-sm{max-width:400px}
 .modal-header{padding:14px 18px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
@@ -225,7 +226,8 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 
   /* ===== topbar ===== */
   .topbar{padding:8px 12px 8px 48px;gap:4px;min-height:44px}
-  .topbar h1{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw}
+  .topbar h1{font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50vw;cursor:pointer}
+  body.modal-open{overflow:hidden!important}
   .topbar .btn{font-size:10px;padding:4px 8px;white-space:nowrap}
   .topbar>div{min-width:0}
 
@@ -268,7 +270,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
   .filter-chip{font-size:10px;padding:4px 10px;white-space:nowrap;min-height:28px}
 
   /* ===== モーダル ===== */
-  .modal-bg{padding:4px;align-items:flex-end}
+  .modal-bg{padding:4px;align-items:flex-start;padding-top:8px}
   .modal{max-height:92vh;width:100%!important;max-width:100%!important;margin:0;border-radius:16px 16px 0 0}
   .modal-header{padding:12px 14px;position:sticky;top:0;background:#fff;z-index:2;border-radius:16px 16px 0 0}
   .modal-body{max-height:calc(92vh - 110px);overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px}
@@ -2284,8 +2286,8 @@ function renderDocPage(){
       subCheckHtml+='</div>';
     }
     return `<div class="doc-card">
-      <div class="doc-card-name">${office}営業所 <span class="badge badge-info" style="font-size:10px">${POST_OFFICE(office)}宛</span></div>
-      <div class="doc-card-info">社員 ${employees.length}名 / 外注 ${subcons.length+coCompanies.length}件 / 車両 ${offV.length}台</div>
+      <div class="doc-card-name" style="cursor:pointer" onclick="var b=this.parentElement.querySelector('.doc-card-body');b.style.display=b.style.display==='none'?'block':'none';this.querySelector('.doc-fold').textContent=b.style.display==='none'?'▶':'▼'">${office}営業所 <span class="badge badge-info" style="font-size:10px">${POST_OFFICE(office)}宛</span> <span class="doc-fold" style="font-size:10px;color:#aaa;margin-left:auto">${window.innerWidth<=768?'▶':'▼'}</span></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px"><div class="doc-card-info" style="margin-bottom:0">社員 ${employees.length}名 / 外注 ${subcons.length+coCompanies.length}件 / 車両 ${offV.length}台</div><button class="mail-btn" onclick="event.stopPropagation();openMailModal('${office}')" style="font-size:10px;padding:4px 10px">メール送信</button></div><div class="doc-card-body" style="display:${window.innerWidth<=768?'none':'block'}">`;
       <div style="display:flex;gap:0;border-bottom:2px solid #e0e0e0;margin:6px 0 8px">
         <button class="doc-tab active" data-tab="${tabId}" data-idx="0" onclick="switchDocTab('${tabId}',0)">現況届</button>
         <button class="doc-tab" data-tab="${tabId}" data-idx="1" onclick="switchDocTab('${tabId}',1)">雇用証明書</button>
@@ -2320,10 +2322,7 @@ function renderDocPage(){
           <button class="btn btn-sm" style="background:#FFF3E0;border-color:#FFCC80;color:#E65100" onclick="generateDoc('${office}','tekigo_sub')">適合証明書（再委託先）</button>
         </div>`:'<div style="padding:12px;color:#888;font-size:12px;text-align:center">外注ドライバーが登録されていません</div>'}
       </div>
-      <div class="doc-card-btns" style="margin-top:8px;border-top:1px solid #eee;padding-top:8px">
-        <button class="btn btn-sm btn-success" onclick="generateAllDocs('${office}')">全書類まとめてDL</button>
-        <button class="mail-btn" onclick="openMailModal('${office}')">メール送信</button>
-      </div>
+      </div><!-- doc-card-body閉じ -->
       <div class="gen-progress" id="prog-${office}"></div>
     </div>`;
   }).join('');
@@ -2917,7 +2916,11 @@ function execCreateMailTask(){
   });
 
   let taskCount=0;
+  let skipCount=0;
   Object.keys(byOffice).forEach(office=>{
+    // 重複チェック: 同一営業所+同一タイプのpendingタスクがあればスキップ
+    var existing=mailTasks.find(t=>t.office===office&&t.type===type&&t.status==='pending');
+    if(existing){skipCount++;return;}
     const drvs=byOffice[office];
     // 全ドライバーの添付ファイル・車両を収集
     let allDriverEntries=[];
@@ -2962,7 +2965,9 @@ function execCreateMailTask(){
   });
   saveMailTasks();renderMailTasks();
   document.querySelectorAll('.modal-bg').forEach(m=>m.remove());
-  alert(taskCount+'件のメール送信タスクを作成しました（'+checked.length+'名分）');
+  var msg=taskCount+'件のメール送信タスクを作成しました（'+checked.length+'名分）';
+  if(skipCount) msg+='\n※ '+skipCount+'件は同一営業所・同一タイプの未送信タスクが既にあるためスキップしました';
+  alert(msg);
 }
 
 // 送信モーダル
@@ -10001,6 +10006,33 @@ document.addEventListener('click',function(e){
     syncAll();
   }
 })();
+
+// モーダル表示時にbodyスクロールをロック（スマホのみ）
+new MutationObserver(function(){
+  if(window.innerWidth>768) return;
+  var hasModal=!!document.querySelector('.modal-bg[style*="flex"],.modal-bg:not([style*="none"])');
+  document.body.classList.toggle('modal-open',hasModal);
+}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['style']});
+
+// スマホ: 各ページのh1タイトルタップでsync
+if(window.innerWidth<=768){
+  document.querySelectorAll('.topbar h1').forEach(function(h1){
+    h1.addEventListener('click',function(){syncAll(true);});
+  });
+}
+
+// サイドバー各ページタイトルタップで同期
+document.querySelectorAll('.nav-item').forEach(function(nav){
+  var clickCount=0;var clickTimer=null;
+  nav.addEventListener('click',function(){
+    clickCount++;
+    if(clickTimer)clearTimeout(clickTimer);
+    clickTimer=setTimeout(function(){
+      if(clickCount>=2){syncFromSheet();}
+      clickCount=0;
+    },400);
+  });
+});
 </script>
 </body>
 </html>
