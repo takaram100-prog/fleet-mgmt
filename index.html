@@ -2344,26 +2344,14 @@ function getStaffCount(office){
 // ====== docx生成ユーティリティ ======
 function loadJSZip(){return new Promise((res,rej)=>{if(window.JSZip){res(window.JSZip);return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';s.onload=()=>res(window.JSZip);s.onerror=rej;document.head.appendChild(s);});}
 function downloadBlob(blob,filename){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-async function buildDocx(xml, stamps){
+async function buildDocx(xml, driver){
   const JSZip=await loadJSZip();const zip=new JSZip();
   zip.file('word/document.xml',xml);
-  var contentTypes='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>';
-  var docRels='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">';
-  if(stamps&&stamps.length){
-    contentTypes+='<Default Extension="png" ContentType="image/png"/>';
-    stamps.forEach(function(s,i){
-      var rId='rIdImg'+(i+1);
-      var mediaPath='media/image'+(i+1)+'.png';
-      var b64=s.data.replace(/^data:image\/png;base64,/,'');
-      zip.file('word/'+mediaPath, b64, {base64:true});
-      docRels+='<Relationship Id="'+rId+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="'+mediaPath+'"/>';
-    });
-  }
-  contentTypes+='</Types>';
-  docRels+='</Relationships>';
-  zip.file('[Content_Types].xml',contentTypes);
+  zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');
   zip.file('_rels/.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
-  zip.file('word/_rels/document.xml.rels',docRels);
+  zip.file('word/_rels/document.xml.rels','<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');
+  // プレースホルダー {{会社印}}{{代表印}}{{代表印}} をスタンプ画像に置換
+  await injectStampsIntoDocx(zip, driver);
   return zip.generateAsync({type:'blob',mimeType:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'});
 }
 // 電子印インライン画像XML（rId=リレーションシップID, size=EMU幅高さ）
@@ -2434,6 +2422,111 @@ function wpStampOrText(text, rId, opts){
   return wp(text, opts);
 }
 
+// テンプレートDOCXにスタンプ画像を後挿入
+// テンプレート/クライアントDOCXにスタンプ画像を挿入
+// {{会社印}} → 自社 or 委託会社の会社印
+// {{代表印}} → 自社 or 委託会社の代表者印
+// {{代表印}}    → ドライバー個人印（社員・外注個人・委託会社所属 共通）
+async function injectStampsIntoDocx(zip, driver){
+  var ss=JSON.parse(localStorage.getItem('fleet_stamp_settings')||'{}');
+  var docXml=await zip.file('word/document.xml').async('string');
+
+  // プレースホルダーが1つもなければスキップ
+  if(docXml.indexOf('{{会社印}}')===-1&&docXml.indexOf('{{代表印}}')===-1&&docXml.indexOf('{{代表印}}')===-1) return;
+
+  // 名前空間を追加
+  if(docXml.indexOf('xmlns:wp=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" ');
+
+  var stamps=[];// [{rId, data, fileName}]
+  var imgIdx=0;
+
+  function addStamp(name){
+    if(!name) return null;
+    imgIdx++;
+    var rId='rIdStamp'+imgIdx;
+    var data=generateStamp(name,200);
+    stamps.push({rId:rId,data:data,fileName:'media/stamp'+imgIdx+'.png'});
+    return rId;
+  }
+
+  // {{会社印}} — 自社会社印 or 委託会社印
+  if(docXml.indexOf('{{会社印}}')!==-1){
+    var coRId=null;
+    if(ss.companyEnabled&&ss.companyName){
+      coRId=addStamp(ss.companyName);
+    } else if(driver){
+      var co=companies.find(function(c){return(c.drivers||[]).some(function(x){return x.id==driver.id;});});
+      if(co&&co.stampCompany){
+        var short=(co.name||'').replace(/^(株式会社|有限会社|合同会社)/,'');
+        coRId=addStamp(short||co.name);
+      }
+    }
+    if(coRId){
+      var drawing=wStamp(coRId,460000);
+      docXml=docXml.replace(/\{\{会社印\}\}/g,'</w:t></w:r><w:r>'+drawing+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
+    } else {
+      docXml=docXml.replace(/\{\{会社印\}\}/g,'');
+    }
+  }
+
+  // {{代表印}} — ドライバー個人印 or 委託会社代表者印 or 自社代表者印
+  if(docXml.indexOf('{{代表印}}')!==-1){
+    var repRId=null;
+    // 1. ドライバー指定あり+stampEnabled → ドライバー個人印
+    if(driver&&driver.stampEnabled){
+      repRId=addStamp(getStampName(driver.name));
+    }
+    // 2. ドライバーの委託会社代表者印
+    if(!repRId&&driver){
+      var co2=companies.find(function(c){return(c.drivers||[]).some(function(x){return x.id==driver.id;});});
+      if(co2&&co2.stampRep&&co2.rep){
+        repRId=addStamp(getStampName(co2.rep));
+      }
+    }
+    // 3. 自社代表者印（フォールバック）
+    if(!repRId&&ss.repEnabled&&ss.repName){
+      repRId=addStamp(ss.repName);
+    }
+    if(repRId){
+      var drawing2=wStamp(repRId,460000);
+      docXml=docXml.replace(/\{\{代表印\}\}/g,'</w:t></w:r><w:r>'+drawing2+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
+    } else {
+      docXml=docXml.replace(/\{\{代表印\}\}/g,'');
+    }
+  }
+
+  if(!stamps.length) return;
+
+  zip.file('word/document.xml',docXml);
+
+  // 画像をword/media/に追加
+  stamps.forEach(function(s){
+    var b64=s.data.replace(/^data:image\/png;base64,/,'');
+    zip.file('word/'+s.fileName, b64, {base64:true});
+  });
+
+  // word/_rels/document.xml.rels を更新
+  var relsPath='word/_rels/document.xml.rels';
+  var relsXml='';
+  try{relsXml=await zip.file(relsPath).async('string');}catch(e){relsXml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';}
+  stamps.forEach(function(s){
+    if(relsXml.indexOf(s.rId)===-1){
+      relsXml=relsXml.replace('</Relationships>','<Relationship Id="'+s.rId+'" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="'+s.fileName+'"/></Relationships>');
+    }
+  });
+  zip.file(relsPath,relsXml);
+
+  // [Content_Types].xmlにPNG追加
+  var ctPath='[Content_Types].xml';
+  try{
+    var ctXml=await zip.file(ctPath).async('string');
+    if(ctXml.indexOf('Extension="png"')===-1){
+      ctXml=ctXml.replace('</Types>','<Default Extension="png" ContentType="image/png"/></Types>');
+      zip.file(ctPath,ctXml);
+    }
+  }catch(e){}
+}
+
 // ====== 書類生成本体 ======
 
 // 1. 現況届（従事員）様式２ - 社員＋外注（外注は再委託先名欄に氏名/会社名）
@@ -2450,7 +2543,7 @@ function genGenkyoPersonXml(office,dateStr){
   }).flat();
   for(let i=0;i<3;i++)dataRows.push(wr(wc('（　　　　）',1511),wc('（　　　　）',1512),wc('',3023),wc('',1649),wc('',1375)),wr(wc('',1511),wc('',1512),wc('',3023),wc('',1649),wc('',1375)));
   const tbl=wtbl([1511,1512,3023,1649,1375],[wr(wc('従事員の氏名（フリガナ）',3023,{span:'2',shade:'E8E8E8',center:true}),wc('再委託先名\n※再委託先の従事員の場合',3023,{shade:'E8E8E8',center:true}),wc('【日本郵便使用欄】',3024,{span:'2',shade:'E8E8E8',center:true})),wr(wc('（セイ）姓',1511,{shade:'F0F0F0'}),wc('（メイ）名',1512,{shade:'F0F0F0'}),wc('',3023),wc('共通マスタID（8桁）',1649,{shade:'F0F0F0'}),wc('登録年月日',1375,{shade:'F0F0F0'})),...dataRows],9070);
-  return wxDoc([wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp(''),wp('従事員の現況届',{center:true,bold:true,size:28}),wp(`（受託者名及び代表者名）${COMPANY.repFull}`),wp(`（住所又は所在地及び連絡先）${COMPANY.addressFull}`),wp('荷物等集配委託契約書附属仕様書４(2)の定めに基づき、以下のとおり届け出ます。'),wp(''),tbl,wp(''),wp('（添付書類）'),wp('・従事員が受託者の雇用する者である場合は雇用の事実を証する書面'),wp('・各従事員の運転免許証の写し'),wp('注　委託業務に従事する全ての従事員の氏名を記入する。'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp(''),wp('従事員の現況届',{center:true,bold:true,size:28}),wp(`（受託者名及び代表者名）${COMPANY.repFull}　{{会社印}}`),wp(`（住所又は所在地及び連絡先）${COMPANY.addressFull}`),wp('荷物等集配委託契約書附属仕様書４(2)の定めに基づき、以下のとおり届け出ます。'),wp(''),tbl,wp(''),wp('（添付書類）'),wp('・従事員が受託者の雇用する者である場合は雇用の事実を証する書面'),wp('・各従事員の運転免許証の写し'),wp('注　委託業務に従事する全ての従事員の氏名を記入する。'),wLine(),wUsage()].join(''));}
 
 // 2. 現況届（車両）様式３ - 全車両（外注担当車両は再委託先名に会社名/氏名）
 function genGenkyoVehicleXml(office,dateStr){
@@ -2466,10 +2559,10 @@ function genGenkyoVehicleXml(office,dateStr){
   });
   for(let i=0;i<3;i++)dataRows.push(wr(wc('',1044),wc('',1044),wc('',1044),wc('',1044),wc('',1044),wc('',1044),wc('',2804)));
   const tbl=wtbl([1044,1044,1044,1044,1044,1044,2804],[wr(wc('車　種\n(例）軽四',1044,{shade:'E8E8E8'}),wc('ナンバープレート',4176,{span:'4',shade:'E8E8E8',center:true}),wc('車両の色',1044,{shade:'E8E8E8'}),wc('再委託先名\n※再委託先の場合',2804,{shade:'E8E8E8'})),wr(wc('',1044),wc('地域名\n(例）練馬',1044,{shade:'F0F0F0'}),wc('分類番号\n(例）480',1044,{shade:'F0F0F0'}),wc('判別文字\n(例）あ',1044,{shade:'F0F0F0'}),wc('指定番号\n(例）1234',1044,{shade:'F0F0F0'}),wc('',1044),wc('',2804)),...dataRows],9068);
-  return wxDoc([wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp(''),wp('車両の現況届',{center:true,bold:true,size:28}),wp(`（受託者名及び代表者名）${COMPANY.repFull}`),wp(`（住所又は所在地及び連絡先）${COMPANY.addressFull}`),wp('荷物等集配委託契約書附属仕様書４(3)の定めに基づき、以下のとおり届け出ます。'),wp(''),tbl,wp(''),wp('（添付書類）'),wp('・各車両の自動車検査証の写し'),wp('・各車両の任意保険証の写し'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp(''),wp('車両の現況届',{center:true,bold:true,size:28}),wp(`（受託者名及び代表者名）${COMPANY.repFull}　{{会社印}}`),wp(`（住所又は所在地及び連絡先）${COMPANY.addressFull}`),wp('荷物等集配委託契約書附属仕様書４(3)の定めに基づき、以下のとおり届け出ます。'),wp(''),tbl,wp(''),wp('（添付書類）'),wp('・各車両の自動車検査証の写し'),wp('・各車両の任意保険証の写し'),wLine(),wUsage()].join(''));}
 
 // 3. 雇用証明書 - 社員のみ（外注除外）
-function genKoyouXml(office,dateStr,rIds){
+function genKoyouXml(office,dateStr){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dateJp=fmtDate(dateStr);
   // 社員のみ
@@ -2477,10 +2570,10 @@ function genKoyouXml(office,dateStr,rIds){
   let rows=employees.map((d,i)=>[wr(wc(String(i+1),480,{shade:'F0F0F0',center:true}),wc('ふりがな',1200,{shade:'F0F0F0'}),wc(d.kana||'',4000),wc('生年月日',1200,{shade:'F0F0F0'}),wc(d.birth?fmtDate(d.birth):'',2576)),wr(wc('',480),wc('氏　　名',1200,{shade:'F0F0F0',bold:true}),wc(d.name,4000),wc('',3776,{span:'2'})),wr(wc('',480),wc('住　　所',1200,{shade:'F0F0F0'}),wc(d.addr||'',7776,{span:'3'}))].join('')).join('');
   rows+=wr(wc('',480),wc('ふりがな',1200,{shade:'F0F0F0'}),wc('',4000),wc('生年月日',1200,{shade:'F0F0F0'}),wc('(西暦)　年月日',2576))+wr(wc('',480),wc('氏　　名',1200,{shade:'F0F0F0',bold:true}),wc('',4000),wc('',3776,{span:'2'}))+wr(wc('',480),wc('住　　所',1200,{shade:'F0F0F0'}),wc('〒　　　-',7776,{span:'3'}));
   const tbl=wtbl([480,1200,4000,1200,2576],[rows],9456);
-  return wxDoc([wp(dateJp,{right:true}),wp('雇用証明書',{center:true,bold:true,size:32}),wp(`${postOffice}長　殿`,{indent:960}),wp(''),wp('事業主',{right:true}),wp(`所 在 地 ${COMPANY.addressFull}`),wp(`名　　称 ${COMPANY.name}`),wpStampOrText(`代表者名 代表取締役　${COMPANY.repName}　　　印`,rIds?.rep),wp(''),wp('下記の者を雇用していることを証明いたします。'),wp(''),wp('記',{center:true,bold:true}),wp(''),tbl,wp(''),wp('以上',{right:true}),wp(''),wp('委託者名※　（再委託の場合は委託元の事業者名を記入）'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp(dateJp,{right:true}),wp('雇用証明書',{center:true,bold:true,size:32}),wp(`${postOffice}長　殿`,{indent:960}),wp(''),wp('事業主',{right:true}),wp(`所 在 地 ${COMPANY.addressFull}`),wp(`名　　称 ${COMPANY.name}`),wp(`代表者名 代表取締役　${COMPANY.repName}　{{代表印}}`),wp(''),wp('下記の者を雇用していることを証明いたします。'),wp(''),wp('記',{center:true,bold:true}),wp(''),tbl,wp(''),wp('以上',{right:true}),wp(''),wp('委託者名※　（再委託の場合は委託元の事業者名を記入）'),wLine(),wUsage()].join(''));}
 
 // 4. 報告書
-function genHoukokuXml(office,dateStr,rIds){
+function genHoukokuXml(office,dateStr){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dateJp=fmtDate(dateStr);
   const offD=drivers.filter(d=>belongsToOffice(d,office));
@@ -2489,10 +2582,10 @@ function genHoukokuXml(office,dateStr,rIds){
   const tbl1=wtbl([2500,1500,1500,1500,1956],[wr(wc('社員等氏名',2500,{shade:'E8E8E8'}),wc('運転免許証の記載内容',6956,{span:'4',shade:'E8E8E8',center:true})),wr(wc('',2500,{shade:'E8E8E8'}),wc('有効期間',1500,{shade:'E8E8E8',center:true}),wc('種類',1500,{shade:'E8E8E8',center:true}),wc('免許の条件等',1500,{shade:'E8E8E8',center:true}),wc('裏面記載事項',1956,{shade:'E8E8E8',center:true})),wr(wc('(例) 郵便　太郎',2500,{shade:'F8F8F8'}),wc('○',1500,{shade:'F8F8F8',center:true}),wc('○',1500,{shade:'F8F8F8',center:true}),wc('○',1500,{shade:'F8F8F8',center:true}),wc('○',1956,{shade:'F8F8F8',center:true})),licRows],9456);
   const vRows=offV.map(v=>wr(wc(v.plate,2200),wc(v.shaken?.exp?v.shaken.exp.replace(/-/g,'/'):'' ,905,{center:true}),wc('事業用',905,{center:true}),wc(v.vehicleUser||COMPANY.name,906,{center:true}),wc('○',906,{center:true}),wc('○',906,{center:true}),wc(v.jibai?.exp?v.jibai.exp.replace(/-/g,'/'):'' ,906,{center:true}),wc(v.nin?.exp?v.nin.exp.replace(/-/g,'/'):'' ,903,{center:true}))).join('');
   const tbl2=wtbl([2200,905,905,906,906,906,906,903],[wr(wc('車両NO',2200,{shade:'E8E8E8'}),wc('自動車検査証の記載内容等',4532,{span:'4',shade:'E8E8E8',center:true}),wc('車体',906,{shade:'E8E8E8',center:true}),wc('保険',1809,{span:'2',shade:'E8E8E8',center:true})),wr(wc('',2200,{shade:'E8E8E8'}),wc('有効期間',905,{shade:'E8E8E8',center:true}),wc('自家用・事業用',905,{shade:'E8E8E8',center:true}),wc('使用者',906,{shade:'E8E8E8',center:true}),wc('検査標章',906,{shade:'E8E8E8',center:true}),wc('ナンバー又は許可証',906,{shade:'E8E8E8',center:true}),wc('自賠責保険',906,{shade:'E8E8E8',center:true}),wc('任意保険',903,{shade:'E8E8E8',center:true})),wr(wc('（例）品川*** あ**-**',2200,{shade:'F8F8F8'}),wc('○',905,{shade:'F8F8F8',center:true}),wc('○',905,{shade:'F8F8F8',center:true}),wc('○',906,{shade:'F8F8F8',center:true}),wc('○',906,{shade:'F8F8F8',center:true}),wc('○',906,{shade:'F8F8F8',center:true}),wc('○',906,{shade:'F8F8F8',center:true}),wc('○',903,{shade:'F8F8F8',center:true})),vRows],9537);
-  return wxDoc([wp('報告書',{bold:true,size:28}),wp(dateJp,{right:true}),wp('契約責任者'),wp('日本郵便株式会社'),wp(`${postOffice}長　宛`,{indent:960}),wp(`  所在地　${COMPANY.addressFull}`),wp(`　会社名等　${COMPANY.name}`),wpStampOrText(`  代表者等氏名 ${COMPANY.repName}　　印`,rIds?.rep),wp(''),wp('当社は、契約書附属仕様書項番９に基づき、下記の各項目について確認しましたので、報告書をここに提出いたします。'),wp('また、この報告書に虚偽の事項があったときは、契約解除、損害賠償請求等がなされる場合があることを了承し、その措置について一切の異議を申し立てないことを併せて誓約いたします。'),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　運転免許証の更新状況等の確認',{bold:true}),wp('　別添１のとおり、当社社員等（再委託先を含みます。）の運転免許証を確認しましたが、委託業務を遂行するに当たり問題はありません。'),wp(''),wp('２　自動車検査証（事業用）の確認',{bold:true}),wp('　別添２のとおり、当社車両（再委託先を含みます。）の自動車検査証を確認しましたが、委託業務を遂行するに当たり問題はありません。'),wp(''),wp('３　自賠責保険証の確認',{bold:true}),wp('　別添２のとおり、当社使用車両（再委託先を含みます。）については、自賠責保険に加入していることを確認しました。'),wp(''),wp('４　一般自動車損害保険（任意保険）の確認',{bold:true}),wp('　別添２のとおり、当社使用車両（再委託先を含みます。）については、一般自動車損害保険に加入していることを確認しました。'),wp(''),wp('以上',{right:true}),wp(''),wp('別添１',{bold:true}),wp('運転免許証確認',{bold:true}),tbl1,wp(''),wp('別添２',{bold:true}),wp('自動車検査証等の確認',{bold:true}),tbl2].join(''));}
+  return wxDoc([wp('報告書',{bold:true,size:28}),wp(dateJp,{right:true}),wp('契約責任者'),wp('日本郵便株式会社'),wp(`${postOffice}長　宛`,{indent:960}),wp(`  所在地　${COMPANY.addressFull}`),wp(`　会社名等　${COMPANY.name}`),wp(`  代表者等氏名 ${COMPANY.repName}　{{代表印}}`),wp(''),wp('当社は、契約書附属仕様書項番９に基づき、下記の各項目について確認しましたので、報告書をここに提出いたします。'),wp('また、この報告書に虚偽の事項があったときは、契約解除、損害賠償請求等がなされる場合があることを了承し、その措置について一切の異議を申し立てないことを併せて誓約いたします。'),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　運転免許証の更新状況等の確認',{bold:true}),wp('　別添１のとおり、当社社員等（再委託先を含みます。）の運転免許証を確認しましたが、委託業務を遂行するに当たり問題はありません。'),wp(''),wp('２　自動車検査証（事業用）の確認',{bold:true}),wp('　別添２のとおり、当社車両（再委託先を含みます。）の自動車検査証を確認しましたが、委託業務を遂行するに当たり問題はありません。'),wp(''),wp('３　自賠責保険証の確認',{bold:true}),wp('　別添２のとおり、当社使用車両（再委託先を含みます。）については、自賠責保険に加入していることを確認しました。'),wp(''),wp('４　一般自動車損害保険（任意保険）の確認',{bold:true}),wp('　別添２のとおり、当社使用車両（再委託先を含みます。）については、一般自動車損害保険に加入していることを確認しました。'),wp(''),wp('以上',{right:true}),wp(''),wp('別添１',{bold:true}),wp('運転免許証確認',{bold:true}),tbl1,wp(''),wp('別添２',{bold:true}),wp('自動車検査証等の確認',{bold:true}),tbl2].join(''));}
 
 // 5. 再委託承認願 - 弊社発行、外注1人1枚
-function genSaitakuXml(office,dateStr,driver,rIds){
+function genSaitakuXml(office,dateStr,driver){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dy=fmtDateY(dateStr);
   const isLegal=!!(driver.sub?.company);
@@ -2501,10 +2594,10 @@ function genSaitakuXml(office,dateStr,driver,rIds){
   const addrLine=driver.sub?.company?(driver.addr||''):(driver.addr||'');
   const tel=driver.sub?.tel||driver.tel||'';
   const area=officeAreas[office]||driver.sub?.area||'';
-  return wxDoc([wp('契約書（別紙２）',{right:true}),wp(`${dy.y}年　 ${dy.m}月　  日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp('再委託承認願',{center:true,bold:true,size:28}),wp(`${COMPANY.name}`),wpStampOrText(`代表取締役　${COMPANY.repName}　印`,rIds?.rep),wp(COMPANY.address),wp(`℡ ${COMPANY.tel}`),wp(''),wp('貴社から荷物等集配委託契約（以下「本契約」といいます。）で受託した業務の一部を以下のとおり再委託したく、荷物等集配委託契約書第４条第２項に基づき、再委託承認願を提出します。'),wp('業務の再委託に当たっては、再委託先に対して本契約における自己の履行義務と同等の義務を課し、その旨を再委託先との契約書において明示するとともに、再委託先（その従事員を含む。）の行為の一切の責任を当社が負うことといたします。'),wp('また、貴社から再委託先に対する実地監査の実施要請があった場合には、当社が実施する再委託先の実地監査に貴社が同行できることを確約し、必要な協力を行うことを誓約いたします。'),wp('なお、荷物等集委託契約書第４条第４項に規定のとおり、再委託先に第三者への委託をさせないことを約束し、本書及び提出書類について虚偽の内容が判明した場合には、本書による再委託の承認取消、本契約の解除、損害賠償請求等がなされる場合があることを了承します。'),wp('おって、再委託の内容に変更が生じる場合は、改めて再委託承認願を提出して貴社の承認を得ることにいたします。'),wp(''),wp('１　再委託を受ける者の氏名・ふりがな（法人の場合は、法人名及び代表者名）及び生年月日（法人の場合は、代表者の生年月日）',{bold:true}),wp(`氏名（ふりがな）　${nameLine}　　西暦生年月日　${birthLine}`),wp(''),wp('２　再委託を受ける者の住所及び連絡先（法人の場合は、事業所の所在地及び連絡先）',{bold:true}),wp(`住所　${addrLine}　　連絡先　${tel}`),wp(''),wp('３　再委託を受ける者の受持地域',{bold:true}),wp(area||'　'),wp(''),wp('４　再委託に関する添付書類（適合証明書、作業所の現況届、従事員の現況届、車両の現況届等）',{bold:true}),wp('別添のとおり。'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp('契約書（別紙２）',{right:true}),wp(`${dy.y}年　 ${dy.m}月　  日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp('再委託承認願',{center:true,bold:true,size:28}),wp(`${COMPANY.name}`),wp(`代表取締役　${COMPANY.repName}　{{代表印}}`),wp(COMPANY.address),wp(`℡ ${COMPANY.tel}`),wp(''),wp('貴社から荷物等集配委託契約（以下「本契約」といいます。）で受託した業務の一部を以下のとおり再委託したく、荷物等集配委託契約書第４条第２項に基づき、再委託承認願を提出します。'),wp('業務の再委託に当たっては、再委託先に対して本契約における自己の履行義務と同等の義務を課し、その旨を再委託先との契約書において明示するとともに、再委託先（その従事員を含む。）の行為の一切の責任を当社が負うことといたします。'),wp('また、貴社から再委託先に対する実地監査の実施要請があった場合には、当社が実施する再委託先の実地監査に貴社が同行できることを確約し、必要な協力を行うことを誓約いたします。'),wp('なお、荷物等集委託契約書第４条第４項に規定のとおり、再委託先に第三者への委託をさせないことを約束し、本書及び提出書類について虚偽の内容が判明した場合には、本書による再委託の承認取消、本契約の解除、損害賠償請求等がなされる場合があることを了承します。'),wp('おって、再委託の内容に変更が生じる場合は、改めて再委託承認願を提出して貴社の承認を得ることにいたします。'),wp(''),wp('１　再委託を受ける者の氏名・ふりがな（法人の場合は、法人名及び代表者名）及び生年月日（法人の場合は、代表者の生年月日）',{bold:true}),wp(`氏名（ふりがな）　${nameLine}　　西暦生年月日　${birthLine}`),wp(''),wp('２　再委託を受ける者の住所及び連絡先（法人の場合は、事業所の所在地及び連絡先）',{bold:true}),wp(`住所　${addrLine}　　連絡先　${tel}`),wp(''),wp('３　再委託を受ける者の受持地域',{bold:true}),wp(area||'　'),wp(''),wp('４　再委託に関する添付書類（適合証明書、作業所の現況届、従事員の現況届、車両の現況届等）',{bold:true}),wp('別添のとおり。'),wLine(),wUsage()].join(''));}
 
 // 6. 誓約書（再委託先）- 外注1人1枚
-function genSeiyakuSubXml(dateStr,driver,rIds){
+function genSeiyakuSubXml(dateStr,driver){
   const dy=fmtDateY(dateStr);
   const isLegal=!!(driver.sub?.company);
   const company=driver.sub?.company||'';
@@ -2516,19 +2609,19 @@ function genSeiyakuSubXml(dateStr,driver,rIds){
   // 誓約書本文（固定）
   const body1=`当社は、貨物自動車運送事業法その他法令を遵守しており、また、自己又は自己の役員等（役員、実質的に経営権を有する者、代理人、使用人その他の従業者をいいます。）が下記の事項に該当する者でなく、かつ、当該業務を受託した場合、契約期間内確実に履行する者であることを誓約いたします。`;
   const body2=`また、この誓約書に虚偽の事項があったときは、契約解除、損害賠償請求等がなされる場合があることを了承し、その措置について一切の異議を申し立てないことを併せて誓約いたします。`;
-  return wxDoc([wp('様式２',{right:true}),wp('誓　約　書',{center:true,bold:true,size:28}),wp(`${dy.y}年　　${dy.m}月　　日`,{right:true}),wp(`日本郵便株式会社　西成郵便局長　殿`),wp(''),wp(`（住　　所）${addr}`),wp(`（会社名）${company}`),wp(`（ふりがな）${kana}`),wpStampOrText(`（代表者名）${repName}　　　　　　　　　　　印`,rIds?.driver||rIds?.subRep),wp(`（代表者の生年月日）${by.y?by.y+'年 '+by.m+'月 '+by.d+'日':''}`),wp(''),wp(body1),wp(body2),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　次の各号の一に該当すると認められる者で、その事実があった後２年間を経過していない者。',{bold:true}),wp('(1) 契約の履行に当たり故意に工事若しくは製造を粗雑にし、又は物品の品質若しくは数量に関して不正の行為をした者'),wp('(2) 公正な競争の執行を妨げた者、又は公正な価格を害し若しくは不正な利益を得るために連合した者'),wp('(3) 競争の参加を妨げ、又は契約の締結若しくは契約の履行を妨げた者'),wp('(4) 監督又は検査に際し職務の執行を妨げた者'),wp('(5) 正当な理由がなくて契約を履行しなかった者'),wp('(6) その他日本郵便株式会社に損害を与えた者'),wp('２　前項各号に掲げる者のほか、反社会的勢力と認められる者',{bold:true}),wp('３　当該契約を締結する能力を有しない者（ただし、未成年者、被保佐人又は被補助人であって、契約締結のために必要な同意を得ている者を除く。）。'),wp('４　破産手続開始決定を受け、又は破産手続開始の申立て、民事再生手続開始の申立て、会社更生手続開始の申立てがあるなど、経営状態が著しく不健全と認められる者'),wp('５　委託契約期間内に民間事業者による信書の送達に関する法律に規定する一般信書便事業者又は特定信書便事業者として許可を受けている者又は受ける予定のある者'),wp('６　貨物自動車運送事業法に基づく宅配便運賃を届け出て、かつ現に宅配事業を営んでいる者'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp('様式２',{right:true}),wp('誓　約　書',{center:true,bold:true,size:28}),wp(`${dy.y}年　　${dy.m}月　　日`,{right:true}),wp(`日本郵便株式会社　西成郵便局長　殿`),wp(''),wp(`（住　　所）${addr}`),wp(`（会社名）${company}`),wp(`（ふりがな）${kana}`),wp(`（代表者名）${repName}　{{代表印}}`),wp(`（代表者の生年月日）${by.y?by.y+'年 '+by.m+'月 '+by.d+'日':''}`),wp(''),wp(body1),wp(body2),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　次の各号の一に該当すると認められる者で、その事実があった後２年間を経過していない者。',{bold:true}),wp('(1) 契約の履行に当たり故意に工事若しくは製造を粗雑にし、又は物品の品質若しくは数量に関して不正の行為をした者'),wp('(2) 公正な競争の執行を妨げた者、又は公正な価格を害し若しくは不正な利益を得るために連合した者'),wp('(3) 競争の参加を妨げ、又は契約の締結若しくは契約の履行を妨げた者'),wp('(4) 監督又は検査に際し職務の執行を妨げた者'),wp('(5) 正当な理由がなくて契約を履行しなかった者'),wp('(6) その他日本郵便株式会社に損害を与えた者'),wp('２　前項各号に掲げる者のほか、反社会的勢力と認められる者',{bold:true}),wp('３　当該契約を締結する能力を有しない者（ただし、未成年者、被保佐人又は被補助人であって、契約締結のために必要な同意を得ている者を除く。）。'),wp('４　破産手続開始決定を受け、又は破産手続開始の申立て、民事再生手続開始の申立て、会社更生手続開始の申立てがあるなど、経営状態が著しく不健全と認められる者'),wp('５　委託契約期間内に民間事業者による信書の送達に関する法律に規定する一般信書便事業者又は特定信書便事業者として許可を受けている者又は受ける予定のある者'),wp('６　貨物自動車運送事業法に基づく宅配便運賃を届け出て、かつ現に宅配事業を営んでいる者'),wLine(),wUsage()].join(''));}
 
 // 7. 誓約書（大阪急配）- 営業所別1枚・弊社固定
-function genSeiyakuOsakaXml(office,dateStr,rIds){
+function genSeiyakuOsakaXml(office,dateStr){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dy=fmtDateY(dateStr);
   const by=fmtDateY(COMPANY.repBirth);
   const body1=`当社は、貨物自動車運送事業法その他法令を遵守しており、また、自己又は自己の役員等（役員、実質的に経営権を有する者、代理人、使用人その他の従業者をいいます。）が下記の事項に該当する者でなく、かつ、当該業務を受託した場合、契約期間内確実に履行する者であることを誓約いたします。`;
   const body2=`また、この誓約書に虚偽の事項があったときは、契約解除、損害賠償請求等がなされる場合があることを了承し、その措置について一切の異議を申し立てないことを併せて誓約いたします。`;
-  return wxDoc([wp('様式２',{right:true}),wp('誓　約　書',{center:true,bold:true,size:28}),wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp(`日本郵便株式会社　${postOffice}長　殿`),wp(''),wp(`（住　　所）${COMPANY.address}`),wp(`（会社名）${COMPANY.name}`),wp(`（ふりがな）${COMPANY.repKana}`),wpStampOrText(`（代表者名）${COMPANY.repName}　　　　印`,rIds?.rep),wp(`（代表者の生年月日）${by.y}年 ${by.m}月 ${by.d}日`),wp(''),wp(body1),wp(body2),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　次の各号の一に該当すると認められる者で、その事実があった後２年間を経過していない者。',{bold:true}),wp('(1) 契約の履行に当たり故意に工事若しくは製造を粗雑にし、又は物品の品質若しくは数量に関して不正の行為をした者'),wp('(2) 公正な競争の執行を妨げた者、又は公正な価格を害し若しくは不正な利益を得るために連合した者'),wp('(3) 競争の参加を妨げ、又は契約の締結若しくは契約の履行を妨げた者'),wp('(4) 監督又は検査に際し職務の執行を妨げた者'),wp('(5) 正当な理由がなくて契約を履行しなかった者'),wp('(6) その他日本郵便株式会社に損害を与えた者'),wp('２　前項各号に掲げる者のほか、反社会的勢力と認められる者',{bold:true}),wp('３　当該契約を締結する能力を有しない者（ただし、未成年者、被保佐人又は被補助人であって、契約締結のために必要な同意を得ている者を除く。）。'),wp('４　破産手続開始決定を受け、又は破産手続開始の申立て、民事再生手続開始の申立て、会社更生手続開始の申立てがあるなど、経営状態が著しく不健全と認められる者'),wp('５　委託契約期間内に民間事業者による信書の送達に関する法律に規定する一般信書便事業者又は特定信書便事業者として許可を受けている者又は受ける予定のある者'),wp('６　貨物自動車運送事業法に基づく宅配便運賃を届け出て、かつ現に宅配事業を営んでいる者'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp('様式２',{right:true}),wp('誓　約　書',{center:true,bold:true,size:28}),wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp(`日本郵便株式会社　${postOffice}長　殿`),wp(''),wp(`（住　　所）${COMPANY.address}`),wp(`（会社名）${COMPANY.name}`),wp(`（ふりがな）${COMPANY.repKana}`),wp(`（代表者名）${COMPANY.repName}　{{代表印}}`),wp(`（代表者の生年月日）${by.y}年 ${by.m}月 ${by.d}日`),wp(''),wp(body1),wp(body2),wp(''),wp('記',{center:true,bold:true}),wp(''),wp('１　次の各号の一に該当すると認められる者で、その事実があった後２年間を経過していない者。',{bold:true}),wp('(1) 契約の履行に当たり故意に工事若しくは製造を粗雑にし、又は物品の品質若しくは数量に関して不正の行為をした者'),wp('(2) 公正な競争の執行を妨げた者、又は公正な価格を害し若しくは不正な利益を得るために連合した者'),wp('(3) 競争の参加を妨げ、又は契約の締結若しくは契約の履行を妨げた者'),wp('(4) 監督又は検査に際し職務の執行を妨げた者'),wp('(5) 正当な理由がなくて契約を履行しなかった者'),wp('(6) その他日本郵便株式会社に損害を与えた者'),wp('２　前項各号に掲げる者のほか、反社会的勢力と認められる者',{bold:true}),wp('３　当該契約を締結する能力を有しない者（ただし、未成年者、被保佐人又は被補助人であって、契約締結のために必要な同意を得ている者を除く。）。'),wp('４　破産手続開始決定を受け、又は破産手続開始の申立て、民事再生手続開始の申立て、会社更生手続開始の申立てがあるなど、経営状態が著しく不健全と認められる者'),wp('５　委託契約期間内に民間事業者による信書の送達に関する法律に規定する一般信書便事業者又は特定信書便事業者として許可を受けている者又は受ける予定のある者'),wp('６　貨物自動車運送事業法に基づく宅配便運賃を届け出て、かつ現に宅配事業を営んでいる者'),wLine(),wUsage()].join(''));}
 
 // 8. 適合証明書（再委託先）- 外注1人1枚、合否×
-function genTekigoSubXml(dateStr,driver,rIds){
+function genTekigoSubXml(dateStr,driver){
   const dy=fmtDateY(dateStr);
   const company=driver.sub?.company||'';
   const count=driver.sub?.count||1;
@@ -2538,16 +2631,16 @@ function genTekigoSubXml(dateStr,driver,rIds){
   const tblRows=[wr(wc('項',600,{shade:'E8E8E8',center:true}),wc('契　約　者　の　条　件',7856,{shade:'E8E8E8',center:true}),wc('合・否',1000,{shade:'E8E8E8',center:true}))];
   items.forEach(item=>{if(item.length===3)tblRows.push(wr(wc(item[0],600,{center:true}),wc(item[1],7856),wc(item[2],1000,{center:true})));else tblRows.push(wr(wc('',600),wc(item[1],600,{center:true}),wc(item[2],7256),wc(item[3],1000,{center:true})));});
   const tbl=wtbl([600,7856,1000],tblRows,9456);
-  return wxDoc([wp('適　合　証　明　書',{center:true,bold:true,size:28}),wp('個人情報の管理に関して、以下のとおり適合することを証明いたします。'),wp(''),wp(`日　　　付：　　${dy.y}年　${dy.m}月　　日`),wp(`住　　　所：${addr}`),wp(`会　社　名：${company}`),wpStampOrText(`代表者氏名：${driver.name}　　　　　　　　　　印`,rIds?.driver||rIds?.subRep),wp(`社　員　数：（${count}）人`),wp(''),tbl,wp(''),wp('（注１）「合・否」欄に、措置している場合は「○」を、措置していない場合は「×」を記入してください。'),wp('（注４）社員数に応じて、次の項目において「○」の場合に限り、契約できます。')].join(''));}
+  return wxDoc([wp('適　合　証　明　書',{center:true,bold:true,size:28}),wp('個人情報の管理に関して、以下のとおり適合することを証明いたします。'),wp(''),wp(`日　　　付：　　${dy.y}年　${dy.m}月　　日`),wp(`住　　　所：${addr}`),wp(`会　社　名：${company}`),wp(`代表者氏名：${driver.name}　{{代表印}}`),wp(`社　員　数：（${count}）人`),wp(''),tbl,wp(''),wp('（注１）「合・否」欄に、措置している場合は「○」を、措置していない場合は「×」を記入してください。'),wp('（注４）社員数に応じて、次の項目において「○」の場合に限り、契約できます。')].join(''));}
 
 // 9. 適合証明書（大阪急配）- 営業所別1枚、全項目○
-function genTekigoOsakaXml(office,dateStr,rIds){
+function genTekigoOsakaXml(office,dateStr){
   const dy=fmtDateY(dateStr);
   const items=[['１','個人情報保護に関する内部規程を定めていること。','〇'],['','①','個人情報の取扱状況に関する点検及び監督について規程を定めていること。','〇'],['','②','個人情報の管理責任者を定めていること。','〇'],['','③','個人情報の取扱いに関する責任者を定めていること。','〇'],['','④','個人情報を扱う各段階での従業員の役割と責任を明確化していること。','〇'],['２','個人情報の授受を記した台帳等で、取扱履歴が確認できること。','〇'],['３','社員（派遣社員、アルバイト・パート社員を含む。）に対して個人情報保護に関する教育を実施していること。','〇'],['４','預託情報の管理状況について、定期又は随時に当社の監査を受けることができること。','〇'],['５','過去に個人情報の漏えい・き損の事故を起こしていないこと。','〇'],['６','預託情報は権限を持たない者が見ることのないようにできること。','〇'],['７','預託情報を適切に保管する場所を確保できること。','〇'],['８','パスワードの設定及び運用を適切に行っていること。','〇'],['９','起動時から有効なウイルスチェックソフトを稼働させていること。','〇']];
   const tblRows=[wr(wc('項',600,{shade:'E8E8E8',center:true}),wc('契　約　者　の　条　件',7856,{shade:'E8E8E8',center:true}),wc('合・否',1000,{shade:'E8E8E8',center:true}))];
   items.forEach(item=>{if(item.length===3)tblRows.push(wr(wc(item[0],600,{center:true}),wc(item[1],7856),wc(item[2],1000,{center:true})));else tblRows.push(wr(wc('',600),wc(item[1],600,{center:true}),wc(item[2],7256),wc(item[3],1000,{center:true})));});
   const tbl=wtbl([600,7856,1000],tblRows,9456);
-  return wxDoc([wp('適　合　証　明　書',{center:true,bold:true,size:28}),wp('個人情報の管理に関して、以下のとおり適合することを証明いたします。'),wp(''),wp(`日　　　付：　　${dy.y}年　${dy.m}月　${dy.d}日`),wp(`住　　　所：${COMPANY.address}`),wp(`会　社　名：${COMPANY.name}`),wpStampOrText(`代表者氏名：${COMPANY.repName}　　　　印`,rIds?.rep),wp(`社　員　数：（${COMPANY.staffCount}）人`),wp(''),tbl].join(''));}
+  return wxDoc([wp('適　合　証　明　書',{center:true,bold:true,size:28}),wp('個人情報の管理に関して、以下のとおり適合することを証明いたします。'),wp(''),wp(`日　　　付：　　${dy.y}年　${dy.m}月　${dy.d}日`),wp(`住　　　所：${COMPANY.address}`),wp(`会　社　名：${COMPANY.name}`),wp(`代表者氏名：${COMPANY.repName}　{{代表印}}`),wp(`社　員　数：（${COMPANY.staffCount}）人`),wp(''),tbl].join(''));}
 
 // ====== データ送信管理 ======
 let mailTasks = JSON.parse(localStorage.getItem('fleet_mail_tasks')||'[]');
@@ -3460,10 +3553,9 @@ async function generateDoc(office,type){
         if(tplId5){
           await generateFromTemplate('tpl5',office,d,dateStr);
         } else {
-          var st=prepareStamps(true,d);
-          const xml=genSaitakuXml(office,dateStr,d,st.rIds);
+          const xml=genSaitakuXml(office,dateStr,d);
           const name=`${office}_再委託承認願_${d.name}_${dateStr}.docx`;
-          downloadBlob(await buildDocx(xml,st.stamps),name);
+          downloadBlob(await buildDocx(xml,d),name);
         }
         generatedFiles.push({name:`再委託承認願_${d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
@@ -3477,10 +3569,9 @@ async function generateDoc(office,type){
         if(tplId1){
           await generateFromTemplate('tpl1',office,d,dateStr);
         } else {
-          var st=prepareStamps(false,d);
-          const xml=genSeiyakuSubXml(dateStr,d,st.rIds);
+          const xml=genSeiyakuSubXml(dateStr,d);
           const name=`${office}_誓約書_${d.name}_${dateStr}.docx`;
-          downloadBlob(await buildDocx(xml,st.stamps),name);
+          downloadBlob(await buildDocx(xml,d),name);
         }
         generatedFiles.push({name:`誓約書_${d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
@@ -3494,10 +3585,9 @@ async function generateDoc(office,type){
         if(tplId3){
           await generateFromTemplate('tpl3',office,d,dateStr);
         } else {
-          var st=prepareStamps(false,d);
-          const xml=genTekigoSubXml(dateStr,d,st.rIds);
+          const xml=genTekigoSubXml(dateStr,d);
           const name=`${office}_適合証明書_${d.name}_${dateStr}.docx`;
-          downloadBlob(await buildDocx(xml,st.stamps),name);
+          downloadBlob(await buildDocx(xml,d),name);
         }
         generatedFiles.push({name:`適合証明書_${d.name}`,office});
         await new Promise(r=>setTimeout(r,200));
@@ -3626,6 +3716,10 @@ async function generateFromTemplate(tplId,office,driver,dateStr){
   });
 
   zip.file('word/document.xml',docXml);
+
+  // ====== 電子印の後挿入 ======
+  await injectStampsIntoDocx(zip, driver);
+
   var outBlob=await zip.generateAsync({type:'blob'});
 
   var driverLabel=driver?driver.name:'大阪急配';
@@ -8950,29 +9044,24 @@ async function sendMail(){
             var result=await generateFromTemplate(tplId,office,targetDriver,dateStr);
             if(result&&result.fileId) fileIds.push(result.fileId);
           } else {
-            var xml=null,fname='',st=null;
+            var xml=null,fname='',drv=targetDriver;
             if(docName==='再委託承認願'){
-              st=prepareStamps(true,targetDriver);
-              xml=genSaitakuXml(office,dateStr,targetDriver,st.rIds);
+              xml=genSaitakuXml(office,dateStr,targetDriver);
               fname=office+'_再委託承認願_'+targetDriver.name+'_'+dateStr+'.docx';
             } else if(docName==='誓約書（再委託先）'){
-              st=prepareStamps(false,targetDriver);
-              xml=genSeiyakuSubXml(dateStr,targetDriver,st.rIds);
+              xml=genSeiyakuSubXml(dateStr,targetDriver);
               fname=office+'_誓約書_'+targetDriver.name+'_'+dateStr+'.docx';
             } else if(docName==='誓約書（大阪急配）'){
-              st=prepareStamps(true,null);
-              xml=genSeiyakuOsakaXml(office,dateStr,st.rIds);
-              fname=office+'_誓約書_大阪急配_'+dateStr+'.docx';
+              xml=genSeiyakuOsakaXml(office,dateStr);
+              fname=office+'_誓約書_大阪急配_'+dateStr+'.docx';drv=null;
             } else if(docName==='適合証明書（再委託先）'){
-              st=prepareStamps(false,targetDriver);
-              xml=genTekigoSubXml(dateStr,targetDriver,st.rIds);
+              xml=genTekigoSubXml(dateStr,targetDriver);
               fname=office+'_適合証明書_'+targetDriver.name+'_'+dateStr+'.docx';
             } else if(docName==='適合証明書（大阪急配）'){
-              st=prepareStamps(true,null);
-              xml=genTekigoOsakaXml(office,dateStr,st.rIds);
-              fname=office+'_適合証明書_大阪急配_'+dateStr+'.docx';
+              xml=genTekigoOsakaXml(office,dateStr);
+              fname=office+'_適合証明書_大阪急配_'+dateStr+'.docx';drv=null;
             }
-            if(xml) downloadBlob(await buildDocx(xml,st?st.stamps:null),fname);
+            if(xml) downloadBlob(await buildDocx(xml,drv),fname);
           }
         }catch(e){
           console.error('再委託先書類エラー:',docName,targetDriver.name,e);
