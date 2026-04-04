@@ -4172,22 +4172,44 @@ async function tdDrop(e){
     processTopFiles(Array.from(e.dataTransfer.files));
   }
 }
-function readEntriesRecursive(entries,allFiles){
+function readEntriesRecursive(entries,allFiles,pathPrefix){
+  pathPrefix=pathPrefix||'';
   return Promise.all(entries.map(function(entry){
     if(entry.isFile){
       return new Promise(function(res){
         entry.file(function(f){
           var ext=(f.name||'').split('.').pop().toLowerCase();
-          if(['pdf','jpg','jpeg','png','gif','docx','doc','xlsx','xls'].includes(ext)) allFiles.push(f);
+          if(['pdf','jpg','jpeg','png','gif','docx','doc','xlsx','xls'].includes(ext)){
+            // フォルダパスをファイル名に付与（松枝憲明/5560/車検証.pdf → 松枝憲明_5560_車検証.pdf）
+            if(pathPrefix){
+              var prefixedName=pathPrefix.replace(/\//g,'_')+f.name;
+              var newFile=new File([f],prefixedName,{type:f.type,lastModified:f.lastModified});
+              newFile._originalName=f.name;
+              newFile._folderPath=pathPrefix;
+              allFiles.push(newFile);
+            } else {
+              allFiles.push(f);
+            }
+          }
           res();
         },function(){res();});
       });
     } else if(entry.isDirectory){
       return new Promise(function(res){
         var reader=entry.createReader();
-        reader.readEntries(function(subEntries){
-          readEntriesRecursive(Array.from(subEntries),allFiles).then(res);
-        },function(){res();});
+        var allEntries=[];
+        // readEntriesは100件ずつ返すので繰り返し呼ぶ
+        function readAll(){
+          reader.readEntries(function(batch){
+            if(batch.length){
+              allEntries=allEntries.concat(Array.from(batch));
+              readAll();
+            } else {
+              readEntriesRecursive(allEntries,allFiles,pathPrefix+entry.name+'/').then(res);
+            }
+          },function(){res();});
+        }
+        readAll();
       });
     }
     return Promise.resolve();
@@ -5272,7 +5294,126 @@ function deleteUnassignedFile(idx){
   saveLocal();renderStorage();
 }
 
-// 未分類ファイルをドライバー/車両に振り分け
+// ====== 未分類ファイル一括操作 ======
+function ufGetSelectedIdxs(){
+  return Array.from(document.querySelectorAll('.uf-check:checked')).map(cb=>Number(cb.dataset.idx));
+}
+function ufUpdateBulkBar(){
+  var sel=ufGetSelectedIdxs();
+  var bar=document.getElementById('uf-bulk-bar');
+  var cnt=document.getElementById('uf-bulk-count');
+  if(bar) bar.style.display=sel.length>0?'flex':'none';
+  if(cnt) cnt.textContent=sel.length+'件選択中';
+}
+function ufToggleAll(checked){
+  document.querySelectorAll('.uf-check').forEach(cb=>{cb.checked=checked;});
+  ufUpdateBulkBar();
+}
+function ufBulkClear(){
+  document.querySelectorAll('.uf-check').forEach(cb=>{cb.checked=false;});
+  ufUpdateBulkBar();
+}
+function ufBulkDelete(){
+  var idxs=ufGetSelectedIdxs();
+  if(!idxs.length){alert('削除するファイルを選択してください');return;}
+  if(!confirm(idxs.length+'件の未分類ファイルを一括削除しますか？\n（削除済みフォルダに移動されます）'))return;
+  // インデックスを大きい順にソートして削除（splice対策）
+  idxs.sort(function(a,b){return b-a;});
+  idxs.forEach(function(idx){
+    var f=unassignedFiles[idx];
+    if(f&&f.fileId){
+      fetch(API_URL,{method:'POST',body:JSON.stringify({action:'softDelete',fileId:f.fileId})}).catch(function(){});
+    }
+    unassignedFiles.splice(idx,1);
+  });
+  saveLocal();renderStorage();
+  alert(idxs.length+'件を削除しました');
+}
+function ufBulkAssign(){
+  var idxs=ufGetSelectedIdxs();
+  if(!idxs.length){alert('振り分けるファイルを選択してください');return;}
+  var files=idxs.map(function(idx){return unassignedFiles[idx];}).filter(Boolean);
+  var namesHtml=files.map(function(f){return '<span style="font-size:10px;padding:2px 7px;background:#fce4ec;border-radius:99px;color:#c62828;display:inline-block;margin:2px">'+esc(f.name)+'</span>';}).join('');
+
+  // 振り分け先選択カスケード
+  var officeOpts='<option value="">すべて</option>'+offices.map(function(o){return '<option>'+o+'</option>';}).join('');
+  var allD=[
+    ...drivers.filter(function(d){return !d.status||d.status==='在籍';}).map(function(d){return {id:d.id,name:d.name,kind:'driver',office:(Array.isArray(d.offices)&&d.offices.length?d.offices[0]:d.office)||'',label:d.name,sub:'ドライバー'};}),
+    ...companies.flatMap(function(c){return (c.drivers||[]).map(function(d){return {id:d.id,name:d.name,kind:'driver',office:(d.offices||[])[0]||'',label:d.name,sub:'ドライバー ['+c.name+']'};});})
+  ];
+  var allV=[
+    ...vehicles.map(function(v){return {id:v.id,name:v.plate,kind:'vehicle',office:v.office||'',label:v.plate+(v.model?' '+v.model:''),sub:'車両'};}),
+    ...companies.flatMap(function(c){return (c.vehicles||[]).map(function(v){return {id:v.id,name:v.plate,kind:'vehicle',office:(v.offices||[])[0]||'',label:v.plate+(v.model?' '+v.model:''),sub:'車両 ['+c.name+']'};});})
+  ];
+  window._ufBulkTargets=[...allD,...allV];
+  window._ufBulkIdxs=idxs;
+
+  var modal=document.createElement('div');
+  modal.className='modal-bg';modal.style.display='flex';modal.id='uf-bulk-modal';
+  modal.innerHTML='<div class="modal" style="max-width:500px" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">一括振り分け（'+idxs.length+'件）</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body" style="padding:8px 12px;max-height:65vh;overflow-y:auto">'+
+      '<div style="display:flex;flex-wrap:wrap;gap:2px;margin-bottom:8px">'+namesHtml+'</div>'+
+      '<div style="display:flex;gap:6px;margin-bottom:8px">'+
+        '<select id="uf-bulk-office" style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #ddd;border-radius:5px" onchange="ufBulkRenderList()">'+officeOpts+'</select>'+
+        '<input type="text" id="uf-bulk-search" placeholder="名前・番号で検索" style="flex:1;padding:6px 8px;font-size:12px;border:1px solid #ddd;border-radius:5px" oninput="ufBulkRenderList()">'+
+      '</div>'+
+      '<div id="uf-bulk-list"></div>'+
+    '</div>'+
+  '</div>';
+  document.body.appendChild(modal);
+  modal.onclick=function(e){if(e.target===modal)modal.remove();};
+  ufBulkRenderList();
+}
+function ufBulkRenderList(){
+  var office=document.getElementById('uf-bulk-office')?.value||'';
+  var search=(document.getElementById('uf-bulk-search')?.value||'').toLowerCase();
+  var targets=window._ufBulkTargets||[];
+  var filtered=targets.filter(function(t){
+    if(office&&t.office!==office)return false;
+    if(search&&!t.label.toLowerCase().includes(search)&&!t.sub.toLowerCase().includes(search))return false;
+    return true;
+  });
+  var el=document.getElementById('uf-bulk-list');
+  if(!el)return;
+  el.innerHTML=filtered.length?filtered.map(function(t){
+    var icon=t.kind==='driver'?'👤':'🚗';
+    return '<div style="padding:6px 8px;cursor:pointer;font-size:12px;border-bottom:1px solid #f0f0f0;display:flex;justify-content:space-between;align-items:center" onclick="execUfBulkAssign(\''+t.kind+'\','+t.id+')">'+
+      '<span>'+icon+' <strong>'+esc(t.label)+'</strong> <span style="font-size:10px;color:#888">'+esc(t.sub)+'</span></span>'+
+      '<span style="font-size:10px;color:#4a90e2">割り当て →</span></div>';
+  }).join(''):'<div style="padding:12px;text-align:center;color:#888;font-size:11px">該当なし</div>';
+}
+function execUfBulkAssign(kind,targetId){
+  var idxs=window._ufBulkIdxs||[];
+  if(!idxs.length)return;
+  var target=null;
+  if(kind==='driver'){
+    target=drivers.find(function(d){return d.id==targetId;});
+    if(!target){companies.forEach(function(c){(c.drivers||[]).forEach(function(d){if(d.id==targetId)target=d;});});}
+  } else {
+    target=vehicles.find(function(v){return v.id==targetId;});
+    if(!target){companies.forEach(function(c){(c.vehicles||[]).forEach(function(v){if(v.id==targetId)target=v;});});}
+  }
+  if(!target){alert('振り分け先が見つかりません');return;}
+  if(!target.attachedFiles) target.attachedFiles=[];
+  // インデックスを大きい順にソートして処理
+  idxs.sort(function(a,b){return b-a;});
+  var count=0;
+  idxs.forEach(function(idx){
+    var f=unassignedFiles[idx];
+    if(f){
+      target.attachedFiles.push({name:f.name,type:f.type||'',url:f.url||'',fileId:f.fileId||'',uploadedAt:new Date().toISOString()});
+      unassignedFiles.splice(idx,1);
+      count++;
+    }
+  });
+  saveLocal();
+  var modal=document.getElementById('uf-bulk-modal');
+  if(modal) modal.remove();
+  renderStorage();
+  alert(count+'件を '+(target.name||target.plate)+' に振り分けました');
+}
+
 // ファイル名からドライバー名・車両ナンバーを推測
 function parseFileNameHints(fileName){
   var name=(fileName||'').replace(/\.[^.]+$/,''); // 拡張子除去
@@ -5909,18 +6050,29 @@ function renderStorage(){
   // 未分類ファイル（未分類選択時のみ表示）
   if(offF==='未分類' && unassignedFiles.length){
     html+='<div style="font-size:11px;font-weight:500;color:#e53935;margin:12px 0 8px">未分類ファイル（'+unassignedFiles.length+'件）</div>';
+    // 一括操作バー
+    html+='<div id="uf-bulk-bar" style="display:none;padding:8px 12px;background:#fce4ec;border:1px solid #ef9a9a;border-radius:8px;margin-bottom:8px;align-items:center;gap:8px;flex-wrap:wrap">';
+    html+='<span style="font-size:12px;font-weight:600;color:#c62828" id="uf-bulk-count">0件選択中</span>';
+    html+='<button class="btn btn-sm btn-primary" onclick="ufBulkAssign()" style="font-size:11px">📂 一括振り分け</button>';
+    html+='<button class="btn btn-sm btn-danger" onclick="ufBulkDelete()" style="font-size:11px">🗑 一括削除</button>';
+    html+='<button class="btn btn-sm" onclick="ufBulkClear()" style="font-size:11px">選択解除</button>';
+    html+='<label style="margin-left:auto;font-size:11px;cursor:pointer;color:#888"><input type="checkbox" onchange="ufToggleAll(this.checked)" style="margin-right:4px">全選択</label>';
+    html+='</div>';
     html+='<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px">';
     unassignedFiles.forEach(function(f,i){
       var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
       var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w160':'');
       var thumbImg=thumbSrc?'<img src="'+esc(thumbSrc)+'" style="width:100%;height:100%;object-fit:cover;display:block" onerror="this.style.display=\'none\';this.parentElement.querySelector(\'.uf-fallback\').style.display=\'flex\'"><div class="uf-fallback" style="width:100%;height:100%;display:none;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:50%;height:50%;object-fit:contain"></div>':'<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f5f5f5"><img src="'+LOGO_THUMB+'" style="width:50%;height:50%;object-fit:contain"></div>';
       html+='<div style="border:1px solid #e53935;border-radius:6px;background:#fff;display:flex;flex-direction:column">';
-      // サムネ部分（固定高さ、overflow:hidden）
+      // サムネ部分
       html+='<div style="position:relative;width:100%;height:0;padding-bottom:100%;overflow:hidden;border-radius:6px 6px 0 0;cursor:pointer" onclick="openUnassignedPreview('+i+')">';
       html+='<div style="position:absolute;top:0;left:0;width:100%;height:100%">'+thumbImg+'</div>';
+      // チェックボックス（左上）
+      html+='<label style="position:absolute;top:4px;left:4px;z-index:3;cursor:pointer" onclick="event.stopPropagation()"><input type="checkbox" class="uf-check" data-idx="'+i+'" onchange="ufUpdateBulkBar()" style="width:18px;height:18px;cursor:pointer;accent-color:#c62828"></label>';
+      // 削除ボタン（右上）
       html+='<button style="position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:99px;background:rgba(0,0,0,.55);color:#fff;border:none;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:2" onclick="event.stopPropagation();deleteUnassignedFile('+i+')">×</button>';
       html+='</div>';
-      // ファイル名+ボタン部分（サムネとは完全分離）
+      // ファイル名+ボタン
       html+='<div style="padding:4px 6px;font-size:9px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border-top:1px solid #eee" title="'+esc(f.name||'')+'">'+esc(f.name||'未分類')+'</div>';
       html+='<div style="padding:4px 6px 6px">';
       html+='<button style="width:100%;font-size:11px;padding:6px 4px;border:1px solid #4a90e2;border-radius:4px;background:#EBF3FF;color:#1565C0;cursor:pointer;font-weight:500;position:relative;z-index:1" onclick="event.stopPropagation();assignUnassignedFile('+i+')">振り分け</button>';
