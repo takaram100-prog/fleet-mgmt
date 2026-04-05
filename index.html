@@ -799,14 +799,14 @@ body.modal-open{overflow:hidden}
         <div class="content" style="max-width:540px;overflow-x:hidden;box-sizing:border-box;width:100%">
           <style>
             #page-settings .content>div{box-sizing:border-box;max-width:100%}
-            #page-settings input[type="text"],#page-settings input[type="email"],#page-settings input[type="password"],#page-settings input[type="number"],#page-settings input[type="date"]{box-sizing:border-box;max-width:100%}
+            #page-settings input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){box-sizing:border-box;max-width:100%}
             @media(max-width:768px){
               #page-settings .content{max-width:100vw!important;padding:8px!important;box-sizing:border-box;overflow-x:hidden}
-              #page-settings .content *{box-sizing:border-box;max-width:100%}
+              #page-settings .content *{box-sizing:border-box}
               #page-settings .content>div>div{overflow:hidden;word-break:break-word}
               #page-settings .office-row{flex-wrap:wrap;gap:6px}
               #page-settings .office-row .btn{font-size:9px!important;padding:3px 6px!important}
-              #page-settings input{width:100%!important}
+              #page-settings input:not([type="checkbox"]):not([type="radio"]):not([type="file"]){width:100%!important}
               #page-settings div[style*="padding:16px"]{padding:10px!important}
               #page-settings div[style*="display:flex;gap:16px"]{flex-direction:column!important}
             }
@@ -9525,6 +9525,7 @@ function renderAll(){
   renderOfficeNav();
   try{renderCompanyNav();}catch(e){console.error('renderCompanyNav error:',e);}
   renderDashboard();renderVehicles(null);renderDrivers(null);renderDocPage();renderArchive();
+  try{renderSettingsAll();}catch(e){}
   // メール・受信バッジ更新
   const mailPending=mailTasks.filter(t=>t.status==='pending').length;
   const mailBadge=document.getElementById('mail-badge');
