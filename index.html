@@ -997,7 +997,16 @@ body.modal-open{overflow:hidden}
 <!-- Driver Modal -->
 <div id="driver-modal" style="display:none" class="modal-bg">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title" id="dm-title">ドライバー 登録</span><button class="modal-close" onclick="closeModal('driver-modal')">✕</button></div>
+    <div class="modal-header" style="flex-wrap:wrap;gap:4px">
+      <span class="modal-title" id="dm-title">ドライバー 登録</span>
+      <div id="dm-nav" style="display:none;margin-left:auto;align-items:center;gap:4px">
+        <button class="btn btn-sm" onclick="navDriver(-1)" id="dm-prev" style="font-size:11px;padding:3px 10px">◀ 前</button>
+        <span id="dm-nav-label" style="font-size:11px;color:#888;min-width:50px;text-align:center"></span>
+        <button class="btn btn-sm" onclick="navDriver(1)" id="dm-next" style="font-size:11px;padding:3px 10px">次 ▶</button>
+      </div>
+      <button class="modal-close" onclick="closeModal('driver-modal')">✕</button>
+    </div>
+    <div id="dm-thumb-strip" style="display:none;padding:6px 16px;background:#f8f8f8;border-bottom:1px solid #eee;overflow-x:auto;white-space:nowrap"></div>
     <div class="modal-body"><div class="form-grid">
       <div class="section-title">写真・PDF添付</div>
       <div style="grid-column:1/-1">
@@ -1061,7 +1070,7 @@ body.modal-open{overflow:hidden}
         <div id="d-stamp-preview" style="margin-top:6px;display:none"></div>
       </div>
     </div></div>
-    <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-sm" id="dm-save-next" style="display:none" onclick="saveDriverAndNav(1)">保存して次 ▶</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
   </div>
 </div>
 
@@ -4713,9 +4722,27 @@ function saveVehicle(){
   }
   if(vStatus==='廃車') renderArchive();
 }
+var driverNavList=[];
+var driverNavIndex=-1;
+
 function openDriverModal(id){
   editingDriverId=id||null;
   document.getElementById('dm-title').textContent=id?'ドライバー 編集':'ドライバー 登録';
+  // ナビ構築: 現在のフィルタに基づくドライバーリスト
+  var navEl=document.getElementById('dm-nav');
+  var saveNextEl=document.getElementById('dm-save-next');
+  if(id){
+    driverNavList=drivers.filter(d=>!currentOfficeFilter||belongsToOffice(d,currentOfficeFilter)).filter(d=>!d.status||d.status==='在籍').map(d=>d.id);
+    driverNavIndex=driverNavList.indexOf(id);
+    if(driverNavIndex<0){driverNavList.push(id);driverNavIndex=driverNavList.length-1;}
+    navEl.style.display='flex';
+    saveNextEl.style.display='';
+    updateDriverNavLabel();
+  } else {
+    driverNavList=[];driverNavIndex=-1;
+    navEl.style.display='none';
+    saveNextEl.style.display='none';
+  }
   // 営業所チェックボックスを構築
   renderOfficeMultiSelect('d-office-checks', []);
   ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
@@ -4763,7 +4790,122 @@ function openDriverModal(id){
   document.getElementById('driver-modal').style.display='flex';
   initDateFields();
   renderExistingFiles('d-existing-files','driver',id);
+  renderDriverThumbStrip(id);
   setTimeout(()=>initModalKeyNav('driver-modal'),100);
+}
+
+function updateDriverNavLabel(){
+  var el=document.getElementById('dm-nav-label');
+  if(el&&driverNavList.length) el.textContent=(driverNavIndex+1)+'/'+driverNavList.length;
+  var prev=document.getElementById('dm-prev');
+  var next=document.getElementById('dm-next');
+  if(prev) prev.disabled=driverNavIndex<=0;
+  if(next) next.disabled=driverNavIndex>=driverNavList.length-1;
+}
+
+function navDriver(dir){
+  var newIdx=driverNavIndex+dir;
+  if(newIdx<0||newIdx>=driverNavList.length) return;
+  // モーダルを閉じずにドライバーを切替
+  var nextId=driverNavList[newIdx];
+  loadDriverIntoModal(nextId);
+  driverNavIndex=newIdx;
+  editingDriverId=nextId;
+  updateDriverNavLabel();
+  document.getElementById('dm-title').textContent='ドライバー 編集';
+}
+
+function saveDriverAndNav(dir){
+  saveDriver(true); // keepOpen=true
+  var newIdx=driverNavIndex+dir;
+  if(newIdx<0||newIdx>=driverNavList.length){closeModal('driver-modal');return;}
+  var nextId=driverNavList[newIdx];
+  // 少し遅延して次のドライバーをロード（保存処理完了待ち）
+  setTimeout(function(){
+    loadDriverIntoModal(nextId);
+    driverNavIndex=newIdx;
+    editingDriverId=nextId;
+    updateDriverNavLabel();
+    document.getElementById('dm-title').textContent='ドライバー 編集';
+  },100);
+}
+
+function loadDriverIntoModal(id){
+  // フォームリセット
+  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('d-type').value='社員';document.getElementById('d-sub-count').value='1';
+  document.getElementById('d-status').value='在籍';
+  document.getElementById('subcon-fields').style.display='none';
+  document.getElementById('archive-fields').style.display='none';
+  document.getElementById('other-docs-list').innerHTML='';
+  if(!modalFiles['d-files']) modalFiles['d-files']=[];
+  modalFiles['d-files']=[];
+  renderFilePreview('d-files');
+  otherDocCount=0;
+  document.getElementById('d-stamp').checked=false;
+  var dsp=document.getElementById('d-stamp-preview');if(dsp)dsp.style.display='none';
+  renderOfficeMultiSelect('d-office-checks', []);
+  // ドライバーデータ読込
+  const d=drivers.find(x=>x.id==id);
+  if(!d) return;
+  const np=(d.name||'').split(' ');const kp=(d.kana||'').split(' ');
+  document.getElementById('d-sei').value=np[0]||'';
+  document.getElementById('d-mei').value=np[1]||'';
+  document.getElementById('d-sei-kana').value=kp[0]||'';
+  document.getElementById('d-mei-kana').value=kp[1]||'';
+  document.getElementById('d-type').value=d.type||'社員';
+  const selectedOffices=Array.isArray(d.offices)?d.offices:(d.office?[d.office]:[]);
+  renderOfficeMultiSelect('d-office-checks',selectedOffices);
+  document.getElementById('d-tel').value=d.tel||'';
+  document.getElementById('d-birth').value=normalizeBirthDate(d.birth);
+  document.getElementById('d-addr').value=d.addr||'';
+  document.getElementById('d-zip').value=d.zip||'';
+  document.getElementById('d-license-exp').value=normalizeBirthDate(d.license?.exp);
+  document.getElementById('d-license-no').value=d.license?.no||'';
+  document.getElementById('d-license-type').value=d.license?.type||'普通自動車';
+  document.getElementById('d-license-cond').value=d.license?.cond||'';
+  document.getElementById('d-status').value=d.status||'在籍';
+  const docs=Array.isArray(d.otherDocs)?d.otherDocs:(d.other?.name?[d.other]:[]);
+  docs.forEach(doc=>addOtherDoc(doc));
+  if(d.status==='退職'||d.status==='休止'){document.getElementById('archive-fields').style.display='block';document.getElementById('d-leave-date').value=normalizeBirthDate(d.leave?.date);document.getElementById('d-leave-reason').value=d.leave?.reason||'';document.getElementById('d-leave-note').value=d.leave?.note||'';}
+  if(d.type==='外注（個人）'){document.getElementById('subcon-fields').style.display='block';document.getElementById('d-sub-company').value=d.sub?.company||'';document.getElementById('d-sub-kana').value=d.sub?.kana||'';document.getElementById('d-sub-birth').value=normalizeBirthDate(d.sub?.birth);document.getElementById('d-sub-area').value=d.sub?.area||'';document.getElementById('d-sub-count').value=d.sub?.count||1;document.getElementById('d-sub-tel').value=d.sub?.tel||'';}
+  document.getElementById('d-stamp').checked=!!d.stampEnabled;
+  previewDriverStamp();
+  toggleSubconFields();toggleContractorField();toggleArchiveFields();
+  initDateFields();
+  renderExistingFiles('d-existing-files','driver',id);
+  renderDriverThumbStrip(id);
+  // モーダルをトップにスクロール
+  var modalBody=document.querySelector('#driver-modal .modal-body');
+  if(modalBody) modalBody.scrollTop=0;
+}
+
+function renderDriverThumbStrip(id){
+  var strip=document.getElementById('dm-thumb-strip');
+  if(!strip) return;
+  if(!id){strip.style.display='none';return;}
+  var d=drivers.find(x=>x.id==id);
+  if(!d||!(d.attachedFiles||[]).length){strip.style.display='none';return;}
+  strip.style.display='block';
+  var html='<div style="display:inline-flex;gap:6px;align-items:center"><span style="font-size:10px;color:#888;font-weight:500;margin-right:4px">添付 '+d.attachedFiles.length+'件:</span>';
+  d.attachedFiles.forEach(function(f,i){
+    var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
+    var isImg=(f.name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+    var isPdf=(f.name||'').match(/\.pdf$/i);
+    var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w80':'');
+    var cat=f.category||'';
+    var catBg=cat.includes('免許')?'#1565C0':cat.includes('車検')?'#E65100':cat.includes('自賠')?'#6A1B9A':'#888';
+    html+='<div style="display:inline-flex;flex-direction:column;align-items:center;min-width:52px;cursor:pointer" onclick="openAttachedFilePreview(\'driver\','+id+','+i+',\'\')" title="'+esc(f.name)+'">';
+    if(thumbSrc){
+      html+='<img src="'+thumbSrc+'" style="width:48px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #ddd">';
+    } else {
+      html+='<div style="width:48px;height:36px;border-radius:4px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:9px;color:#888">'+(isPdf?'PDF':'FILE')+'</div>';
+    }
+    if(cat) html+='<span style="font-size:7px;color:#fff;background:'+catBg+';padding:0 4px;border-radius:2px;margin-top:1px;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat+'</span>';
+    html+='</div>';
+  });
+  html+='</div>';
+  strip.innerHTML=html;
 }
 
 let otherDocCount=0;
@@ -4822,7 +4964,7 @@ function initModalKeyNav(modalId){
   if(firstInput)setTimeout(()=>firstInput.focus(),100);
 }
 
-function saveDriver(){
+function saveDriver(keepOpen){
   const sei=document.getElementById('d-sei').value.trim();
   const mei=document.getElementById('d-mei').value.trim();
   if(!sei&&!mei){alert('氏名（姓または名）は必須です');return;}
@@ -4899,7 +5041,7 @@ function saveDriver(){
       renderFileMgr();
     })();
   }
-  saveLocal();addLog(document.getElementById('d-id').value?'編集':'追加','ドライバー: '+document.getElementById('d-name').value);closeModal('driver-modal');renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
+  saveLocal();addLog(document.getElementById('d-id').value?'編集':'追加','ドライバー: '+document.getElementById('d-name').value);if(!keepOpen){closeModal('driver-modal');}renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
   // 未分類ファイルからの新規登録時: ファイルを自動添付
   if(window._pendingFileAssign&&window._pendingFileAssign.kind==='driver'){
     var pf=window._pendingFileAssign;
