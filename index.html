@@ -1018,7 +1018,7 @@ body.modal-open{overflow:hidden}
       </div>
       <button class="modal-close" onclick="closeModal('driver-modal')">✕</button>
     </div>
-    <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+    <div id="dm-flex-wrap" style="display:flex;flex:1;overflow:hidden;min-height:0">
       <div id="dm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
           <span id="dm-preview-title" style="font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
@@ -1027,8 +1027,7 @@ body.modal-open{overflow:hidden}
         <div id="dm-preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0"></div>
         <div id="dm-preview-thumbs" style="padding:6px 8px;background:#222;border-top:1px solid #333;overflow-x:auto;white-space:nowrap;display:none"></div>
       </div>
-      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
-    <div class="modal-body"><div class="form-grid">
+      <div class="modal-body" style="flex:1;overflow-y:auto"><div class="form-grid">
       <div class="section-title">写真・PDF添付</div>
       <div style="grid-column:1/-1">
         <div class="file-drop-zone" id="d-files-zone" ondragover="fileDragOver(event,'d-files-zone')" ondragleave="fileDragLeave('d-files-zone')" ondrop="fileDrop(event,'d-files')">
@@ -1090,10 +1089,8 @@ body.modal-open{overflow:hidden}
         </label>
         <div id="d-stamp-preview" style="margin-top:6px;display:none"></div>
       </div>
-    </div></div>
+    </div></div></div><!-- closes form-grid + modal-body + dm-flex-wrap -->
     <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-sm" id="dm-save-next" style="display:none" onclick="saveDriverAndNav(1)">保存して次 ▶</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
-      </div><!-- right column -->
-    </div><!-- flex container -->
   </div>
 </div>
 
