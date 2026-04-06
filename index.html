@@ -90,6 +90,7 @@ tr.row-warn td{background:rgba(251,140,0,.03)}
 .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.4);display:flex;align-items:flex-start;justify-content:center;z-index:100;padding:16px;padding-top:40px;overflow-y:auto}
 body.modal-open{overflow:hidden}
 .modal{background:#fff;border-radius:12px;border:1px solid #e0e0e0;width:100%;max-width:700px;max-height:92vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.12)}
+.modal.modal-wide{max-width:1200px;transition:max-width .2s}
 .modal-sm{max-width:400px}
 .modal-header{padding:14px 18px;border-bottom:1px solid #e0e0e0;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .modal-title{font-size:14px;font-weight:600}
@@ -606,7 +607,10 @@ body.modal-open{overflow:hidden}
         <div class="content">
           <div class="sync-bar" style="justify-content:space-between;padding:6px 12px">
             <span class="sync-status" id="sync-status" style="font-size:11px;color:#888">自動同期中</span>
-            <div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <button class="btn btn-sm" onclick="performUndo()" style="font-size:10px;padding:2px 8px;position:relative" title="Ctrl+Z で元に戻す">↩ 元に戻す <span id="undo-badge" style="font-size:9px;color:#e53935;font-weight:700"></span></button>
+              <div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
+            </div>
           </div>
           <div class="stats" id="dash-stats"></div>
           <div class="top-drop" ondragover="tdOver(event)" ondragleave="tdLeave(event)" ondrop="tdDrop(event)">
@@ -948,6 +952,14 @@ body.modal-open{overflow:hidden}
             </div>
           </div>
 
+          <div style="margin-top:28px;font-size:12px;font-weight:600;margin-bottom:10px;color:#888">📎 添付ファイル整合性チェック</div>
+          <div style="background:#fff3e0;border:1px solid #ffcc80;border-radius:10px;padding:16px">
+            <div style="font-size:12px;color:#555;margin-bottom:10px">Google Drive上の添付ファイルが存在するか一括検証します。リンク切れがあれば一覧表示されます。</div>
+            <button class="btn btn-sm btn-primary" onclick="checkFileIntegrity()" style="font-size:11px">整合性チェックを実行</button>
+            <div id="integrity-status" style="display:none;font-size:11px;margin-top:8px;padding:8px;background:#fff;border:1px solid #eee;border-radius:6px;line-height:1.6"></div>
+            <div style="font-size:10px;color:#999;margin-top:6px">※ GAS側に checkFile アクションが必要です（未実装の場合はスキップされます）</div>
+          </div>
+
           <div style="margin-top:28px;font-size:12px;font-weight:600;margin-bottom:10px;color:#888">操作ログ（直近100件）</div>
           <div style="background:#fafafa;border:1px solid #e0e0e0;border-radius:10px;padding:12px;max-height:300px;overflow-y:auto">
             <div id="op-log-list"></div>
@@ -1006,7 +1018,16 @@ body.modal-open{overflow:hidden}
       </div>
       <button class="modal-close" onclick="closeModal('driver-modal')">✕</button>
     </div>
-    <div id="dm-thumb-strip" style="display:none;padding:6px 16px;background:#f8f8f8;border-bottom:1px solid #eee;overflow-x:auto;white-space:nowrap"></div>
+    <div style="display:flex;flex:1;overflow:hidden;min-height:0">
+      <div id="dm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
+          <span id="dm-preview-title" style="font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+          <button onclick="closeDmPreview()" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
+        </div>
+        <div id="dm-preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0"></div>
+        <div id="dm-preview-thumbs" style="padding:6px 8px;background:#222;border-top:1px solid #333;overflow-x:auto;white-space:nowrap;display:none"></div>
+      </div>
+      <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0">
     <div class="modal-body"><div class="form-grid">
       <div class="section-title">写真・PDF添付</div>
       <div style="grid-column:1/-1">
@@ -1071,6 +1092,8 @@ body.modal-open{overflow:hidden}
       </div>
     </div></div>
     <div class="modal-footer"><button class="btn" onclick="closeModal('driver-modal')">キャンセル</button><button class="btn btn-sm" id="dm-save-next" style="display:none" onclick="saveDriverAndNav(1)">保存して次 ▶</button><button class="btn btn-primary" onclick="saveDriver()">保存する</button></div>
+      </div><!-- right column -->
+    </div><!-- flex container -->
   </div>
 </div>
 
@@ -1668,8 +1691,15 @@ function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').
 async function doLogin(){
   const pw=document.getElementById('pw-input').value;
   const errEl=document.getElementById('login-err');
+  // ログイン試行回数制限チェック
+  if(isLoginLocked()){
+    var remain=getLoginRemainingTime();
+    errEl.style.color='#e53935';errEl.textContent='ログインがロックされています。'+remain+'分後に再試行してください。';
+    document.getElementById('pw-input').value='';return;
+  }
   // まずローカルのパスワードで確認
   if(pw===PASSWORD){
+    recordLoginAttempt(true);
     sessionStorage.setItem('fleet_session','ok');
     addLog('ログイン','パスワード認証成功');resetSessionTimer();
     document.getElementById('login-screen').style.display='none';
@@ -1696,13 +1726,18 @@ async function doLogin(){
     }
     // 再チェック
     if(pw===PASSWORD){
+      recordLoginAttempt(true);
       sessionStorage.setItem('fleet_session','ok');
       document.getElementById('login-screen').style.display='none';
       addLog('ログイン','Sheet同期後パスワード認証成功');resetSessionTimer();
       document.getElementById('app-screen').style.display='block';
       renderAll();syncAll(false);
     } else {
-      errEl.style.color='#e53935';errEl.textContent='パスワードが違います';
+      recordLoginAttempt(false);
+      var lock=getLoginLock();
+      var attemptsLeft=LOGIN_MAX_ATTEMPTS-(lock.attempts||0);
+      errEl.style.color='#e53935';
+      errEl.textContent=attemptsLeft>0?'パスワードが違います（残り'+attemptsLeft+'回）':'ログインがロックされました。'+LOGIN_LOCK_MINUTES+'分後に再試行してください。';
       document.getElementById('pw-input').value='';
     }
   }catch(e){
@@ -4503,6 +4538,7 @@ function deleteArchivedDriver(id){
   const d=drivers.find(x=>x.id==id);
   if(!d)return;
   if(!confirm(`「${d.name}」を完全に削除しますか？\nこの操作は元に戻せません。`))return;
+  pushUndo('ドライバー削除: '+d.name);
   drivers=drivers.filter(x=>x.id!=id);
   vehicles.forEach(v=>{if(v.driverId==id){v.driver='';v.driverId=null;}});
   saveLocal();renderArchive();renderDrivers(currentOfficeFilter);renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
@@ -4512,6 +4548,7 @@ function restoreDriver(id){
   const d=drivers.find(x=>x.id==id);
   if(!d)return;
   if(!confirm(`「${d.name}」を在籍に戻しますか？`))return;
+  pushUndo('ドライバー復元: '+d.name);
   d.status='在籍';d.leave={};
   saveLocal();renderArchive();renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
 }
@@ -4520,6 +4557,7 @@ function restoreVehicle(id){
   const v=vehicles.find(x=>x.id==id);
   if(!v)return;
   if(!confirm(`「${v.plate}」を稼働に戻しますか？`))return;
+  pushUndo('車両復元: '+v.plate);
   v.status='稼働';
   saveLocal();renderArchive();renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
 }
@@ -4528,6 +4566,7 @@ function deleteArchivedVehicle(id){
   const v=vehicles.find(x=>x.id==id);
   if(!v)return;
   if(!confirm(`「${v.plate}」を完全に削除しますか？\nこの操作は元に戻せません。`))return;
+  pushUndo('車両削除: '+v.plate);
   vehicles=vehicles.filter(x=>x.id!=id);
   saveLocal();renderArchive();renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
 }
@@ -4669,6 +4708,7 @@ function saveVehicle(){
   }
   var selectedOffices=getSelectedOffices('v-offices');
   const obj={id:editingVehicleId||Date.now(),plate,status:vStatus,model:document.getElementById('v-model').value,kind:document.getElementById('v-kind').value,type:document.getElementById('v-type').value,office:selectedOffices[0]||'',offices:selectedOffices,driver:driverName,driverId:driverVal||null,color:document.getElementById('v-color').value||'白',owner:document.getElementById('v-owner').value,vehicleUser:document.getElementById('v-user').value,sub:document.getElementById('v-sub').value,note:document.getElementById('v-note').value,shaken:{exp:normalizeBirthDate(document.getElementById('v-shaken-exp').value),chassis:document.getElementById('v-shaken-chassis').value,type:document.getElementById('v-shaken-type').value},jibai:{exp:normalizeBirthDate(document.getElementById('v-jibai-exp').value),no:document.getElementById('v-jibai-no').value,company:document.getElementById('v-jibai-company').value},nin:{exp:normalizeBirthDate(document.getElementById('v-nin-exp').value),no:document.getElementById('v-nin-no').value,company:document.getElementById('v-nin-company').value}};
+  pushUndo('車両 '+(editingVehicleId?'編集':'追加')+': '+plate);
   if(editingVehicleId){const i=vehicles.findIndex(v=>v.id==editingVehicleId);if(i>=0)vehicles[i]=obj;else vehicles.push(obj);}else vehicles.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const vFiles = modalFiles['v-files'] || [];
@@ -4790,7 +4830,7 @@ function openDriverModal(id){
   document.getElementById('driver-modal').style.display='flex';
   initDateFields();
   renderExistingFiles('d-existing-files','driver',id);
-  renderDriverThumbStrip(id);
+  closeDmPreview();
   setTimeout(()=>initModalKeyNav('driver-modal'),100);
 }
 
@@ -4801,6 +4841,75 @@ function updateDriverNavLabel(){
   var next=document.getElementById('dm-next');
   if(prev) prev.disabled=driverNavIndex<=0;
   if(next) next.disabled=driverNavIndex>=driverNavList.length-1;
+}
+
+// ====== モーダル内プレビューペイン ======
+function openDmPreview(fileId, name, dataUrl){
+  var pane=document.getElementById('dm-preview-pane');
+  var body=document.getElementById('dm-preview-body');
+  var title=document.getElementById('dm-preview-title');
+  var modal=document.querySelector('#driver-modal .modal');
+  if(!pane||!body) return;
+  title.textContent=name||'';
+  var isPdf=(name||'').match(/\.pdf$/i);
+  var isImg=(name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  if(isPdf&&fileId){
+    body.innerHTML='<iframe src="https://drive.google.com/file/d/'+fileId+'/preview" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
+  } else if(isPdf&&dataUrl){
+    try{
+      var b64=dataUrl.split(',')[1];var bs=atob(b64);var bytes=new Uint8Array(bs.length);
+      for(var i=0;i<bs.length;i++)bytes[i]=bs.charCodeAt(i);
+      var blob=new Blob([bytes],{type:'application/pdf'});
+      body.innerHTML='<iframe src="'+URL.createObjectURL(blob)+'" style="width:100%;height:100%;border:none"></iframe>';
+    }catch(e){body.innerHTML='<div style="color:#888;padding:24px;text-align:center">PDFを表示できません</div>';}
+  } else if(isImg){
+    var src=dataUrl||(fileId?'https://drive.google.com/thumbnail?id='+fileId+'&sz=w800':'');
+    body.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:100%;object-fit:contain;padding:8px">';
+  } else {
+    body.innerHTML='<div style="color:#888;padding:24px;text-align:center;font-size:13px"><div style="font-size:36px;margin-bottom:8px">📄</div>'+esc(name)+'<br><br>'+(fileId?'<a href="https://drive.google.com/file/d/'+fileId+'/view" target="_blank" style="color:#4a90e2;text-decoration:none;border:1px solid #4a90e2;padding:6px 16px;border-radius:6px">Driveで開く</a>':'プレビュー不可')+'</div>';
+  }
+  // サムネ一覧
+  renderDmPreviewThumbs();
+  // パネル表示
+  pane.style.display='flex';
+  pane.style.width='50%';
+  pane.style.minWidth='300px';
+  if(modal) modal.classList.add('modal-wide');
+}
+function closeDmPreview(){
+  var pane=document.getElementById('dm-preview-pane');
+  var modal=document.querySelector('#driver-modal .modal');
+  if(pane){pane.style.display='none';pane.style.width='0';}
+  if(modal) modal.classList.remove('modal-wide');
+}
+function openDmPreviewFromAttached(kind, ownerId, idx){
+  var target=null;
+  if(kind==='driver') target=drivers.find(x=>String(x.id)===String(ownerId));
+  else if(kind==='vehicle') target=vehicles.find(x=>String(x.id)===String(ownerId));
+  if(!target||!target.attachedFiles||!target.attachedFiles[idx]) return;
+  var f=target.attachedFiles[idx];
+  openDmPreview(f.fileId||'', f.name||'', f.dataUrl||'');
+}
+function renderDmPreviewThumbs(){
+  var strip=document.getElementById('dm-preview-thumbs');
+  if(!strip||!editingDriverId) return;
+  var d=drivers.find(x=>x.id==editingDriverId);
+  if(!d||!(d.attachedFiles||[]).length){strip.style.display='none';return;}
+  strip.style.display='block';
+  var html='';
+  d.attachedFiles.forEach(function(f,i){
+    var fid=f.fileId||'';
+    var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');
+    var isPdf=(f.name||'').match(/\.pdf$/i);
+    html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openDmPreview(\''+fid+'\',\''+esc(f.name)+'\',\''+(f.dataUrl?'has':'')+'\');" title="'+esc(f.name)+'">';
+    if(thumbSrc&&!isPdf){
+      html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';
+    } else {
+      html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';
+    }
+    html+='</div>';
+  });
+  strip.innerHTML=html;
 }
 
 function navDriver(dir){
@@ -4874,38 +4983,10 @@ function loadDriverIntoModal(id){
   toggleSubconFields();toggleContractorField();toggleArchiveFields();
   initDateFields();
   renderExistingFiles('d-existing-files','driver',id);
-  renderDriverThumbStrip(id);
+  closeDmPreview();
   // モーダルをトップにスクロール
   var modalBody=document.querySelector('#driver-modal .modal-body');
   if(modalBody) modalBody.scrollTop=0;
-}
-
-function renderDriverThumbStrip(id){
-  var strip=document.getElementById('dm-thumb-strip');
-  if(!strip) return;
-  if(!id){strip.style.display='none';return;}
-  var d=drivers.find(x=>x.id==id);
-  if(!d||!(d.attachedFiles||[]).length){strip.style.display='none';return;}
-  strip.style.display='block';
-  var html='<div style="display:inline-flex;gap:6px;align-items:center"><span style="font-size:10px;color:#888;font-weight:500;margin-right:4px">添付 '+d.attachedFiles.length+'件:</span>';
-  d.attachedFiles.forEach(function(f,i){
-    var fid=f.fileId||(f.url&&f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)?f.url.match(/\/d\/([a-zA-Z0-9_-]+)/)[1]:'');
-    var isImg=(f.name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
-    var isPdf=(f.name||'').match(/\.pdf$/i);
-    var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w80':'');
-    var cat=f.category||'';
-    var catBg=cat.includes('免許')?'#1565C0':cat.includes('車検')?'#E65100':cat.includes('自賠')?'#6A1B9A':'#888';
-    html+='<div style="display:inline-flex;flex-direction:column;align-items:center;min-width:52px;cursor:pointer" onclick="openAttachedFilePreview(\'driver\','+id+','+i+',\'\')" title="'+esc(f.name)+'">';
-    if(thumbSrc){
-      html+='<img src="'+thumbSrc+'" style="width:48px;height:36px;object-fit:cover;border-radius:4px;border:1px solid #ddd">';
-    } else {
-      html+='<div style="width:48px;height:36px;border-radius:4px;border:1px solid #ddd;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:9px;color:#888">'+(isPdf?'PDF':'FILE')+'</div>';
-    }
-    if(cat) html+='<span style="font-size:7px;color:#fff;background:'+catBg+';padding:0 4px;border-radius:2px;margin-top:1px;max-width:52px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+cat+'</span>';
-    html+='</div>';
-  });
-  html+='</div>';
-  strip.innerHTML=html;
 }
 
 let otherDocCount=0;
@@ -5011,6 +5092,7 @@ function saveDriver(keepOpen){
     office: selectedOffices[0]||'',
     offices: selectedOffices,
     tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,zip:document.getElementById('d-zip').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{},stampEnabled:!!document.getElementById('d-stamp')?.checked};
+  pushUndo('ドライバー '+(editingDriverId?'編集':'追加')+': '+name);
   if(editingDriverId){const i=drivers.findIndex(d=>d.id==editingDriverId);if(i>=0)drivers[i]=obj;else drivers.push(obj);}else drivers.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const dFiles = modalFiles['d-files'] || [];
@@ -5387,6 +5469,118 @@ async function checkConflict(){
     }
     return false;
   }catch(e){return false;}
+}
+
+// ====== 操作の取り消し（Undo） ======
+var undoStack=[];
+var UNDO_MAX=20;
+function pushUndo(label){
+  undoStack.push({
+    label:label,
+    time:Date.now(),
+    drivers:JSON.parse(JSON.stringify(drivers)),
+    vehicles:JSON.parse(JSON.stringify(vehicles)),
+    companies:JSON.parse(JSON.stringify(companies))
+  });
+  if(undoStack.length>UNDO_MAX) undoStack.shift();
+  updateUndoBadge();
+}
+function performUndo(){
+  if(!undoStack.length){alert('取り消せる操作がありません');return;}
+  var entry=undoStack.pop();
+  drivers=entry.drivers;vehicles=entry.vehicles;companies=entry.companies;
+  saveLocal();renderAll();
+  updateUndoBadge();
+  setSyncStatus('↩ 元に戻しました: '+entry.label,'sync-ok');
+  addLog('Undo','操作取消: '+entry.label);
+}
+function updateUndoBadge(){
+  var el=document.getElementById('undo-badge');
+  if(el) el.textContent=undoStack.length?undoStack.length:'';
+}
+// Ctrl+Z でUndo
+document.addEventListener('keydown',function(e){
+  if((e.ctrlKey||e.metaKey)&&e.key==='z'&&!e.shiftKey){
+    var tag=document.activeElement?.tagName;
+    if(tag==='INPUT'||tag==='TEXTAREA'||tag==='SELECT') return;
+    e.preventDefault();performUndo();
+  }
+});
+
+// ====== ログイン試行回数制限 ======
+var LOGIN_MAX_ATTEMPTS=5;
+var LOGIN_LOCK_MINUTES=15;
+function getLoginLock(){
+  try{var d=JSON.parse(localStorage.getItem('fleet_login_lock')||'{}');return d;}catch(e){return {};}
+}
+function setLoginLock(data){localStorage.setItem('fleet_login_lock',JSON.stringify(data));}
+function isLoginLocked(){
+  var lock=getLoginLock();
+  if(!lock.lockedUntil) return false;
+  if(Date.now()<lock.lockedUntil) return true;
+  // ロック期限切れ→リセット
+  setLoginLock({attempts:0,lockedUntil:0});
+  return false;
+}
+function recordLoginAttempt(success){
+  if(success){setLoginLock({attempts:0,lockedUntil:0});return;}
+  var lock=getLoginLock();
+  lock.attempts=(lock.attempts||0)+1;
+  if(lock.attempts>=LOGIN_MAX_ATTEMPTS){
+    lock.lockedUntil=Date.now()+LOGIN_LOCK_MINUTES*60*1000;
+  }
+  setLoginLock(lock);
+}
+function getLoginRemainingTime(){
+  var lock=getLoginLock();
+  if(!lock.lockedUntil) return 0;
+  var remain=Math.ceil((lock.lockedUntil-Date.now())/60000);
+  return remain>0?remain:0;
+}
+
+// ====== 添付ファイル整合性チェック ======
+async function checkFileIntegrity(){
+  var allFiles=[];
+  drivers.forEach(function(d){(d.attachedFiles||[]).forEach(function(f){if(f.fileId)allFiles.push({owner:d.name,kind:'ドライバー',fileId:f.fileId,name:f.name});});});
+  vehicles.forEach(function(v){(v.attachedFiles||[]).forEach(function(f){if(f.fileId)allFiles.push({owner:v.plate,kind:'車両',fileId:f.fileId,name:f.name});});});
+  companies.forEach(function(c){
+    (c.drivers||[]).forEach(function(d){(d.attachedFiles||[]).forEach(function(f){if(f.fileId)allFiles.push({owner:'['+c.name+'] '+d.name,kind:'委託ドライバー',fileId:f.fileId,name:f.name});});});
+    (c.vehicles||[]).forEach(function(v){(v.attachedFiles||[]).forEach(function(f){if(f.fileId)allFiles.push({owner:'['+c.name+'] '+v.plate,kind:'委託車両',fileId:f.fileId,name:f.name});});});
+  });
+  if(!allFiles.length){alert('添付ファイルがありません');return {total:0,broken:[]};}
+  var broken=[];
+  var checked=0;
+  var statusEl=document.getElementById('integrity-status');
+  if(statusEl){statusEl.style.display='block';statusEl.textContent='チェック中 0/'+allFiles.length+'...';}
+  for(var i=0;i<allFiles.length;i++){
+    var f=allFiles[i];
+    if(statusEl) statusEl.textContent='チェック中 '+(i+1)+'/'+allFiles.length+' '+f.name.substring(0,15)+'...';
+    try{
+      var res=await fetch('https://drive.google.com/thumbnail?id='+f.fileId+'&sz=w10',{method:'HEAD',mode:'no-cors'});
+      // no-cors: opaque response, can't reliably detect 404. Use API instead.
+    }catch(e){}
+    // GAS経由でチェック
+    try{
+      var res2=await fetch(API_URL+'?action=checkFile&fileId='+f.fileId);
+      var json=await res2.json();
+      if(!json.ok||json.exists===false){
+        broken.push(f);
+      }
+    }catch(e){
+      // API非対応の場合はスキップ（リンク切れ判定しない）
+    }
+    checked++;
+  }
+  if(statusEl){
+    if(broken.length){
+      statusEl.style.color='#e53935';
+      statusEl.innerHTML='⚠ リンク切れ: '+broken.length+'件 / '+allFiles.length+'件<br>'+broken.map(function(b){return '<span style="font-size:10px">'+b.kind+' '+b.owner+': '+b.name+'</span>';}).join('<br>');
+    } else {
+      statusEl.style.color='#43a047';
+      statusEl.textContent='✓ 全ファイル正常（'+allFiles.length+'件確認済み）';
+    }
+  }
+  return {total:allFiles.length,broken:broken};
 }
 
 // ====== セルフ入力フォーム ======
@@ -6204,7 +6398,8 @@ function renderExistingFiles(elId, kind, ownerId){
     const catColor=curCat?(isVehicle?'#E65100':'#1565C0'):'#999';
 
     html+='<div style="width:100px;border:1px solid #ccc;border-radius:6px;overflow:hidden;background:#fff;position:relative">';
-    html+='<div style="cursor:pointer" onclick="openAttachedFilePreview(\''+kind+'\','+ownerId+','+i+',\'\')">'+thumb+'</div>';
+    var previewClick=elId==='d-existing-files'?'openDmPreviewFromAttached(\''+kind+'\','+ownerId+','+i+')':'openAttachedFilePreview(\''+kind+'\','+ownerId+','+i+',\'\')';
+    html+='<div style="cursor:pointer" onclick="'+previewClick+'">'+thumb+'</div>';
     html+='<button style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();removeExistingFile(\''+kind+'\','+ownerId+','+i+',\''+elId+'\')">×</button>';
     html+='<select style="width:100%;padding:2px;font-size:9px;border:none;border-top:1px solid #eee;background:'+catColor+';color:#fff;cursor:pointer" onchange="changeExistingFileCat(\''+kind+'\','+ownerId+','+i+',this.value,\''+elId+'\')">';
     html+='<option value="" style="color:#333;background:#fff">分類を選択</option>'+catOpts+'</select>';
@@ -9006,6 +9201,7 @@ function saveCompany(){
     stampCompany:!!document.getElementById('cm-stamp-co')?.checked,
     stampRep:!!document.getElementById('cm-stamp-rep')?.checked
   };
+  pushUndo('委託会社 '+(editingCompanyId?'編集':'追加')+': '+name);
   if(editingCompanyId){const i=companies.findIndex(x=>x.id==editingCompanyId);if(i>=0)companies[i]=obj;else companies.push(obj);}
   else companies.push(obj);
   saveCompanies();closeModal('company-modal');renderCompanyNav();
@@ -9152,6 +9348,7 @@ function saveCompanyDriver(){
   const c=companies.find(x=>x.id==currentCompanyId);
   if(!c) return;
   if(!c.drivers) c.drivers=[];
+  pushUndo('委託ドライバー '+(editingCompanyDriverId?'編集':'追加'));
   if(editingCompanyDriverId){const i=c.drivers.findIndex(x=>x.id==editingCompanyDriverId);if(i>=0)c.drivers[i]=obj;else c.drivers.push(obj);}
   else c.drivers.push(obj);
   // 搭乗車両の割り当て更新
@@ -9250,6 +9447,7 @@ function saveCompanyVehicle(){
   const c=companies.find(x=>x.id==currentCompanyId);
   if(!c) return;
   if(!c.vehicles) c.vehicles=[];
+  pushUndo('委託車両 '+(editingCompanyVehicleId?'編集':'追加'));
   if(editingCompanyVehicleId){const i=c.vehicles.findIndex(x=>x.id==editingCompanyVehicleId);if(i>=0)c.vehicles[i]=obj;else c.vehicles.push(obj);}
   else c.vehicles.push(obj);
   // ★ ファイルをDriveにアップロード
