@@ -6408,7 +6408,7 @@ function renderExistingFiles(elId, kind, ownerId){
     const isImg=(f.name||'').match(/\.(jpg|jpeg|png|gif)$/i);
     const thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w120':'');
     const thumb=thumbSrc?'<img src="'+thumbSrc+'" style="width:100%;height:70px;object-fit:cover;border-radius:4px 4px 0 0">':'<div style="height:70px;display:flex;align-items:center;justify-content:center;background:#f5f5f5;border-radius:4px 4px 0 0"><img src="'+LOGO_THUMB+'" style="height:50px;object-fit:contain"></div>';
-    const curCat=f.category||'';
+    const curCat=f.category||(typeof guessFileCategoryByName==='function'?guessFileCategoryByName(f.name,isVehicle?'vehicle':'driver'):'')||'';
     const isCustom=curCat&&!catList.includes(curCat);
     let catOpts=catList.map(c=>'<option value="'+c+'"'+(curCat===c?' selected':'')+'>'+c+'</option>').join('');
     if(isCustom) catOpts+='<option value="'+curCat+'" selected>'+curCat+'</option>';
