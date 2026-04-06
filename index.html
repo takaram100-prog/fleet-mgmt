@@ -4925,11 +4925,11 @@ function navDriver(dir){
 }
 
 function saveDriverAndNav(dir){
-  saveDriver(true); // keepOpen=true
+  var ok=saveDriver(true); // keepOpen=true
+  if(!ok) return; // バリデーション失敗時は移動しない
   var newIdx=driverNavIndex+dir;
   if(newIdx<0||newIdx>=driverNavList.length){closeModal('driver-modal');return;}
   var nextId=driverNavList[newIdx];
-  // 少し遅延して次のドライバーをロード（保存処理完了待ち）
   setTimeout(function(){
     loadDriverIntoModal(nextId);
     driverNavIndex=newIdx;
@@ -5048,7 +5048,7 @@ function initModalKeyNav(modalId){
 function saveDriver(keepOpen){
   const sei=document.getElementById('d-sei').value.trim();
   const mei=document.getElementById('d-mei').value.trim();
-  if(!sei&&!mei){alert('氏名（姓または名）は必須です');return;}
+  if(!sei&&!mei){alert('氏名（姓または名）は必須です');return false;}
   const name=(sei+' '+mei).trim();
 
   // 免許証2枚チェック
@@ -5059,7 +5059,7 @@ function saveDriver(keepOpen){
     ...existingFiles.filter(f=>(f.category||'').includes('免許')||['免許','license'].some(k=>(f.name||'').toLowerCase().includes(k)))
   ];
   if(allLicFiles.length<2 && newFiles.length>0){
-    if(!confirm('免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return;
+    if(!confirm('免許証は表・裏の2枚が必須です。\n現在 '+allLicFiles.length+'枚しかありません。\n\nこのまま保存しますか？')) return false;
   }
   const kana=(document.getElementById('d-sei-kana').value.trim()+' '+document.getElementById('d-mei-kana').value.trim()).trim();
   const type=document.getElementById('d-type').value;
@@ -5078,13 +5078,13 @@ function saveDriver(keepOpen){
   if(!editingDriverId){
     const dup=drivers.find(d=>d.name===name&&selectedOffices.some(o=>belongsToOffice(d,o)));
     if(dup){
-      if(!confirm('重複の可能性があります。\n「'+name+'」は既に'+((Array.isArray(dup.offices)?dup.offices:dup.office?[dup.office]:[]).join('・'))+'営業所に登録されています。\n\nそれでも登録しますか？')) return;
+      if(!confirm('重複の可能性があります。\n「'+name+'」は既に'+((Array.isArray(dup.offices)?dup.offices:dup.office?[dup.office]:[]).join('・'))+'営業所に登録されています。\n\nそれでも登録しますか？')) return false;
     }
     // 委託会社ドライバーも確認
     let coDup=null;
     companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.name===name&&selectedOffices.some(o=>(d.offices||[]).includes(o)))coDup=d;});});
     if(coDup){
-      if(!confirm('委託会社にも同名のドライバー「'+name+'」が登録されています。\n\nそれでも登録しますか？')) return;
+      if(!confirm('委託会社にも同名のドライバー「'+name+'」が登録されています。\n\nそれでも登録しますか？')) return false;
     }
   }
 
@@ -5164,6 +5164,7 @@ function saveDriver(keepOpen){
       },200);
     }
   }
+  return true;
 }
 function closeModal(id){document.getElementById(id).style.display='none';}
 function closeBg(e,id){if(e.target===document.getElementById(id))closeModal(id);}
