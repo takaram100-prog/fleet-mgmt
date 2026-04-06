@@ -975,7 +975,16 @@ body.modal-open{overflow:hidden}
 <div id="vehicle-modal" style="display:none" class="modal-bg">
   <div class="modal" onclick="event.stopPropagation()">
     <div class="modal-header"><span class="modal-title" id="vm-title">車両 登録</span><button class="modal-close" onclick="closeModal('vehicle-modal')">✕</button></div>
-    <div class="modal-body"><div class="form-grid">
+    <div id="vm-flex-wrap" style="display:flex;flex:1;overflow:hidden;min-height:0">
+      <div id="vm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
+          <span id="vm-preview-title" style="font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+          <button onclick="closeVmPreview()" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
+        </div>
+        <div id="vm-preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0"></div>
+        <div id="vm-preview-thumbs" style="padding:6px 8px;background:#222;border-top:1px solid #333;overflow-x:auto;white-space:nowrap;display:none"></div>
+      </div>
+      <div class="modal-body" style="flex:1;overflow-y:auto"><div class="form-grid">
       <div class="section-title">写真・PDF添付</div>
       <div style="grid-column:1/-1">
         <div class="file-drop-zone" id="v-files-zone" ondragover="fileDragOver(event,'v-files-zone')" ondragleave="fileDragLeave('v-files-zone')" ondrop="fileDrop(event,'v-files')">
@@ -1001,7 +1010,7 @@ body.modal-open{overflow:hidden}
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">車検証</div></div><div class="doc-fields"><div class="form-group"><label>有効期限</label><input type="date" id="v-shaken-exp"></div><div class="form-group"><label>車台番号</label><input type="text" id="v-shaken-chassis"></div><div class="form-group"><label>型式</label><input type="text" id="v-shaken-type"></div><div class="form-group"><label>車体色</label><input type="text" id="v-color" placeholder="白"></div><div class="form-group"><label>登録名義</label><input type="text" id="v-owner" placeholder="大阪急配株式会社"></div><div class="form-group"><label>使用者</label><input type="text" id="v-user" placeholder="大阪急配株式会社"></div><div class="form-group"><label>再委託先名（外注の場合）</label><input type="text" id="v-sub" placeholder="山田 太郎"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🔵 自賠責保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-jibai-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-jibai-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-jibai-company"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🟢 任意保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-nin-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-nin-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-nin-company"></div></div></div>
-    </div></div>
+    </div></div></div><!-- closes form-grid + modal-body + vm-flex-wrap -->
     <div class="modal-footer"><button class="btn" onclick="closeModal('vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveVehicle()">保存する</button></div>
   </div>
 </div>
@@ -4674,6 +4683,7 @@ function openVehicleModal(id){
   modalFiles['v-files']=[];
   renderFilePreview('v-files');
   renderExistingFiles('v-existing-files','vehicle',id);
+  closeVmPreview();
   setTimeout(()=>initModalKeyNav('vehicle-modal'),100);
 }
 function saveVehicle(){
@@ -4909,6 +4919,63 @@ function renderDmPreviewThumbs(){
     } else {
       html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';
     }
+    html+='</div>';
+  });
+  strip.innerHTML=html;
+}
+
+// ====== 車両モーダル内プレビューペイン ======
+function openVmPreview(fileId, name, dataUrl){
+  var pane=document.getElementById('vm-preview-pane');
+  var body=document.getElementById('vm-preview-body');
+  var title=document.getElementById('vm-preview-title');
+  var modal=document.querySelector('#vehicle-modal .modal');
+  if(!pane||!body) return;
+  title.textContent=name||'';
+  var isPdf=(name||'').match(/\.pdf$/i);
+  var isImg=(name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
+  if(isPdf&&fileId){
+    body.innerHTML='<iframe src="https://drive.google.com/file/d/'+fileId+'/preview" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
+  } else if(isPdf&&dataUrl){
+    try{var b64=dataUrl.split(',')[1];var bs=atob(b64);var bytes=new Uint8Array(bs.length);for(var i=0;i<bs.length;i++)bytes[i]=bs.charCodeAt(i);var blob=new Blob([bytes],{type:'application/pdf'});body.innerHTML='<iframe src="'+URL.createObjectURL(blob)+'" style="width:100%;height:100%;border:none"></iframe>';}catch(e){body.innerHTML='<div style="color:#888;padding:24px;text-align:center">PDFを表示できません</div>';}
+  } else if(isImg){
+    var src=dataUrl||(fileId?'https://drive.google.com/thumbnail?id='+fileId+'&sz=w800':'');
+    body.innerHTML='<img src="'+src+'" style="max-width:100%;max-height:100%;object-fit:contain;padding:8px">';
+  } else {
+    body.innerHTML='<div style="color:#888;padding:24px;text-align:center;font-size:13px"><div style="font-size:36px;margin-bottom:8px">📄</div>'+esc(name)+'</div>';
+  }
+  renderVmPreviewThumbs();
+  pane.style.display='flex';pane.style.width='50%';pane.style.minWidth='300px';
+  if(modal) modal.classList.add('modal-wide');
+}
+function closeVmPreview(){
+  var pane=document.getElementById('vm-preview-pane');
+  var modal=document.querySelector('#vehicle-modal .modal');
+  if(pane){pane.style.display='none';pane.style.width='0';}
+  if(modal) modal.classList.remove('modal-wide');
+}
+function openVmPreviewFromAttached(kind, ownerId, idx){
+  var target=vehicles.find(x=>String(x.id)===String(ownerId));
+  if(!target) companies.forEach(c=>{if(!target)(c.vehicles||[]).forEach(v=>{if(String(v.id)===String(ownerId))target=v;});});
+  if(!target||!target.attachedFiles||!target.attachedFiles[idx]) return;
+  var f=target.attachedFiles[idx];
+  openVmPreview(f.fileId||'', f.name||'', f.dataUrl||'');
+}
+function renderVmPreviewThumbs(){
+  var strip=document.getElementById('vm-preview-thumbs');
+  if(!strip||!editingVehicleId) return;
+  var v=vehicles.find(x=>x.id==editingVehicleId);
+  if(!v) companies.forEach(c=>{if(!v)(c.vehicles||[]).forEach(cv=>{if(cv.id==editingVehicleId)v=cv;});});
+  if(!v||!(v.attachedFiles||[]).length){strip.style.display='none';return;}
+  strip.style.display='block';
+  var html='';
+  v.attachedFiles.forEach(function(f,i){
+    var fid=f.fileId||'';
+    var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');
+    var isPdf=(f.name||'').match(/\.pdf$/i);
+    html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openVmPreview(\''+fid+'\',\''+esc(f.name)+'\',\'\')" title="'+esc(f.name)+'">';
+    if(thumbSrc&&!isPdf){html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';}
+    else{html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';}
     html+='</div>';
   });
   strip.innerHTML=html;
@@ -5177,7 +5244,7 @@ function saveDriver(keepOpen){
   }
   return true;
 }
-function closeModal(id){document.getElementById(id).style.display='none';}
+function closeModal(id){var el=document.getElementById(id);if(el)el.style.display='none';}
 function closeBg(e,id){if(e.target===document.getElementById(id))closeModal(id);}
 
 // ====== ダッシュボードPDFドロップ ======
@@ -6412,7 +6479,7 @@ function renderExistingFiles(elId, kind, ownerId){
     const catColor=curCat?(isVehicle?'#E65100':'#1565C0'):'#999';
 
     html+='<div style="width:100px;border:1px solid #ccc;border-radius:6px;overflow:hidden;background:#fff;position:relative">';
-    var previewClick=elId==='d-existing-files'?'openDmPreviewFromAttached(\''+kind+'\','+ownerId+','+i+')':'openAttachedFilePreview(\''+kind+'\','+ownerId+','+i+',\'\')';
+    var previewClick=elId==='d-existing-files'?'openDmPreviewFromAttached(\''+kind+'\','+ownerId+','+i+')':elId==='v-existing-files'?'openVmPreviewFromAttached(\''+kind+'\','+ownerId+','+i+')':'openAttachedFilePreview(\''+kind+'\','+ownerId+','+i+',\'\')';
     html+='<div style="cursor:pointer" onclick="'+previewClick+'">'+thumb+'</div>';
     html+='<button style="position:absolute;top:2px;right:2px;width:18px;height:18px;border-radius:99px;background:rgba(0,0,0,.5);color:#fff;border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center" onclick="event.stopPropagation();removeExistingFile(\''+kind+'\','+ownerId+','+i+',\''+elId+'\')">×</button>';
     html+='<select style="width:100%;padding:2px;font-size:9px;border:none;border-top:1px solid #eee;background:'+catColor+';color:#fff;cursor:pointer" onchange="changeExistingFileCat(\''+kind+'\','+ownerId+','+i+',this.value,\''+elId+'\')">';
