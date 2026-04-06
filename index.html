@@ -1525,7 +1525,48 @@ function isOsakaVehicle(v){const o=v.owner||'',u=v.vehicleUser||'';return COMPAN
 function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ====== ログイン ======
-function doLogin(){const pw=document.getElementById('pw-input').value;if(pw===PASSWORD){sessionStorage.setItem('fleet_session','ok');document.getElementById('login-screen').style.display='none';document.getElementById('app-screen').style.display='block';renderAll();syncAll(false);}else{document.getElementById('login-err').textContent='パスワードが違います';document.getElementById('pw-input').value='';}}
+async function doLogin(){
+  const pw=document.getElementById('pw-input').value;
+  const errEl=document.getElementById('login-err');
+  // まずローカルのパスワードで確認
+  if(pw===PASSWORD){
+    sessionStorage.setItem('fleet_session','ok');
+    document.getElementById('login-screen').style.display='none';
+    document.getElementById('app-screen').style.display='block';
+    renderAll();syncAll(false);
+    return;
+  }
+  // ローカル不一致 → Sheetから最新パスワード+設定を取得して再チェック
+  errEl.textContent='同期中...';errEl.style.color='#1565C0';
+  try{
+    var res=await fetch(API_URL+'?action=getAll');
+    var json=await res.json();
+    if(json.ok&&json.data.settings?.length){
+      var st=json.data.settings[0]||{};
+      if(st.value){
+        try{
+          var parsed=JSON.parse(st.value);
+          if(parsed.password){PASSWORD=parsed.password;localStorage.setItem('fleet_pw',PASSWORD);}
+          if(parsed.stampSettings)localStorage.setItem('fleet_stamp_settings',JSON.stringify(parsed.stampSettings));
+          if(parsed.alertSettings)localStorage.setItem('fleet_alert_settings',JSON.stringify(parsed.alertSettings));
+          if(parsed.mailSettings)localStorage.setItem('fleet_mail_settings',JSON.stringify(parsed.mailSettings));
+        }catch(e){}
+      }
+    }
+    // 再チェック
+    if(pw===PASSWORD){
+      sessionStorage.setItem('fleet_session','ok');
+      document.getElementById('login-screen').style.display='none';
+      document.getElementById('app-screen').style.display='block';
+      renderAll();syncAll(false);
+    } else {
+      errEl.style.color='#e53935';errEl.textContent='パスワードが違います';
+      document.getElementById('pw-input').value='';
+    }
+  }catch(e){
+    errEl.style.color='#e53935';errEl.textContent='接続エラー。オフラインの場合はデフォルトパスワードをお試しください。';
+  }
+}
 async function doLogout(){
   if(isDirty&&isSafeToSave()){
     setSyncStatus('保存中...','');
@@ -1536,7 +1577,7 @@ async function doLogout(){
   }
   sessionStorage.removeItem('fleet_session');document.getElementById('app-screen').style.display='none';document.getElementById('login-screen').style.display='flex';document.getElementById('pw-input').value='';document.getElementById('login-err').textContent='';
 }
-function changePw(){const o=document.getElementById('pw-old').value,n=document.getElementById('pw-new').value,n2=document.getElementById('pw-new2').value,msg=document.getElementById('pw-msg');if(o!==PASSWORD){msg.style.color='#e53935';msg.textContent='現在のパスワードが違います';return;}if(!n){msg.style.color='#e53935';msg.textContent='新しいパスワードを入力';return;}if(n!==n2){msg.style.color='#e53935';msg.textContent='確認用が一致しません';return;}PASSWORD=n;localStorage.setItem('fleet_pw',n);['pw-old','pw-new','pw-new2'].forEach(id=>document.getElementById(id).value='');msg.style.color='#43a047';msg.textContent='変更しました';}
+function changePw(){const o=document.getElementById('pw-old').value,n=document.getElementById('pw-new').value,n2=document.getElementById('pw-new2').value,msg=document.getElementById('pw-msg');if(o!==PASSWORD){msg.style.color='#e53935';msg.textContent='現在のパスワードが違います';return;}if(!n){msg.style.color='#e53935';msg.textContent='新しいパスワードを入力';return;}if(n!==n2){msg.style.color='#e53935';msg.textContent='確認用が一致しません';return;}PASSWORD=n;localStorage.setItem('fleet_pw',n);isDirty=true;scheduleAutoSave();['pw-old','pw-new','pw-new2'].forEach(id=>document.getElementById(id).value='');msg.style.color='#43a047';msg.textContent='変更しました';}
 
 // ====== 営業所 ======
 function renderOfficeNav(){document.getElementById('office-nav').innerHTML=offices.map(o=>`<div class="nav-item" onclick="filterOffice('${o}',this)"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="10" height="8" rx="1"/><path d="M5 13V9h4v4"/><path d="M1 5l6-4 6 4"/></svg>${o}<button class="nav-del" onclick="event.stopPropagation();deleteOffice('${o}')">×</button></div>`).join('');}
