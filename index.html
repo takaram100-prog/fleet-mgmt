@@ -2588,7 +2588,7 @@ async function injectStampsIntoDocx(zip, driver){
     }
     if(coRId){
       var drawing=wStamp(coRId,600000);
-      docXml=docXml.replace(/\{\{会社印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-24"/></w:rPr>'+drawing+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
+      docXml=docXml.replace(/\{\{会社印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-36"/></w:rPr>'+drawing+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
     } else {
       docXml=docXml.replace(/\{\{会社印\}\}/g,'');
     }
@@ -2615,7 +2615,7 @@ async function injectStampsIntoDocx(zip, driver){
     }
     if(repRId){
       var drawing2=wStamp(repRId,460000);
-      docXml=docXml.replace(/\{\{代表印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-16"/></w:rPr>'+drawing2+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
+      docXml=docXml.replace(/\{\{代表印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-24"/></w:rPr>'+drawing2+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
     } else {
       docXml=docXml.replace(/\{\{代表印\}\}/g,'');
     }
@@ -2655,15 +2655,27 @@ async function injectStampsIntoDocx(zip, driver){
 
 // ====== 書類生成本体 ======
 
-// 1. 現況届（従事員）様式２ - 社員＋外注（外注は再委託先名欄に氏名/会社名）
+// 1. 現況届（従事員）様式２ - 社員＋外注＋委託会社ドライバー
 function genGenkyoPersonXml(office,dateStr){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dy=fmtDateY(dateStr);
-  const offD=drivers.filter(d=>belongsToOffice(d,office));
-  const dataRows=offD.map(d=>{
+  const offD=drivers.filter(d=>belongsToOffice(d,office)&&(!d.status||d.status==='在籍'));
+  // 委託会社のドライバーも含める
+  let companyDrivers=[];
+  companies.forEach(c=>{
+    (c.drivers||[]).forEach(d=>{
+      if((d.offices||[]).includes(office)){
+        companyDrivers.push({...d,_companyName:c.name});
+      }
+    });
+  });
+  const allDrivers=[...offD,...companyDrivers];
+  const dataRows=allDrivers.map(d=>{
     const kp=(d.kana||'').split(' ');const np=d.name.split(' ');
-    // 外注は再委託先名に会社名または氏名
-    const subName=d.type==='外注'?(d.sub?.company||d.name):'';
+    // 外注は再委託先名に会社名または氏名、委託会社ドライバーは会社名
+    let subName='';
+    if(d._companyName) subName=d._companyName;
+    else if(d.type==='外注') subName=d.sub?.company||d.name;
     return[wr(wc(kp[0]||'',1511),wc(kp[1]||'',1512),wc(subName,3023),wc('',1649),wc('',1375)),
            wr(wc(np[0]||'',1511),wc(np[1]||'',1512),wc('',3023),wc('',1649),wc('',1375))];
   }).flat();
@@ -2671,15 +2683,29 @@ function genGenkyoPersonXml(office,dateStr){
   const tbl=wtbl([1511,1512,3023,1649,1375],[wr(wc('従事員の氏名（フリガナ）',3023,{span:'2',shade:'E8E8E8',center:true}),wc('再委託先名\n※再委託先の従事員の場合',3023,{shade:'E8E8E8',center:true}),wc('【日本郵便使用欄】',3024,{span:'2',shade:'E8E8E8',center:true})),wr(wc('（セイ）姓',1511,{shade:'F0F0F0'}),wc('（メイ）名',1512,{shade:'F0F0F0'}),wc('',3023),wc('共通マスタID（8桁）',1649,{shade:'F0F0F0'}),wc('登録年月日',1375,{shade:'F0F0F0'})),...dataRows],9070);
   return wxDoc([wp(`${dy.y}年　　${dy.m}月　　${dy.d}日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp(''),wp('従事員の現況届',{center:true,bold:true,size:28}),wp(`（受託者名及び代表者名）${COMPANY.repFull}　{{会社印}}`),wp(`（住所又は所在地及び連絡先）${COMPANY.addressFull}`),wp('荷物等集配委託契約書附属仕様書４(2)の定めに基づき、以下のとおり届け出ます。'),wp(''),tbl,wp(''),wp('（添付書類）'),wp('・従事員が受託者の雇用する者である場合は雇用の事実を証する書面'),wp('・各従事員の運転免許証の写し'),wp('注　委託業務に従事する全ての従事員の氏名を記入する。'),wLine(),wUsage()].join(''));}
 
-// 2. 現況届（車両）様式３ - 全車両（外注担当車両は再委託先名に会社名/氏名）
+// 2. 現況届（車両）様式３ - 全車両＋委託会社車両
 function genGenkyoVehicleXml(office,dateStr){
   const postOffice=POST_OFFICE_MAP[office]||office+'郵便局';
   const dy=fmtDateY(dateStr);
   const offV=vehicles.filter(v=>belongsToOffice(v,office));
-  const dataRows=offV.map(v=>{
+  // 委託会社の車両も含める
+  let companyVehicles=[];
+  companies.forEach(c=>{
+    (c.vehicles||[]).forEach(v=>{
+      if((v.offices||[]).includes(office)){
+        // 担当ドライバーを探す
+        let driverName='';
+        const cd=(c.drivers||[]).find(d=>String(d.id)===String(v.driverId)||d.name===v.driver);
+        if(cd) driverName=cd.name;
+        companyVehicles.push({...v,_subName:c.name});
+      }
+    });
+  });
+  const allVehicles=[...offV,...companyVehicles];
+  const dataRows=allVehicles.map(v=>{
     const p=parsePlate(v.plate);
     // 外注担当車両：担当ドライバーの会社名または氏名
-    let subName=v.sub||'';
+    let subName=v._subName||v.sub||'';
     if(!subName&&v.driver){const dr=drivers.find(d=>d.name===v.driver);if(dr?.type==='外注')subName=dr.sub?.company||dr.name;}
     return wr(wc(v.kind||'軽四',1044),wc(p.chiiki,1044),wc(p.bunrui,1044),wc(p.kana,1044),wc(p.num,1044),wc(v.color||'白',1044),wc(subName,2804));
   });
