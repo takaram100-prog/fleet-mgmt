@@ -5980,12 +5980,32 @@ function autoZipLookup(zipEl, addrId){
 // 住所→郵便番号（住所先頭に〒xxx-xxxxがあればパース）
 function autoAddrToZip(addrEl, zipId){
   var val=addrEl.value.trim();
+  // 住所に郵便番号が含まれている場合は抽出
   var m=val.match(/^〒?\s*(\d{3})-?(\d{4})\s*/);
   if(m){
     var zipEl=document.getElementById(zipId);
     if(zipEl) zipEl.value=m[1]+'-'+m[2];
     addrEl.value=val.replace(/^〒?\s*\d{3}-?\d{4}\s*/, '');
+    return;
   }
+  // 住所から郵便番号を逆引き
+  if(!val||val.length<4) return;
+  var zipEl2=document.getElementById(zipId);
+  if(!zipEl2||zipEl2.value.replace(/[-ー]/g,'').length>=7) return; // 既に郵便番号入力済み
+  // 都道府県+市区町村を抽出（番地以降を除去）
+  var addrQuery=val.replace(/\d+[-ー]\d+.*$/,'').replace(/\d+番地?.*$/,'').replace(/\d+丁目?.*$/,'').trim();
+  if(addrQuery.length<4) return;
+  fetch('https://geoapi.heartrails.com/api/json?method=searchByAddress&address='+encodeURIComponent(addrQuery))
+    .then(function(r){return r.json();})
+    .then(function(data){
+      if(data&&data.response&&data.response.location&&data.response.location.length>0){
+        var loc=data.response.location[0];
+        var zip=loc.postal;
+        if(zip&&zipEl2&&(!zipEl2.value||zipEl2.value.replace(/[-ー]/g,'').length<7)){
+          zipEl2.value=zip.substring(0,3)+'-'+zip.substring(3);
+        }
+      }
+    }).catch(function(){});
 }
 
 // 全ての日付フィールドを初期化（type="text"化 + onblurで自動正規化）
