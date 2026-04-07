@@ -4743,34 +4743,9 @@ function saveVehicle(){
     })();
   }
   saveLocal();addLog(editingVehicleId?'編集':'追加','車両: '+plate);closeModal('vehicle-modal');renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
-  // 未分類ファイルからの新規登録時: ファイルを自動添付
-  if(window._pendingFileAssign&&window._pendingFileAssign.kind==='vehicle'){
-    var pf=window._pendingFileAssign;
-    var uf=unassignedFiles[pf.idx];
-    if(uf){
-      var saved=vehicles.find(v=>v.id===obj.id);
-      if(saved){if(!saved.attachedFiles)saved.attachedFiles=[];saved.attachedFiles.push({name:uf.name,type:uf.type,url:uf.url,fileId:uf.fileId,uploadedAt:new Date().toISOString()});unassignedFiles.splice(pf.idx,1);saveLocal();}
-    }
-    window._pendingFileAssign=null;
-    try{renderStorage();}catch(e){}
-  }
-  // ★ 一括振分からの新規登録: 複数ファイルを自動添付
-  if(window._pendingBulkFileAssign&&window._pendingBulkFileAssign.kind==='vehicle'){
-    var bpf=window._pendingBulkFileAssign;
-    var saved=vehicles.find(v=>v.id===obj.id);
-    if(saved){
-      if(!saved.attachedFiles)saved.attachedFiles=[];
-      bpf.idxs.sort(function(a,b){return b-a;});
-      bpf.idxs.forEach(function(idx){
-        var uf=unassignedFiles[idx];
-        if(uf){saved.attachedFiles.push({name:uf.name,type:uf.type||'',url:uf.url||'',fileId:uf.fileId||'',uploadedAt:new Date().toISOString()});unassignedFiles.splice(idx,1);}
-      });
-      saveLocal();
-      alert(bpf.idxs.length+'件を '+obj.plate+' に振り分けました');
-    }
-    window._pendingBulkFileAssign=null;
-    try{renderStorage();}catch(e){}
-  }
+  // 未分類ファイル振り分け（カテゴリ付き差替え対応）
+  var savedVObj=vehicles.find(v=>v.id===obj.id)||obj;
+  processPendingFiles(savedVObj,'vehicle');
   if(vStatus==='廃車') renderArchive();
 }
 var driverNavList=[];
@@ -4978,6 +4953,115 @@ function renderVmPreviewThumbs(){
     html+='</div>';
   });
   strip.innerHTML=html;
+}
+
+// ====== 未分類ファイル カテゴリ選択UI ======
+function renderPendingCategoryUI(kind){
+  var pending=window._pendingBulkFileAssign||window._pendingFileAssign;
+  if(!pending) return;
+  var idxs=pending.idxs||[pending.idx];
+  if(!idxs.length) return;
+  var isVehicle=kind==='vehicle';
+  var cats=isVehicle?['車検証','自賠責','任意保険','その他']:['免許証（表）','免許証（裏）','免許証（表裏）','健康診断書','その他'];
+  var containerId=isVehicle?'v-pending-cat':'d-pending-cat';
+  // 既存のUIがあれば削除
+  var old=document.getElementById(containerId);if(old)old.remove();
+  // ドロップゾーンの前に挿入
+  var dropZone=document.getElementById(isVehicle?'v-files-zone':'d-files-zone');
+  if(!dropZone) return;
+  var container=document.createElement('div');
+  container.id=containerId;
+  container.style.cssText='margin-bottom:10px;padding:10px 12px;background:#FFF8E1;border:1px solid #FFE082;border-radius:8px';
+  var html='<div style="font-size:11px;font-weight:600;color:#F57F17;margin-bottom:8px">📎 振り分けファイル（'+idxs.length+'件） — カテゴリを選択してください</div>';
+  idxs.forEach(function(idx,i){
+    var f=unassignedFiles[idx];if(!f) return;
+    var fid=f.fileId||'';
+    var isPdf=(f.name||'').match(/\.pdf$/i);
+    var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');
+    var guessed=f.category||guessFileCategoryByName(f.name,isVehicle?'vehicle':'driver')||'';
+    var opts=cats.map(function(c){return '<option value="'+c+'"'+(guessed===c?' selected':'')+'>'+c+'</option>';}).join('');
+    var previewFn=isVehicle?'openVmPreview':'openDmPreview';
+    html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:4px 0'+(i>0?';border-top:1px solid #FFE082':'')+'">';
+    // サムネ
+    html+='<div style="width:36px;height:28px;flex-shrink:0;border:1px solid #ddd;border-radius:3px;overflow:hidden;cursor:pointer" onclick="'+previewFn+'(\''+fid+'\',\''+esc(f.name)+'\',\'\')">';
+    if(thumbSrc&&!isPdf) html+='<img src="'+thumbSrc+'" style="width:100%;height:100%;object-fit:cover">';
+    else html+='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:7px;color:#888">'+(isPdf?'PDF':'FILE')+'</div>';
+    html+='</div>';
+    // ファイル名
+    html+='<div style="flex:1;min-width:0;font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(f.name)+'">'+esc(f.name)+'</div>';
+    // カテゴリ選択
+    html+='<select class="pending-cat-select" data-idx="'+idx+'" style="padding:3px 6px;font-size:10px;border:1px solid #FFE082;border-radius:4px;background:#fff;min-width:100px"><option value="">未分類</option>'+opts+'</select>';
+    html+='</div>';
+  });
+  container.innerHTML=html;
+  dropZone.parentElement.insertBefore(container,dropZone);
+}
+
+// カテゴリ付きファイル添付（重複差替え対応）
+function attachFileWithReplace(target, file, category){
+  if(!target.attachedFiles) target.attachedFiles=[];
+  var newEntry={
+    name:file.name||'',type:file.type||'',url:file.url||'',
+    fileId:file.fileId||'',dataUrl:file.dataUrl||'',
+    category:category,uploadedAt:new Date().toISOString()
+  };
+  if(!category){target.attachedFiles.push(newEntry);return;}
+  // 免許証の特殊処理: （表）+（裏）=（表裏）
+  if(category==='免許証（表裏）'){
+    // （表）と（裏）を両方削除
+    target.attachedFiles=target.attachedFiles.filter(function(f){
+      return f.category!=='免許証（表）'&&f.category!=='免許証（裏）'&&f.category!=='免許証（表裏）';
+    });
+    target.attachedFiles.push(newEntry);return;
+  }
+  if(category==='免許証（表）'||category==='免許証（裏）'){
+    // （表裏）があれば差替え対象
+    var hasOmote=target.attachedFiles.some(function(f){return f.category==='免許証（表）';});
+    var hasUra=target.attachedFiles.some(function(f){return f.category==='免許証（裏）';});
+    // 同一カテゴリは差替え
+    target.attachedFiles=target.attachedFiles.filter(function(f){return f.category!==category&&f.category!=='免許証（表裏）';});
+    target.attachedFiles.push(newEntry);return;
+  }
+  // 一般カテゴリ: 同一カテゴリを差替え
+  var replaced=false;
+  for(var i=0;i<target.attachedFiles.length;i++){
+    if(target.attachedFiles[i].category===category){
+      // 旧ファイルをソフト削除
+      if(target.attachedFiles[i].fileId){
+        fetch(API_URL,{method:'POST',body:JSON.stringify({action:'softDelete',fileId:target.attachedFiles[i].fileId})}).catch(function(){});
+      }
+      target.attachedFiles[i]=newEntry;replaced=true;break;
+    }
+  }
+  if(!replaced) target.attachedFiles.push(newEntry);
+}
+
+// 保存時に未分類ファイルをカテゴリ付きで添付
+function processPendingFiles(target,kind){
+  var pending=window._pendingBulkFileAssign;
+  if(!pending||pending.kind!==kind) pending=window._pendingFileAssign;
+  if(!pending||pending.kind!==kind) return;
+  var idxs=pending.idxs||[pending.idx];
+  var isVehicle=kind==='vehicle';
+  var catSelects=document.querySelectorAll('.pending-cat-select');
+  var catMap={};
+  catSelects.forEach(function(sel){catMap[sel.dataset.idx]=sel.value;});
+  // 大きいインデックスから削除
+  idxs.sort(function(a,b){return b-a;});
+  idxs.forEach(function(idx){
+    var f=unassignedFiles[idx];
+    if(!f) return;
+    var cat=catMap[idx]||'';
+    var ownerName=kind==='driver'?(target.name||''):(target.plate||'');
+    var renamed=cat?autoRenameFile(f.name,cat,'',ownerName):f.name;
+    attachFileWithReplace(target,{name:renamed,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||''},cat);
+    if(f.fileId&&cat) renameFileOnDrive(f.fileId,renamed);
+    unassignedFiles.splice(idx,1);
+  });
+  window._pendingBulkFileAssign=null;
+  window._pendingFileAssign=null;
+  saveLocal();
+  try{renderStorage();}catch(e){}
 }
 
 function navDriver(dir){
@@ -5201,34 +5285,9 @@ function saveDriver(keepOpen){
     })();
   }
   saveLocal();addLog(editingDriverId?'編集':'追加','ドライバー: '+name);if(!keepOpen){closeModal('driver-modal');}renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
-  // 未分類ファイルからの新規登録時: ファイルを自動添付
-  if(window._pendingFileAssign&&window._pendingFileAssign.kind==='driver'){
-    var pf=window._pendingFileAssign;
-    var uf=unassignedFiles[pf.idx];
-    if(uf){
-      var saved=drivers.find(d=>d.id===obj.id);
-      if(saved){if(!saved.attachedFiles)saved.attachedFiles=[];saved.attachedFiles.push({name:uf.name,type:uf.type,url:uf.url,fileId:uf.fileId,uploadedAt:new Date().toISOString()});unassignedFiles.splice(pf.idx,1);saveLocal();}
-    }
-    window._pendingFileAssign=null;
-    try{renderStorage();}catch(e){}
-  }
-  // ★ 一括振分からの新規登録: 複数ファイルを自動添付
-  if(window._pendingBulkFileAssign&&window._pendingBulkFileAssign.kind==='driver'){
-    var bpf=window._pendingBulkFileAssign;
-    var saved=drivers.find(d=>d.id===obj.id);
-    if(saved){
-      if(!saved.attachedFiles)saved.attachedFiles=[];
-      bpf.idxs.sort(function(a,b){return b-a;});
-      bpf.idxs.forEach(function(idx){
-        var uf=unassignedFiles[idx];
-        if(uf){saved.attachedFiles.push({name:uf.name,type:uf.type||'',url:uf.url||'',fileId:uf.fileId||'',uploadedAt:new Date().toISOString()});unassignedFiles.splice(idx,1);}
-      });
-      saveLocal();
-      alert(bpf.idxs.length+'件を '+obj.name+' に振り分けました');
-    }
-    window._pendingBulkFileAssign=null;
-    try{renderStorage();}catch(e){}
-  }
+  // 未分類ファイル振り分け（カテゴリ付き差替え対応）
+  var savedObj=drivers.find(d=>d.id===obj.id)||obj;
+  processPendingFiles(savedObj,'driver');
   if(status==='退職'||status==='休止'){
     renderArchive();
     // ★ 退職メールタスク自動生成（既存ドライバーのステータス変更時のみ）
@@ -6797,48 +6856,82 @@ function ufBulkRenderList(){
 function execUfBulkAssign(kind,targetId){
   var idxs=window._ufBulkIdxs||[];
   if(!idxs.length)return;
-  var target=null;
-  if(kind==='driver'){
-    target=drivers.find(function(d){return d.id==targetId;});
-    if(!target){companies.forEach(function(c){(c.drivers||[]).forEach(function(d){if(d.id==targetId)target=d;});});}
-  } else {
-    target=vehicles.find(function(v){return v.id==targetId;});
-    if(!target){companies.forEach(function(c){(c.vehicles||[]).forEach(function(v){if(v.id==targetId)target=v;});});}
-  }
-  if(!target){alert('振り分け先が見つかりません');return;}
-  if(!target.attachedFiles) target.attachedFiles=[];
-  // インデックスを大きい順にソートして処理
-  idxs.sort(function(a,b){return b-a;});
-  var count=0;
-  idxs.forEach(function(idx){
-    var f=unassignedFiles[idx];
-    if(f){
-      target.attachedFiles.push({name:f.name,type:f.type||'',url:f.url||'',fileId:f.fileId||'',uploadedAt:new Date().toISOString()});
-      unassignedFiles.splice(idx,1);
-      count++;
-    }
-  });
-  saveLocal();
   var modal=document.getElementById('uf-bulk-modal');
   if(modal) modal.remove();
-  renderStorage();
-  alert(count+'件を '+(target.name||target.plate)+' に振り分けました');
+  // 編集モーダルを開いてプレビュー+カテゴリ選択
+  window._pendingBulkFileAssign={idxs:idxs.slice(),kind:kind};
+  if(kind==='driver'){
+    openDriverModal(targetId);
+    setTimeout(function(){
+      var firstUf=unassignedFiles[idxs[0]];
+      if(firstUf) openDmPreview(firstUf.fileId||'',firstUf.name||'',firstUf.dataUrl||'');
+      // サムネストリップ
+      var strip=document.getElementById('dm-preview-thumbs');
+      if(strip&&idxs.length>1){
+        strip.style.display='block';
+        var html='';
+        idxs.forEach(function(idx){var f=unassignedFiles[idx];if(!f)return;var fid=f.fileId||'';var isPdf=(f.name||'').match(/\.pdf$/i);var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openDmPreview(\''+fid+'\',\''+esc(f.name)+'\',\'\')" title="'+esc(f.name)+'">';if(thumbSrc&&!isPdf){html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';}else{html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';}html+='</div>';});
+        strip.innerHTML=html;
+      }
+      renderPendingCategoryUI('driver');
+    },200);
+  } else {
+    openVehicleModal(targetId);
+    setTimeout(function(){
+      var firstUf=unassignedFiles[idxs[0]];
+      if(firstUf) openVmPreview(firstUf.fileId||'',firstUf.name||'',firstUf.dataUrl||'');
+      var strip=document.getElementById('vm-preview-thumbs');
+      if(strip&&idxs.length>1){
+        strip.style.display='block';
+        var html='';
+        idxs.forEach(function(idx){var f=unassignedFiles[idx];if(!f)return;var fid=f.fileId||'';var isPdf=(f.name||'').match(/\.pdf$/i);var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openVmPreview(\''+fid+'\',\''+esc(f.name)+'\',\'\')" title="'+esc(f.name)+'">';if(thumbSrc&&!isPdf){html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';}else{html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';}html+='</div>';});
+        strip.innerHTML=html;
+      }
+      renderPendingCategoryUI('vehicle');
+    },200);
+  }
 }
 function ufBulkNewDriver(){
   var idxs=window._ufBulkIdxs||[];
   var modal=document.getElementById('uf-bulk-modal');
   if(modal) modal.remove();
-  // 新規ドライバーモーダルを開く
-  openDriverModal();
-  // 保存後に選択ファイルを自動添付するためのフラグ
   window._pendingBulkFileAssign={idxs:idxs.slice(),kind:'driver'};
+  openDriverModal();
+  if(idxs.length){
+    setTimeout(function(){
+      var firstUf=unassignedFiles[idxs[0]];
+      if(firstUf) openDmPreview(firstUf.fileId||'', firstUf.name||'', firstUf.dataUrl||'');
+      var strip=document.getElementById('dm-preview-thumbs');
+      if(strip&&idxs.length>1){
+        strip.style.display='block';
+        var html='';
+        idxs.forEach(function(idx){var f=unassignedFiles[idx];if(!f)return;var fid=f.fileId||'';var isPdf=(f.name||'').match(/\.pdf$/i);var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openDmPreview(\''+fid+'\',\''+esc(f.name)+'\',\'\')" title="'+esc(f.name)+'">';if(thumbSrc&&!isPdf){html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';}else{html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';}html+='</div>';});
+        strip.innerHTML=html;
+      }
+      renderPendingCategoryUI('driver');
+    },200);
+  }
 }
 function ufBulkNewVehicle(){
   var idxs=window._ufBulkIdxs||[];
   var modal=document.getElementById('uf-bulk-modal');
   if(modal) modal.remove();
-  openVehicleModal();
   window._pendingBulkFileAssign={idxs:idxs.slice(),kind:'vehicle'};
+  openVehicleModal();
+  if(idxs.length){
+    setTimeout(function(){
+      var firstUf=unassignedFiles[idxs[0]];
+      if(firstUf) openVmPreview(firstUf.fileId||'', firstUf.name||'', firstUf.dataUrl||'');
+      var strip=document.getElementById('vm-preview-thumbs');
+      if(strip&&idxs.length>1){
+        strip.style.display='block';
+        var html='';
+        idxs.forEach(function(idx){var f=unassignedFiles[idx];if(!f)return;var fid=f.fileId||'';var isPdf=(f.name||'').match(/\.pdf$/i);var thumbSrc=f.dataUrl||(fid?'https://drive.google.com/thumbnail?id='+fid+'&sz=w60':'');html+='<div style="display:inline-block;margin-right:4px;cursor:pointer;border:1px solid #555;border-radius:4px;overflow:hidden;vertical-align:top" onclick="openVmPreview(\''+fid+'\',\''+esc(f.name)+'\',\'\')" title="'+esc(f.name)+'">';if(thumbSrc&&!isPdf){html+='<img src="'+thumbSrc+'" style="width:40px;height:30px;object-fit:cover;display:block">';}else{html+='<div style="width:40px;height:30px;display:flex;align-items:center;justify-content:center;background:#333;color:#aaa;font-size:8px">'+(isPdf?'PDF':'FILE')+'</div>';}html+='</div>';});
+        strip.innerHTML=html;
+      }
+      renderPendingCategoryUI('vehicle');
+    },200);
+  }
 }
 
 // ファイル名からドライバー名・車両ナンバーを推測
@@ -6949,8 +7042,9 @@ function assignNewDriver(fileIdx){
   var modal=document.getElementById('assign-modal');
   if(modal) modal.remove();
   var hints=window._assignHints||{};
+  var uf=unassignedFiles[fileIdx];
+  window._pendingBulkFileAssign={idxs:[fileIdx],kind:'driver'};
   openDriverModal();
-  // 姓名を自動入力
   if(hints.driverName){
     var parts=hints.driverName.split(/[\s　]+/);
     setTimeout(function(){
@@ -6960,15 +7054,20 @@ function assignNewDriver(fileIdx){
       if(meiEl&&parts[1]) meiEl.value=parts[1];
     },100);
   }
-  // ファイルインデックスを記憶（保存時に自動添付）
-  window._pendingFileAssign={idx:fileIdx,kind:'driver'};
+  if(uf){
+    setTimeout(function(){
+      openDmPreview(uf.fileId||'', uf.name||'', uf.dataUrl||'');
+      renderPendingCategoryUI('driver');
+    },200);
+  }
 }
 
-// 新規車両登録（ファイル名からナンバーを自動入力）
 function assignNewVehicle(fileIdx){
   var modal=document.getElementById('assign-modal');
   if(modal) modal.remove();
   var hints=window._assignHints||{};
+  var uf=unassignedFiles[fileIdx];
+  window._pendingBulkFileAssign={idxs:[fileIdx],kind:'vehicle'};
   openVehicleModal();
   if(hints.vehiclePlate){
     setTimeout(function(){
@@ -6976,7 +7075,12 @@ function assignNewVehicle(fileIdx){
       if(plateEl) plateEl.value=hints.vehiclePlate;
     },100);
   }
-  window._pendingFileAssign={idx:fileIdx,kind:'vehicle'};
+  if(uf){
+    setTimeout(function(){
+      openVmPreview(uf.fileId||'', uf.name||'', uf.dataUrl||'');
+      renderPendingCategoryUI('vehicle');
+    },200);
+  }
 }
 
 function renderAssignList(){
@@ -7001,27 +7105,25 @@ function renderAssignList(){
 function execAssignUnassigned(idx,kind,targetId){
   var f=unassignedFiles[idx];
   if(!f){alert('ファイルが見つかりません');return;}
-  var target=findTarget(kind,targetId);
-  if(!target){alert('振り分け先が見つかりません');return;}
-  if(!target.attachedFiles) target.attachedFiles=[];
-  target.attachedFiles.push({
-    name:f.name||'',
-    type:f.type||'',
-    url:f.url||'',
-    fileId:f.fileId||'',
-    dataUrl:f.dataUrl||'',
-    category:f.category||'',
-    otherName:f.otherName||'',
-    uploadedAt:new Date().toISOString()
-  });
-  unassignedFiles.splice(idx,1);
-  saveLocal();saveCompanies();
-  // モーダルを閉じる
+  // 選択モーダルを閉じる
   var modal=document.getElementById('assign-modal');
   if(modal) modal.remove();
-  renderStorage();
-  try{renderDrivers(currentOfficeFilter);}catch(e){}
-  try{renderVehicles(currentOfficeFilter);}catch(e){}
+  // 編集モーダルを開いてプレビュー+カテゴリ選択
+  window._pendingBulkFileAssign={idxs:[idx],kind:kind};
+  if(kind==='driver'){
+    var did=targetId;
+    openDriverModal(did);
+    setTimeout(function(){
+      openDmPreview(f.fileId||'',f.name||'',f.dataUrl||'');
+      renderPendingCategoryUI('driver');
+    },200);
+  } else {
+    openVehicleModal(targetId);
+    setTimeout(function(){
+      openVmPreview(f.fileId||'',f.name||'',f.dataUrl||'');
+      renderPendingCategoryUI('vehicle');
+    },200);
+  }
 }
 
 // データ管理カード内のファイル削除
