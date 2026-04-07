@@ -577,6 +577,7 @@ body.modal-open{overflow:hidden}
         <div class="nav-item" onclick="showPage('storage',this)" data-page="storage"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h5l1.5 2H13v7H1z"/><path d="M5 9h4M7 7v4"/></svg>データ管理</div>
         <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
         <div class="nav-item" onclick="showPage('mail',this)" data-page="mail"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="3" width="12" height="8" rx="1.5"/><path d="M1 4l6 4 6-4"/></svg>メール <span id="mail-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span><span id="inbox-nav-badge" style="background:#fb8c00;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
+        <div class="nav-item" onclick="showPage('calendar',this)" data-page="calendar"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="2" width="12" height="11" rx="1.5"/><path d="M1 5.5h12"/><path d="M4 1v2M10 1v2"/><circle cx="4.5" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="7" cy="8" r=".8" fill="currentColor" stroke="none"/><circle cx="9.5" cy="8" r=".8" fill="currentColor" stroke="none"/></svg>カレンダー</div>
 
         <div class="nav-group-header" onclick="toggleNavGroup('nav-grp-manage')">管理 <span class="nav-group-arrow" id="nav-grp-manage-arrow">▶</span></div>
         <div class="nav-group-body collapsed" id="nav-grp-manage" style="max-height:0">
@@ -799,6 +800,29 @@ body.modal-open{overflow:hidden}
           </div>
           <div class="filter-bar" id="archive-filters"></div>
           <div id="archive-list"></div>
+        </div>
+      </div>
+      <div id="page-calendar" class="page">
+        <div class="topbar"><h1>書類カレンダー</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
+          <div style="display:flex;gap:6px;align-items:center">
+            <button class="btn btn-sm" onclick="calendarNav(-1)">◀ 前月</button>
+            <span id="cal-month-label" style="font-weight:600;font-size:14px;min-width:100px;text-align:center"></span>
+            <button class="btn btn-sm" onclick="calendarNav(1)">次月 ▶</button>
+            <button class="btn btn-sm" onclick="calendarGoToday()" style="margin-left:6px;font-size:10px">今月</button>
+          </div>
+        </div>
+        <div class="content" style="padding:12px">
+          <div id="cal-legend" style="display:flex;gap:12px;margin-bottom:10px;font-size:11px;color:#666;flex-wrap:wrap">
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c62828;margin-right:3px"></span>期限切れ</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e65100;margin-right:3px"></span>7日以内</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f9a825;margin-right:3px"></span>30日以内</span>
+            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e7d32;margin-right:3px"></span>期限日</span>
+          </div>
+          <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e0e0e0;border-radius:8px;overflow:hidden"></div>
+          <div id="cal-detail" style="margin-top:12px;display:none;padding:12px;background:#f9fbff;border:1px solid #e0e0e0;border-radius:8px">
+            <div id="cal-detail-title" style="font-weight:600;margin-bottom:8px;font-size:13px"></div>
+            <div id="cal-detail-list" style="font-size:12px"></div>
+          </div>
         </div>
       </div>
       <div id="page-settings" class="page">
@@ -4647,6 +4671,7 @@ function showPage(name,el){
   if(name==='filemgr')renderFileMgr();
   if(name==='storage')renderStorage();
   if(name==='settings'){renderSettingsAll();}
+  if(name==='calendar'){renderCalendar();}
   if(name==='contractors'){currentCompanyId=null;renderContractorsList();}
 }
 function rebuildPrintSelect(){
@@ -10642,6 +10667,142 @@ function previewCompanyStamps(){
       repEl.innerHTML='<img src="'+generateStamp(sei,160)+'" style="width:40px;height:40px">';
     } else { repEl.innerHTML=''; }
   }
+}
+
+// ====== 書類カレンダー ======
+var calYear, calMonth;
+function calendarGoToday(){ var d=new Date(); calYear=d.getFullYear(); calMonth=d.getMonth(); renderCalendar(); }
+function calendarNav(dir){ calMonth+=dir; if(calMonth<0){calMonth=11;calYear--;} if(calMonth>11){calMonth=0;calYear++;} renderCalendar(); }
+function renderCalendar(){
+  if(typeof calYear==='undefined'){ var d=new Date(); calYear=d.getFullYear(); calMonth=d.getMonth(); }
+  var label=document.getElementById('cal-month-label');
+  if(label) label.textContent=calYear+'年'+(calMonth+1)+'月';
+  var grid=document.getElementById('cal-grid');
+  if(!grid) return;
+  var today=new Date();today.setHours(0,0,0,0);
+  var firstDay=new Date(calYear,calMonth,1);
+  var lastDay=new Date(calYear,calMonth+1,0);
+  var startDow=firstDay.getDay(); // 0=Sun
+  var daysInMonth=lastDay.getDate();
+
+  // 全期限イベント収集
+  var events={}; // key: 'YYYY-MM-DD' -> [{name,doc,kind,days}]
+  function addEvent(dateStr,name,doc,kind){
+    if(!events[dateStr]) events[dateStr]=[];
+    events[dateStr].push({name:name,doc:doc,kind:kind});
+  }
+  function collectExpiries(expiryVal,name,doc,kind){
+    if(!expiryVal) return;
+    var d=new Date(expiryVal);if(isNaN(d.getTime())) return;
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    addEvent(key,name,doc,kind);
+  }
+  drivers.filter(function(d){return !d.status||d.status==='在籍';}).forEach(function(d){
+    collectExpiries(d.licenseExpiry,d.name,'免許証','driver');
+    collectExpiries(d.healthExpiry,d.name,'健康診断書','driver');
+  });
+  vehicles.filter(function(v){return !v.status||v.status!=='廃車';}).forEach(function(v){
+    collectExpiries(v.shakenExpiry,v.plate,'車検','vehicle');
+    collectExpiries(v.jibaisekiExpiry,v.plate,'自賠責','vehicle');
+    collectExpiries(v.insuranceExpiry,v.plate,'任意保険','vehicle');
+  });
+  companies.forEach(function(c){
+    (c.drivers||[]).forEach(function(d){
+      if(d.status==='退職') return;
+      collectExpiries(d.licenseExpiry,d.name+' ['+c.name+']','免許証','driver');
+    });
+    (c.vehicles||[]).forEach(function(v){
+      collectExpiries(v.shakenExpiry,v.plate+' ['+c.name+']','車検','vehicle');
+      collectExpiries(v.insuranceExpiry,v.plate+' ['+c.name+']','任意保険','vehicle');
+    });
+  });
+
+  // HTML生成
+  var html='';
+  var dowLabels=['日','月','火','水','木','金','土'];
+  dowLabels.forEach(function(d,i){
+    html+='<div style="padding:6px 4px;text-align:center;font-size:10px;font-weight:600;background:#f5f5f5;color:'+(i===0?'#c62828':i===6?'#1565c0':'#555')+'">'+d+'</div>';
+  });
+  // 空セル
+  for(var s=0;s<startDow;s++) html+='<div style="background:#fafafa;min-height:70px"></div>';
+  // 日付セル
+  for(var day=1;day<=daysInMonth;day++){
+    var dateKey=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    var cellDate=new Date(calYear,calMonth,day);cellDate.setHours(0,0,0,0);
+    var isToday=cellDate.getTime()===today.getTime();
+    var dow=(startDow+day-1)%7;
+    var evts=events[dateKey]||[];
+    // その日が期限日のイベント → 緑ドット
+    // 過去の期限 → 赤（today基準で判定）
+    var dots='';
+    if(evts.length){
+      var diffMs=cellDate.getTime()-today.getTime();
+      var diffDays=Math.round(diffMs/86400000);
+      var color=diffDays<0?'#c62828':diffDays<=7?'#e65100':diffDays<=30?'#f9a825':'#2e7d32';
+      dots='<div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px">';
+      var maxDots=Math.min(evts.length,5);
+      for(var di=0;di<maxDots;di++) dots+='<span style="width:6px;height:6px;border-radius:50%;background:'+color+'"></span>';
+      if(evts.length>5) dots+='<span style="font-size:7px;color:'+color+'">+'+((evts.length-5))+'</span>';
+      dots+='</div>';
+    }
+    var bg=isToday?'#e3f2fd':'#fff';
+    var border=isToday?'2px solid #1565c0':'none';
+    var cursor=evts.length?'pointer':'default';
+    html+='<div style="background:'+bg+';min-height:70px;padding:4px;border:'+border+';cursor:'+cursor+'" onclick="calendarShowDetail(\''+dateKey+'\')">';
+    html+='<div style="font-size:11px;font-weight:'+(isToday?'700':'400')+';color:'+(dow===0?'#c62828':dow===6?'#1565c0':'#333')+'">'+day+'</div>';
+    html+=dots;
+    if(evts.length) html+='<div style="font-size:8px;color:#888;margin-top:1px;text-align:center">'+evts.length+'件</div>';
+    html+='</div>';
+  }
+  grid.innerHTML=html;
+  document.getElementById('cal-detail').style.display='none';
+}
+function calendarShowDetail(dateKey){
+  var today=new Date();today.setHours(0,0,0,0);
+  var cellDate=new Date(dateKey);
+  var events=[];
+  function check(expiryVal,name,doc,kind){
+    if(!expiryVal) return;
+    var d=new Date(expiryVal);if(isNaN(d.getTime())) return;
+    var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+    if(key===dateKey){
+      var diffDays=Math.round((d.getTime()-today.getTime())/86400000);
+      events.push({name:name,doc:doc,kind:kind,days:diffDays});
+    }
+  }
+  drivers.filter(function(d){return !d.status||d.status==='在籍';}).forEach(function(d){
+    check(d.licenseExpiry,d.name,'免許証','driver');
+    check(d.healthExpiry,d.name,'健康診断書','driver');
+  });
+  vehicles.filter(function(v){return !v.status||v.status!=='廃車';}).forEach(function(v){
+    check(v.shakenExpiry,v.plate,'車検','vehicle');
+    check(v.jibaisekiExpiry,v.plate,'自賠責','vehicle');
+    check(v.insuranceExpiry,v.plate,'任意保険','vehicle');
+  });
+  companies.forEach(function(c){
+    (c.drivers||[]).forEach(function(d){if(d.status!=='退職')check(d.licenseExpiry,d.name+' ['+c.name+']','免許証','driver');});
+    (c.vehicles||[]).forEach(function(v){check(v.shakenExpiry,v.plate+' ['+c.name+']','車検','vehicle');check(v.insuranceExpiry,v.plate+' ['+c.name+']','任意保険','vehicle');});
+  });
+  var detail=document.getElementById('cal-detail');
+  var title=document.getElementById('cal-detail-title');
+  var list=document.getElementById('cal-detail-list');
+  if(!events.length){detail.style.display='none';return;}
+  var d=new Date(dateKey);
+  title.textContent=(d.getMonth()+1)+'月'+d.getDate()+'日 — '+events.length+'件の期限';
+  var html='';
+  events.forEach(function(e){
+    var icon=e.kind==='driver'?'👤':'🚗';
+    var color=e.days<0?'#c62828':e.days<=7?'#e65100':e.days<=30?'#f9a825':'#2e7d32';
+    var label=e.days<0?Math.abs(e.days)+'日超過':e.days===0?'本日':e.days+'日後';
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee">';
+    html+='<span>'+icon+'</span>';
+    html+='<span style="flex:1;font-weight:500">'+esc(e.name)+'</span>';
+    html+='<span style="font-size:11px;color:#888">'+e.doc+'</span>';
+    html+='<span style="font-size:11px;font-weight:600;color:'+color+'">'+label+'</span>';
+    html+='</div>';
+  });
+  list.innerHTML=html;
+  detail.style.display='block';
 }
 
 function renderSettingsAll(){renderSettingsOffices();generateQR();loadAiSettings();renderMailSettings();loadAlertSettings();loadStampSettings();renderOperationLogs();loadSessionTimeout();}
