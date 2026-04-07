@@ -4614,10 +4614,10 @@ function toggleNavGroup(id){
 function showPage(name,el){
   // 開いているモーダルを全てクリーンアップ
   document.querySelectorAll('.modal-bg').forEach(function(m){
-    if(m.id==='mail-modal'||m.id==='driver-modal'||m.id==='vehicle-modal'||m.id==='office-modal'){
-      m.style.display='none'; // 静的モーダルはhide
+    if(m.id){
+      m.style.display='none'; // ID付き静的モーダルはhide
     } else {
-      m.remove(); // 動的モーダルは削除
+      m.remove(); // ID無し動的モーダルは削除
     }
   });
   document.body.style.overflow='';
