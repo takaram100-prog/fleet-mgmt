@@ -5511,36 +5511,46 @@ async function handleSidebarDrop(event){
   event.preventDefault();
   var dt=event.dataTransfer;
   var files=[];
-  // フォルダとファイルを分離（DataTransferItemでフォルダ判定）
+  var skippedFolders=[];
+  // フォルダとファイルを分離
   if(dt.items){
     for(var k=0;k<dt.items.length;k++){
       var item=dt.items[k];
       if(item.kind==='file'){
         var entry=item.webkitGetAsEntry&&item.webkitGetAsEntry();
-        if(entry&&entry.isDirectory) continue; // フォルダはスキップ
+        if(entry&&entry.isDirectory){skippedFolders.push(entry.name);continue;}
         var f=item.getAsFile();
-        if(f&&f.size>0) files.push(f);
+        if(!f) continue;
+        // フォルダ追加チェック: type空+拡張子なし+サイズが4096の倍数=フォルダの可能性大
+        var hasExt=(f.name||'').includes('.');
+        if(!f.type&&!hasExt&&f.size>0){skippedFolders.push(f.name);continue;}
+        if(f.size>0) files.push(f);
       }
     }
   } else {
     for(var k2=0;k2<dt.files.length;k2++){
       var f2=dt.files[k2];
-      if(f2&&f2.size>0) files.push(f2);
+      if(!f2) continue;
+      var hasExt2=(f2.name||'').includes('.');
+      if(!f2.type&&!hasExt2){skippedFolders.push(f2.name);continue;}
+      if(f2.size>0) files.push(f2);
     }
-  }
-  if(!files.length){
-    var statusEl=document.getElementById('sidebar-upload-status');
-    if(statusEl){statusEl.style.display='block';statusEl.textContent='ファイルが見つかりません（フォルダは不可）';statusEl.style.color='#e53935';setTimeout(function(){statusEl.style.display='none';},4000);}
-    return;
   }
   var statusEl=document.getElementById('sidebar-upload-status');
   if(!statusEl) return;
+  if(!files.length){
+    statusEl.style.display='block';
+    statusEl.textContent=skippedFolders.length?'フォルダは不可（'+skippedFolders.join(', ')+'）':'ファイルが見つかりません';
+    statusEl.style.color='#e53935';
+    setTimeout(function(){statusEl.style.display='none';},5000);
+    return;
+  }
   var total=files.length;
   var done=0;
   var failed=0;
   var errors=[];
   statusEl.style.display='block';
-  statusEl.textContent='アップロード中 0/'+total;
+  statusEl.textContent='アップロード中 0/'+total+(skippedFolders.length?' (フォルダ'+skippedFolders.length+'件スキップ)':'');
   statusEl.style.color='#4a90e2';
 
   for(var i=0;i<total;i++){
@@ -5554,9 +5564,11 @@ async function handleSidebarDrop(event){
     try{
       var dataUrl=await new Promise(function(resolve,reject){
         var reader=new FileReader();
-        reader.onload=function(e){resolve(e.target.result);};
-        reader.onerror=function(){reject(new Error('読み込み失敗'));};
-        reader.readAsDataURL(file);
+        var timeout=setTimeout(function(){reader.abort();reject(new Error('タイムアウト（読み込み不可）'));},10000);
+        reader.onload=function(e){clearTimeout(timeout);resolve(e.target.result);};
+        reader.onerror=function(){clearTimeout(timeout);reject(new Error('読み込み失敗（フォルダまたは破損ファイル）'));};
+        reader.onabort=function(){clearTimeout(timeout);reject(new Error('読み込み中断'));};
+        try{reader.readAsDataURL(file);}catch(re){clearTimeout(timeout);reject(new Error('読み込み不可: '+re.message));}
       });
       var res=await fetch(API_URL,{method:'POST',body:JSON.stringify({
         action:'uploadFile',
