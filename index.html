@@ -1044,7 +1044,7 @@ body.modal-open{overflow:hidden}
 <!-- Vehicle Modal -->
 <div id="vehicle-modal" style="display:none" class="modal-bg">
   <div class="modal" onclick="event.stopPropagation()">
-    <div class="modal-header"><span class="modal-title" id="vm-title">車両 登録</span><button class="modal-close" onclick="closeModal('vehicle-modal')">✕</button></div>
+    <div class="modal-header"><span class="modal-title" id="vm-title">車両 登録</span><div id="vm-nav" style="display:none;align-items:center;gap:6px;font-size:11px"><button class="btn btn-sm" onclick="navVehicle(-1)" style="padding:2px 8px;font-size:11px">◀ 前</button><span id="vm-nav-label"></span><button class="btn btn-sm" onclick="navVehicle(1)" style="padding:2px 8px;font-size:11px">次 ▶</button></div><button class="modal-close" onclick="closeModal('vehicle-modal')">✕</button></div>
     <div id="vm-flex-wrap" style="display:flex;flex:1;overflow:hidden;min-height:0">
       <div id="vm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
@@ -1081,7 +1081,7 @@ body.modal-open{overflow:hidden}
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🔵 自賠責保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-jibai-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-jibai-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-jibai-company"></div></div></div>
       <div class="doc-section"><div class="doc-section-header"><div class="doc-section-title">🟢 任意保険</div></div><div class="doc-fields"><div class="form-group"><label>満了日</label><input type="date" id="v-nin-exp"></div><div class="form-group"><label>証券番号</label><input type="text" id="v-nin-no"></div><div class="form-group"><label>保険会社</label><input type="text" id="v-nin-company"></div></div></div>
     </div></div></div><!-- closes form-grid + modal-body + vm-flex-wrap -->
-    <div class="modal-footer"><button class="btn" onclick="closeModal('vehicle-modal')">キャンセル</button><button class="btn btn-primary" onclick="saveVehicle()">保存する</button></div>
+    <div class="modal-footer"><button class="btn" onclick="closeModal('vehicle-modal')">キャンセル</button><button class="btn btn-sm" id="vm-save-next" style="display:none" onclick="saveVehicleAndNav(1)">保存して次 ▶</button><button class="btn btn-primary" onclick="saveVehicle()">保存する</button></div>
   </div>
 </div>
 
@@ -4741,6 +4741,21 @@ function toggleContractorField(){
 function openVehicleModal(id){
   editingVehicleId=id||null;
   document.getElementById('vm-title').textContent=id?'車両 編集':'車両 登録';
+  // ナビ構築
+  var vmNavEl=document.getElementById('vm-nav');
+  var vmSaveNextEl=document.getElementById('vm-save-next');
+  if(id){
+    vehicleNavList=vehicles.filter(v=>!currentOfficeFilter||v.office===currentOfficeFilter||(v.offices||[]).includes(currentOfficeFilter)).filter(v=>!v.status||v.status!=='廃車').map(v=>v.id);
+    vehicleNavIndex=vehicleNavList.indexOf(id);
+    if(vehicleNavIndex<0){vehicleNavList.push(id);vehicleNavIndex=vehicleNavList.length-1;}
+    vmNavEl.style.display='flex';
+    vmSaveNextEl.style.display='';
+    updateVehicleNavLabel();
+  } else {
+    vehicleNavList=[];vehicleNavIndex=-1;
+    vmNavEl.style.display='none';
+    vmSaveNextEl.style.display='none';
+  }
   renderOfficeMultiSelect('v-offices', []);
   var allDriverOpts=drivers.filter(d=>!d.status||d.status==='在籍').map(d=>`<option value="${d.id}">${d.name}（${d.type||'社員'}/${Array.isArray(d.offices)?d.offices[0]:d.office||''}）</option>`);
   companies.forEach(c=>{(c.drivers||[]).forEach(d=>{allDriverOpts.push(`<option value="cd:${d.name}">${d.name}（${c.name}）</option>`);});});
@@ -4756,7 +4771,7 @@ function openVehicleModal(id){
   closeVmPreview();
   setTimeout(()=>initModalKeyNav('vehicle-modal'),100);
 }
-function saveVehicle(){
+function saveVehicle(keepOpen){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
 
   // 車両番号重複チェック
@@ -4814,14 +4829,16 @@ function saveVehicle(){
     })();
   }
   saveLocal();addLog(editingVehicleId?'編集':'追加','車両: '+plate);
-  // 未分類ファイル振り分け（closeModalの前に実行 — closeModalのオーバーライドが_pendingBulkFileAssignをクリアするため）
+  // 未分類ファイル振り分け（closeModalの前に実行）
   var savedVObj=vehicles.find(v=>v.id===obj.id)||obj;
   processPendingFiles(savedVObj,'vehicle');
-  closeModal('vehicle-modal');renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
+  if(!keepOpen){closeModal('vehicle-modal');}renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
   if(vStatus==='廃車') renderArchive();
 }
 var driverNavList=[];
 var driverNavIndex=-1;
+var vehicleNavList=[];
+var vehicleNavIndex=-1;
 
 function openDriverModal(id){
   editingDriverId=id||null;
@@ -5221,6 +5238,71 @@ function loadDriverIntoModal(id){
   closeDmPreview();
   // モーダルをトップにスクロール
   var modalBody=document.querySelector('#driver-modal .modal-body');
+  if(modalBody) modalBody.scrollTop=0;
+}
+
+// ====== 車両モーダル連続編集 ======
+function updateVehicleNavLabel(){
+  var el=document.getElementById('vm-nav-label');
+  if(el) el.textContent=(vehicleNavIndex+1)+'/'+vehicleNavList.length;
+}
+function navVehicle(dir){
+  var newIdx=vehicleNavIndex+dir;
+  if(newIdx<0||newIdx>=vehicleNavList.length) return;
+  var nextId=vehicleNavList[newIdx];
+  loadVehicleIntoModal(nextId);
+  vehicleNavIndex=newIdx;
+  editingVehicleId=nextId;
+  updateVehicleNavLabel();
+  document.getElementById('vm-title').textContent='車両 編集';
+}
+function saveVehicleAndNav(dir){
+  saveVehicle(true); // keepOpen=true
+  var newIdx=vehicleNavIndex+dir;
+  if(newIdx<0||newIdx>=vehicleNavList.length){closeModal('vehicle-modal');return;}
+  var nextId=vehicleNavList[newIdx];
+  setTimeout(function(){
+    loadVehicleIntoModal(nextId);
+    vehicleNavIndex=newIdx;
+    editingVehicleId=nextId;
+    updateVehicleNavLabel();
+    document.getElementById('vm-title').textContent='車両 編集';
+  },100);
+}
+function loadVehicleIntoModal(id){
+  ['v-plate','v-model','v-color','v-owner','v-user','v-sub','v-note','v-shaken-exp','v-shaken-chassis','v-shaken-type','v-jibai-exp','v-jibai-no','v-jibai-company','v-nin-exp','v-nin-no','v-nin-company'].forEach(function(f){var el=document.getElementById(f);if(el)el.value='';});
+  document.getElementById('v-type').value='社有';document.getElementById('v-kind').value='軽四';document.getElementById('v-status').value='稼働';
+  renderOfficeMultiSelect('v-offices',[]);
+  modalFiles['v-files']=[];
+  renderFilePreview('v-files');
+  closeVmPreview();
+  var v=vehicles.find(function(x){return x.id==id;});
+  if(v){
+    document.getElementById('v-plate').value=v.plate||'';
+    document.getElementById('v-model').value=v.model||'';
+    document.getElementById('v-kind').value=v.kind||'軽四';
+    document.getElementById('v-type').value=v.type||'社有';
+    document.getElementById('v-status').value=v.status||'稼働';
+    renderOfficeMultiSelect('v-offices',v.offices||[v.office].filter(Boolean));
+    document.getElementById('v-driver').value=v.driverId||'';
+    document.getElementById('v-color').value=v.color||'';
+    document.getElementById('v-owner').value=v.owner||'';
+    document.getElementById('v-user').value=v.vehicleUser||'';
+    document.getElementById('v-sub').value=v.sub||'';
+    document.getElementById('v-note').value=v.note||'';
+    document.getElementById('v-shaken-exp').value=v.shaken?.exp||'';
+    document.getElementById('v-shaken-chassis').value=v.shaken?.chassis||'';
+    document.getElementById('v-shaken-type').value=v.shaken?.type||'';
+    document.getElementById('v-jibai-exp').value=v.jibai?.exp||'';
+    document.getElementById('v-jibai-no').value=v.jibai?.no||'';
+    document.getElementById('v-jibai-company').value=v.jibai?.company||'';
+    document.getElementById('v-nin-exp').value=v.nin?.exp||'';
+    document.getElementById('v-nin-no').value=v.nin?.no||'';
+    document.getElementById('v-nin-company').value=v.nin?.company||'';
+  }
+  renderExistingFiles('v-existing-files','vehicle',id);
+  initDateFields();
+  var modalBody=document.querySelector('#vehicle-modal .modal-body');
   if(modalBody) modalBody.scrollTop=0;
 }
 
@@ -7543,6 +7625,21 @@ function renderStorage(){
   }
 
   if(storageViewMode==='file') return renderStorageFileView(el,allDrivers,allVehicles);
+
+  // ★ 全営業所表示時: 営業所順でソート
+  if(!offF){
+    var offOrder={};offices.forEach(function(o,i){offOrder[o]=i;});offOrder['']='999';
+    allDrivers.sort(function(a,b){
+      var oA=offOrder[a._offices[0]||'']||999, oB=offOrder[b._offices[0]||'']||999;
+      if(oA!==oB) return oA-oB;
+      return (a.name||'').localeCompare(b.name||'','ja');
+    });
+    allVehicles.sort(function(a,b){
+      var oA=offOrder[a._offices[0]||a.office||'']||999, oB=offOrder[b._offices[0]||b.office||'']||999;
+      if(oA!==oB) return oA-oB;
+      return (a.plate||'').localeCompare(b.plate||'','ja');
+    });
+  }
 
   // ====== カード型レイアウト ======
   let html='';
