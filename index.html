@@ -591,7 +591,7 @@ body.modal-open{overflow:hidden}
     <aside class="sidebar" ondragover="event.preventDefault();document.getElementById('sidebar-upload-status').style.display='block';document.getElementById('sidebar-upload-status').textContent='ここにドロップでアップロード';document.getElementById('sidebar-upload-status').style.color='#4a90e2'" ondragleave="if(!this.contains(event.relatedTarget)){document.getElementById('sidebar-upload-status').style.display='none'}" ondrop="handleSidebarDrop(event)">
       <div class="logo" style="cursor:pointer" onclick="location.reload()"><div class="logo-title" style="display:flex;align-items:center;gap:6px"><img src="" id="sidebar-logo" style="width:22px;height:22px;object-fit:contain">大阪急配 フリート管理</div></div>
       <div style="padding:8px 4px 4px;flex:1;overflow-y:auto">
-        <div class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard',this)" data-page="dashboard"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>ダッシュボード</div>
+        <div class="nav-item active" id="nav-dashboard" onclick="showPage('dashboard',this)" data-page="dashboard"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1" y="1" width="5" height="5" rx="1"/><rect x="8" y="1" width="5" height="5" rx="1"/><rect x="1" y="8" width="5" height="5" rx="1"/><rect x="8" y="8" width="5" height="5" rx="1"/></svg>ダッシュボード <span id="dash-alert-badge" style="background:#e53935;color:#fff;border-radius:99px;padding:0 5px;font-size:9px;margin-left:2px"></span></div>
         <div id="sidebar-upload-status" style="display:none;padding:2px 10px 4px 32px;font-size:10px;color:#4a90e2;background:#eaf2ff;margin:-1px 6px 2px;border-radius:0 0 6px 6px"></div>
         <div class="nav-item" onclick="showPage('storage',this)" data-page="storage"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M1 3h5l1.5 2H13v7H1z"/><path d="M5 9h4M7 7v4"/></svg>データ管理</div>
         <div class="nav-item" onclick="showPage('documents',this)" data-page="documents"><svg viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="1" width="10" height="12" rx="1.5"/><path d="M4 5h6M4 8h6M4 11h4"/></svg>書類生成</div>
@@ -2547,19 +2547,17 @@ function toggleDriverDetail(id){
 function updateDriverExpInline(id,val){
   val=normalizeBirthDate(val);
   var d=drivers.find(x=>x.id==id);
-  if(d){if(!d.license)d.license={};d.license.exp=val;saveLocal();renderDrivers(currentOfficeFilter);renderStorage();renderDashboard();return;}
-  // 委託会社ドライバーも検索
+  if(d){if(!d.license)d.license={};d.license.exp=val;saveLocal();renderDashboard();return;}
   companies.forEach(c=>{(c.drivers||[]).forEach(cd=>{if(cd.id==id){if(!cd.license)cd.license={};cd.license.exp=val;}});});
-  saveLocal();saveCompanies();renderDrivers(currentOfficeFilter);renderStorage();renderDashboard();
+  saveLocal();renderDashboard();
 }
 
 function updateVehicleExpInline(id,field,val){
   val=normalizeBirthDate(val);
   var v=vehicles.find(x=>x.id==id);
-  if(v){if(!v[field])v[field]={};v[field].exp=val;saveLocal();renderVehicles(currentOfficeFilter);renderStorage();renderDashboard();return;}
-  // 委託会社車両も検索
+  if(v){if(!v[field])v[field]={};v[field].exp=val;saveLocal();renderDashboard();return;}
   companies.forEach(c=>{(c.vehicles||[]).forEach(cv=>{if(cv.id==id){if(!cv[field])cv[field]={};cv[field].exp=val;}});});
-  saveLocal();saveCompanies();renderVehicles(currentOfficeFilter);renderStorage();renderDashboard();
+  saveLocal();renderDashboard();
 }
 
 // ====== ダッシュボード ======
@@ -2580,6 +2578,9 @@ function renderDashboard(){
   const activeGai=activeDrivers.filter(d=>d.type==='外注').length;
   const coDrCount=companies.reduce((s,c)=>s+(c.drivers||[]).length,0);
   document.getElementById('dash-stats').innerHTML=`<div class="stat-card"><div class="stat-label">総ドライバー数</div><div class="stat-value">${activeDrivers.length+coDrCount}</div><div class="stat-sub" style="line-height:1.6">社員${activeEmp} 外注${activeGai}<br>委託会社 ${coDrCount}名</div></div><div class="stat-card"><div class="stat-label">総車両数</div><div class="stat-value">${allVehicles.length}</div><div class="stat-sub" style="line-height:1.6">社有${selfSyayu} 持込${selfMochikomi}${selfOther?' 他'+selfOther:''}<br>委託会社 ${coVehicles.length}台</div></div><div class="stat-card"><div class="stat-label">書類 期限切れ</div><div class="stat-value" style="color:#e53935">${ev+ed}</div><div class="stat-sub">車両${ev} / 免許${ed}</div></div><div class="stat-card"><div class="stat-label">車両書類 30日以内</div><div class="stat-value" style="color:#fb8c00">${wv}</div><div class="stat-sub">要注意</div></div>`;
+  // サイドバー通知バッジ更新
+  var dashBadge=document.getElementById('dash-alert-badge');
+  if(dashBadge){var total=ev+ed;dashBadge.textContent=total>0?total:'';dashBadge.style.display=total>0?'':'none';}
   // === 期限カウントダウン ===
   let cdItems=[];
   allVehicles.forEach(v=>{
