@@ -4984,9 +4984,17 @@ function pdfZoom(prefix,dir){
   var wrap=document.getElementById(prefix+'-pdf-wrap');if(!wrap) return;
   var iframe=wrap.querySelector('iframe');if(!iframe) return;
   var cur=_pdfZoomLevels[prefix]||200;
+  // ズーム前の中心比率を記録
+  var cx=(wrap.scrollLeft+wrap.clientWidth/2)/wrap.scrollWidth;
+  var cy=(wrap.scrollTop+wrap.clientHeight/2)/wrap.scrollHeight;
   cur=Math.max(100,Math.min(400,cur+dir*50));
   _pdfZoomLevels[prefix]=cur;
   iframe.style.width=cur+'%';iframe.style.height=cur+'%';
+  // ズーム後に中心を維持
+  requestAnimationFrame(function(){
+    wrap.scrollLeft=cx*wrap.scrollWidth-wrap.clientWidth/2;
+    wrap.scrollTop=cy*wrap.scrollHeight-wrap.clientHeight/2;
+  });
 }
 function initPdfDrag(prefix){
   var wrap=document.getElementById(prefix+'-pdf-wrap');
