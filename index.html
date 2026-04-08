@@ -11190,6 +11190,15 @@ function toggleDarkMode(){
 }
 initDarkMode();
 
+// 住所フィールドでEnterキー → 郵便番号自動変換
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Enter') return;
+  var el=e.target;if(!el||el.tagName!=='INPUT') return;
+  var id=el.id;
+  var map={'d-addr':'d-zip','cm-addr':'cm-zip','cd-addr':'cd-zip','sf-addr':'sf-zip'};
+  if(map[id]){e.preventDefault();autoAddrToZip(el,map[id]);}
+});
+
 // ブラウザズーム無効化（Ctrl+ホイール、Ctrl+/Ctrl-）
 document.addEventListener('wheel',function(e){if(e.ctrlKey||e.metaKey){e.preventDefault();}},{passive:false});
 document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&(e.key==='+'||e.key==='-'||e.key==='='||e.key==='0')){e.preventDefault();}});
