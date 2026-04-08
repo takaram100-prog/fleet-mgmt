@@ -11282,22 +11282,22 @@ function renderCalendar(){
     addEvent(key,name,doc,kind);
   }
   drivers.filter(function(d){return !d.status||d.status==='在籍';}).forEach(function(d){
-    collectExpiries(d.licenseExpiry,d.name,'免許証','driver');
-    collectExpiries(d.healthExpiry,d.name,'健康診断書','driver');
+    collectExpiries(d.licenseExpiry||d.license?.exp,d.name,'免許証','driver');
+    collectExpiries(d.healthExpiry||d.other?.exp,d.name,'健康診断書','driver');
   });
   vehicles.filter(function(v){return !v.status||v.status!=='廃車';}).forEach(function(v){
-    collectExpiries(v.shakenExpiry,v.plate,'車検','vehicle');
-    collectExpiries(v.jibaisekiExpiry,v.plate,'自賠責','vehicle');
-    collectExpiries(v.insuranceExpiry,v.plate,'任意保険','vehicle');
+    collectExpiries(v.shakenExpiry||v.shaken?.exp,v.plate,'車検','vehicle');
+    collectExpiries(v.jibaisekiExpiry||v.jibai?.exp,v.plate,'自賠責','vehicle');
+    collectExpiries(v.insuranceExpiry||v.nin?.exp,v.plate,'任意保険','vehicle');
   });
   companies.forEach(function(c){
     (c.drivers||[]).forEach(function(d){
       if(d.status==='退職') return;
-      collectExpiries(d.licenseExpiry,d.name+' ['+c.name+']','免許証','driver');
+      collectExpiries(d.licenseExpiry||d.license?.exp,d.name+' ['+c.name+']','免許証','driver');
     });
     (c.vehicles||[]).forEach(function(v){
-      collectExpiries(v.shakenExpiry,v.plate+' ['+c.name+']','車検','vehicle');
-      collectExpiries(v.insuranceExpiry,v.plate+' ['+c.name+']','任意保険','vehicle');
+      collectExpiries(v.shakenExpiry||v.shaken?.exp,v.plate+' ['+c.name+']','車検','vehicle');
+      collectExpiries(v.insuranceExpiry||v.nin?.exp,v.plate+' ['+c.name+']','任意保険','vehicle');
     });
   });
 
@@ -11308,7 +11308,8 @@ function renderCalendar(){
     html+='<div style="padding:6px 4px;text-align:center;font-size:10px;font-weight:600;background:#f5f5f5;color:'+(i===0?'#c62828':i===6?'#1565c0':'#555')+'">'+d+'</div>';
   });
   // 空セル
-  for(var s=0;s<startDow;s++) html+='<div style="background:#fafafa;min-height:70px"></div>';
+  // 空セル
+  for(var s=0;s<startDow;s++) html+='<div style="background:#fafafa;min-height:80px"></div>';
   // 日付セル
   for(var day=1;day<=daysInMonth;day++){
     var dateKey=calYear+'-'+String(calMonth+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
@@ -11316,27 +11317,24 @@ function renderCalendar(){
     var isToday=cellDate.getTime()===today.getTime();
     var dow=(startDow+day-1)%7;
     var evts=events[dateKey]||[];
-    // その日が期限日のイベント → 緑ドット
-    // 過去の期限 → 赤（today基準で判定）
-    var dots='';
+    var evtHtml='';
     if(evts.length){
       var diffMs=cellDate.getTime()-today.getTime();
       var diffDays=Math.round(diffMs/86400000);
-      var color=diffDays<0?'#c62828':diffDays<=7?'#e65100':diffDays<=30?'#f9a825':'#2e7d32';
-      dots='<div style="display:flex;gap:2px;flex-wrap:wrap;justify-content:center;margin-top:2px">';
-      var maxDots=Math.min(evts.length,5);
-      for(var di=0;di<maxDots;di++) dots+='<span style="width:6px;height:6px;border-radius:50%;background:'+color+'"></span>';
-      if(evts.length>5) dots+='<span style="font-size:7px;color:'+color+'">+'+((evts.length-5))+'</span>';
-      dots+='</div>';
+      var bg=diffDays<0?'#ffcdd2':diffDays<=7?'#ffe0b2':diffDays<=30?'#fff9c4':'#c8e6c9';
+      var tc=diffDays<0?'#b71c1c':diffDays<=7?'#e65100':diffDays<=30?'#f57f17':'#2e7d32';
+      var maxShow=3;
+      evts.slice(0,maxShow).forEach(function(e){
+        var icon=e.kind==='driver'?'👤':'🚗';
+        var shortName=e.name.length>6?e.name.substring(0,6)+'…':e.name;
+        evtHtml+='<div style="font-size:8px;line-height:1.3;padding:1px 3px;margin-top:1px;border-radius:3px;background:'+bg+';color:'+tc+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(e.name)+' '+e.doc+'">'+icon+shortName+' '+e.doc+'</div>';
+      });
+      if(evts.length>maxShow) evtHtml+='<div style="font-size:7px;color:#888;text-align:center;margin-top:1px">他'+(evts.length-maxShow)+'件</div>';
     }
-    var bg=isToday?'#e3f2fd':'#fff';
+    var cellBg=isToday?'#e3f2fd':'#fff';
     var border=isToday?'2px solid #1565c0':'none';
     var cursor=evts.length?'pointer':'default';
-    html+='<div style="background:'+bg+';min-height:70px;padding:4px;border:'+border+';cursor:'+cursor+'" onclick="calendarShowDetail(\''+dateKey+'\')">';
-    html+='<div style="font-size:11px;font-weight:'+(isToday?'700':'400')+';color:'+(dow===0?'#c62828':dow===6?'#1565c0':'#333')+'">'+day+'</div>';
-    html+=dots;
-    if(evts.length) html+='<div style="font-size:8px;color:#888;margin-top:1px;text-align:center">'+evts.length+'件</div>';
-    html+='</div>';
+    html+='<div style="background:'+cellBg+';min-height:80px;padding:3px;border:'+border+';cursor:'+cursor+';overflow:hidden" onclick="calendarShowDetail(\''+dateKey+'\')"><div style="font-size:10px;font-weight:'+(isToday?'700':'400')+';color:'+(dow===0?'#c62828':dow===6?'#1565c0':'#333')+';margin-bottom:1px">'+day+'</div>'+evtHtml+'</div>';
   }
   grid.innerHTML=html;
   document.getElementById('cal-detail').style.display='none';
@@ -11355,17 +11353,17 @@ function calendarShowDetail(dateKey){
     }
   }
   drivers.filter(function(d){return !d.status||d.status==='在籍';}).forEach(function(d){
-    check(d.licenseExpiry,d.name,'免許証','driver');
-    check(d.healthExpiry,d.name,'健康診断書','driver');
+    check(d.licenseExpiry||d.license?.exp,d.name,'免許証','driver');
+    check(d.healthExpiry||d.other?.exp,d.name,'健康診断書','driver');
   });
   vehicles.filter(function(v){return !v.status||v.status!=='廃車';}).forEach(function(v){
-    check(v.shakenExpiry,v.plate,'車検','vehicle');
-    check(v.jibaisekiExpiry,v.plate,'自賠責','vehicle');
-    check(v.insuranceExpiry,v.plate,'任意保険','vehicle');
+    check(v.shakenExpiry||v.shaken?.exp,v.plate,'車検','vehicle');
+    check(v.jibaisekiExpiry||v.jibai?.exp,v.plate,'自賠責','vehicle');
+    check(v.insuranceExpiry||v.nin?.exp,v.plate,'任意保険','vehicle');
   });
   companies.forEach(function(c){
-    (c.drivers||[]).forEach(function(d){if(d.status!=='退職')check(d.licenseExpiry,d.name+' ['+c.name+']','免許証','driver');});
-    (c.vehicles||[]).forEach(function(v){check(v.shakenExpiry,v.plate+' ['+c.name+']','車検','vehicle');check(v.insuranceExpiry,v.plate+' ['+c.name+']','任意保険','vehicle');});
+    (c.drivers||[]).forEach(function(d){if(d.status!=='退職')check(d.licenseExpiry||d.license?.exp,d.name+' ['+c.name+']','免許証','driver');});
+    (c.vehicles||[]).forEach(function(v){check(v.shakenExpiry||v.shaken?.exp,v.plate+' ['+c.name+']','車検','vehicle');check(v.insuranceExpiry||v.nin?.exp,v.plate+' ['+c.name+']','任意保険','vehicle');});
   });
   var detail=document.getElementById('cal-detail');
   var title=document.getElementById('cal-detail-title');
