@@ -1491,7 +1491,7 @@ function cleanUnassignedFiles(){
   if(unassignedFiles.length!==before) console.log('[cleanUnassigned] removed '+(before-unassignedFiles.length)+' registered/duplicate files');
 }
 const LOGO_THUMB='data:image/jpeg;base64,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';
-function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_office_areas',JSON.stringify(officeAreas));localStorage.setItem('fleet_office_post',JSON.stringify(officePostMap));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));isDirty=true;scheduleAutoSave();}
+function saveLocal(){localStorage.setItem('fleet_vehicles',JSON.stringify(vehicles));localStorage.setItem('fleet_drivers',JSON.stringify(drivers));localStorage.setItem('fleet_offices',JSON.stringify(offices));localStorage.setItem('fleet_office_areas',JSON.stringify(officeAreas));localStorage.setItem('fleet_office_post',JSON.stringify(officePostMap));localStorage.setItem('fleet_companies',JSON.stringify(companies));localStorage.setItem('fleet_unassigned',JSON.stringify(unassignedFiles.filter(function(f){return !f._inbox;})));localStorage.setItem('fleet_doc_exclude',JSON.stringify(docExclude));isDirty=true;scheduleAutoSave();}
 function parsePlate(plate){if(!plate)return{chiiki:'',bunrui:'',kana:'',num:''};const p=plate.trim().replace(/\s+/g,' ').split(' ');if(p.length>=4)return{chiiki:p[0],bunrui:p[1],kana:p[2],num:p[3]};const m=plate.match(/^([^\d]+?)(\d{3})\s*([あ-ん])\s*(\d+)/);if(m)return{chiiki:m[1].trim(),bunrui:m[2],kana:m[3],num:m[4]};return{chiiki:plate,bunrui:'',kana:'',num:''};}
 
 // ====== 同期 ======
@@ -1674,7 +1674,7 @@ function buildSavePayload(){
   return {action:'saveAll',drivers,vehicles,companies,clientTimestamp:ts,settings:{
     _lastSaveTs:ts,
     mailTasks:mailTasks,officeAreas:officeAreas,officePostMap:officePostMap,
-    unassignedFiles:unassignedFiles,docExclude:docExclude,
+    unassignedFiles:unassignedFiles.filter(function(f){return !f._inbox;}),docExclude:docExclude,
     mailSettings:JSON.parse(localStorage.getItem('fleet_mail_settings')||'{}'),
     stampSettings:JSON.parse(localStorage.getItem('fleet_stamp_settings')||'{}'),
     alertSettings:JSON.parse(localStorage.getItem('fleet_alert_settings')||'{}'),
@@ -4813,10 +4813,11 @@ function saveVehicle(){
       saveLocal(); renderFileMgr();
     })();
   }
-  saveLocal();addLog(editingVehicleId?'編集':'追加','車両: '+plate);closeModal('vehicle-modal');renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
-  // 未分類ファイル振り分け（カテゴリ付き差替え対応）
+  saveLocal();addLog(editingVehicleId?'編集':'追加','車両: '+plate);
+  // 未分類ファイル振り分け（closeModalの前に実行 — closeModalのオーバーライドが_pendingBulkFileAssignをクリアするため）
   var savedVObj=vehicles.find(v=>v.id===obj.id)||obj;
   processPendingFiles(savedVObj,'vehicle');
+  closeModal('vehicle-modal');renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
   if(vStatus==='廃車') renderArchive();
 }
 var driverNavList=[];
@@ -5035,9 +5036,7 @@ function renderPendingCategoryUI(kind){
   var isVehicle=kind==='vehicle';
   var cats=isVehicle?['車検証','自賠責','任意保険','その他']:['免許証（表）','免許証（裏）','免許証（表裏）','健康診断書','その他'];
   var containerId=isVehicle?'v-pending-cat':'d-pending-cat';
-  // 既存のUIがあれば削除
   var old=document.getElementById(containerId);if(old)old.remove();
-  // ドロップゾーンの前に挿入
   var dropZone=document.getElementById(isVehicle?'v-files-zone':'d-files-zone');
   if(!dropZone) return;
   var container=document.createElement('div');
@@ -5052,20 +5051,24 @@ function renderPendingCategoryUI(kind){
     var guessed=f.category||guessFileCategoryByName(f.name,isVehicle?'vehicle':'driver')||'';
     var opts=cats.map(function(c){return '<option value="'+c+'"'+(guessed===c?' selected':'')+'>'+c+'</option>';}).join('');
     var previewFn=isVehicle?'openVmPreview':'openDmPreview';
+    var showOther=guessed==='その他'?'':'display:none;';
     html+='<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding:4px 0'+(i>0?';border-top:1px solid #FFE082':'')+'">';
-    // サムネ
     html+='<div style="width:36px;height:28px;flex-shrink:0;border:1px solid #ddd;border-radius:3px;overflow:hidden;cursor:pointer" onclick="'+previewFn+'(\''+fid+'\',\''+esc(f.name)+'\',\'\')">';
     if(thumbSrc&&!isPdf) html+='<img src="'+thumbSrc+'" style="width:100%;height:100%;object-fit:cover">';
     else html+='<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#f5f5f5;font-size:7px;color:#888">'+(isPdf?'PDF':'FILE')+'</div>';
     html+='</div>';
-    // ファイル名
     html+='<div style="flex:1;min-width:0;font-size:10px;color:#555;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(f.name)+'">'+esc(f.name)+'</div>';
-    // カテゴリ選択
-    html+='<select class="pending-cat-select" data-idx="'+idx+'" style="padding:3px 6px;font-size:10px;border:1px solid #FFE082;border-radius:4px;background:#fff;min-width:100px"><option value="">未分類</option>'+opts+'</select>';
+    html+='<select class="pending-cat-select" data-idx="'+idx+'" onchange="pendingCatChange(this)" style="padding:3px 6px;font-size:10px;border:1px solid #FFE082;border-radius:4px;background:#fff;min-width:100px"><option value="">未分類</option>'+opts+'</select>';
+    html+='<input type="text" class="pending-cat-other" data-idx="'+idx+'" placeholder="書類名を入力" style="'+showOther+'padding:3px 6px;font-size:10px;border:1px solid #FFE082;border-radius:4px;width:100px">';
     html+='</div>';
   });
   container.innerHTML=html;
   dropZone.parentElement.insertBefore(container,dropZone);
+}
+function pendingCatChange(sel){
+  var idx=sel.dataset.idx;
+  var otherInput=sel.parentElement.querySelector('.pending-cat-other[data-idx="'+idx+'"]');
+  if(otherInput) otherInput.style.display=sel.value==='その他'?'':'none';
 }
 
 // カテゴリ付きファイル添付（重複差替え対応）
@@ -5074,7 +5077,7 @@ function attachFileWithReplace(target, file, category){
   var newEntry={
     name:file.name||'',type:file.type||'',url:file.url||'',
     fileId:file.fileId||'',dataUrl:file.dataUrl||'',
-    category:category,uploadedAt:new Date().toISOString()
+    category:category,otherName:file.otherName||'',uploadedAt:new Date().toISOString()
   };
   if(!category){target.attachedFiles.push(newEntry);return;}
   // 免許証の特殊処理: （表）+（裏）=（表裏）
@@ -5093,13 +5096,14 @@ function attachFileWithReplace(target, file, category){
     target.attachedFiles=target.attachedFiles.filter(function(f){return f.category!==category&&f.category!=='免許証（表裏）';});
     target.attachedFiles.push(newEntry);return;
   }
-  // 一般カテゴリ: 同一カテゴリを差替え
+  // 一般カテゴリ: 同一カテゴリを差替え（「その他」はotherNameも一致時のみ）
   var replaced=false;
   for(var i=0;i<target.attachedFiles.length;i++){
-    if(target.attachedFiles[i].category===category){
-      // 旧ファイルをソフト削除
-      if(target.attachedFiles[i].fileId){
-        fetch(API_URL,{method:'POST',body:JSON.stringify({action:'softDelete',fileId:target.attachedFiles[i].fileId})}).catch(function(){});
+    var ef=target.attachedFiles[i];
+    if(ef.category===category){
+      if(category==='その他'&&ef.otherName!==newEntry.otherName) continue; // その他は名前違いなら共存
+      if(ef.fileId){
+        fetch(API_URL,{method:'POST',body:JSON.stringify({action:'softDelete',fileId:ef.fileId})}).catch(function(){});
       }
       target.attachedFiles[i]=newEntry;replaced=true;break;
     }
@@ -5117,16 +5121,24 @@ function processPendingFiles(target,kind){
   var catSelects=document.querySelectorAll('.pending-cat-select');
   var catMap={};
   catSelects.forEach(function(sel){catMap[sel.dataset.idx]=sel.value;});
+  // その他の詳細テキスト取得
+  var otherMap={};
+  document.querySelectorAll('.pending-cat-other').forEach(function(inp){otherMap[inp.dataset.idx]=inp.value.trim();});
   // 大きいインデックスから削除
   idxs.sort(function(a,b){return b-a;});
   idxs.forEach(function(idx){
     var f=unassignedFiles[idx];
     if(!f) return;
     var cat=catMap[idx]||'';
+    var otherName=otherMap[idx]||'';
+    // 「その他」の場合、詳細名を使用
+    var displayCat=cat==='その他'&&otherName?otherName:cat;
     var ownerName=kind==='driver'?(target.name||''):(target.plate||'');
-    var renamed=cat?autoRenameFile(f.name,cat,'',ownerName):f.name;
-    attachFileWithReplace(target,{name:renamed,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||''},cat);
-    if(f.fileId&&cat) renameFileOnDrive(f.fileId,renamed);
+    var ext=(f.name||'').match(/\.[^.]+$/)?.[0]||'.pdf';
+    // フリート命名規則: 「カテゴリ_所有者名.拡張子」
+    var renamed=displayCat?(displayCat+'_'+ownerName.replace(/\s/g,'')+ext):f.name;
+    attachFileWithReplace(target,{name:renamed,type:f.type||'',url:f.url||'',fileId:f.fileId||'',dataUrl:f.dataUrl||'',category:cat,otherName:otherName},cat);
+    if(f.fileId&&displayCat) renameFileOnDrive(f.fileId,renamed);
     unassignedFiles.splice(idx,1);
   });
   window._pendingBulkFileAssign=null;
@@ -5355,10 +5367,13 @@ function saveDriver(keepOpen){
       renderFileMgr();
     })();
   }
-  saveLocal();addLog(editingDriverId?'編集':'追加','ドライバー: '+name);if(!keepOpen){closeModal('driver-modal');}renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
-  // 未分類ファイル振り分け（カテゴリ付き差替え対応）
+  saveLocal();addLog(editingDriverId?'編集':'追加','ドライバー: '+name);
+  // 未分類ファイル振り分け（closeModalの前に実行）
   var savedObj=drivers.find(d=>d.id===obj.id)||obj;
   processPendingFiles(savedObj,'driver');
+  // 受信ボックスフロー: 車両ファイルがあれば強制的にモーダルを閉じて車両編集へ遷移
+  var forceClose=window._inboxSaveQueue&&window._inboxSaveQueue.vehicleFiles&&window._inboxSaveQueue.vehicleFiles.length>0;
+  if(!keepOpen||forceClose){closeModal('driver-modal');}renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
   if(status==='退職'||status==='休止'){
     renderArchive();
     // ★ 退職メールタスク自動生成（既存ドライバーのステータス変更時のみ）
