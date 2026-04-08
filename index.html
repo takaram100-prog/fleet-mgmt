@@ -4798,18 +4798,41 @@ function openVehicleModal(id){
 function saveVehicle(keepOpen){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
 
-  // 車両番号重複チェック
+  // 車両番号重複チェック（ドライバー情報付き）
   if(!editingVehicleId){
+    var dupMessages=[];
     const dup=vehicles.find(v=>v.plate===plate);
-    if(!dup){
-      let coDup=null;
-      companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{if(v.plate===plate)coDup=v;});});
-      if(coDup){
-        if(!confirm('委託会社にも同じ車両番号「'+plate+'」が登録されています。\n\nそれでも登録しますか？')) return;
-      }
-    }
     if(dup){
-      if(!confirm('車両番号「'+plate+'」は既に登録されています（'+dup.office+'）。\n\nそれでも登録しますか？')) return;
+      var driverInfo=dup.driver?' → 担当: '+dup.driver:'';
+      dupMessages.push('自社車両「'+plate+'」（'+dup.office+'）'+driverInfo);
+    }
+    var coDups=[];
+    companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{
+      if(v.plate===plate){
+        var coDriver=v.driver||'';
+        if(!coDriver&&v.driverId){var cd=(c.drivers||[]).find(d=>d.id==v.driverId);if(cd)coDriver=cd.name;}
+        coDups.push({plate:v.plate,company:c.name,office:v.office||(v.offices||[]).join('・'),driver:coDriver});
+      }
+    });});
+    coDups.forEach(function(cd){
+      var driverInfo=cd.driver?' → 担当: '+cd.driver:'';
+      dupMessages.push('委託車両「'+cd.plate+'」['+cd.company+']（'+cd.office+'）'+driverInfo);
+    });
+    if(dupMessages.length){
+      var msg='同じ車両番号「'+plate+'」が既に登録されています:\n\n'+dupMessages.join('\n')+'\n';
+      // ドライバー重複チェック
+      var newDriverVal=document.getElementById('v-driver').value||'';
+      var newDriverName='';
+      if(newDriverVal.startsWith('cd:')) newDriverName=newDriverVal.replace('cd:','');
+      else if(newDriverVal){var dr=drivers.find(d=>d.id==newDriverVal);if(dr)newDriverName=dr.name;}
+      if(newDriverName){
+        var existingDrivers=[];
+        if(dup&&dup.driver) existingDrivers.push(dup.driver+'（自社）');
+        coDups.forEach(function(cd){if(cd.driver)existingDrivers.push(cd.driver+'（'+cd.company+'）');});
+        if(existingDrivers.length) msg+='\n⚠ ドライバー重複の可能性:\n  登録しようとしている: '+newDriverName+'\n  既存: '+existingDrivers.join(', ')+'\n';
+      }
+      msg+='\nそれでも登録しますか？';
+      if(!confirm(msg)) return;
     }
   }
 
@@ -11147,6 +11170,10 @@ function toggleDarkMode(){
   if(toggle) toggle.checked=isDark;
 }
 initDarkMode();
+
+// ブラウザズーム無効化（Ctrl+ホイール、Ctrl+/Ctrl-）
+document.addEventListener('wheel',function(e){if(e.ctrlKey||e.metaKey){e.preventDefault();}},{passive:false});
+document.addEventListener('keydown',function(e){if((e.ctrlKey||e.metaKey)&&(e.key==='+'||e.key==='-'||e.key==='='||e.key==='0')){e.preventDefault();}});
 
 // Ctrl+ホイールでブラウザ全体のズームを防止
 document.addEventListener('wheel',function(e){
