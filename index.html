@@ -1049,6 +1049,7 @@ body.modal-open{overflow:hidden}
       <div id="vm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
           <span id="vm-preview-title" style="font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+          <button onclick="expandVmPreview()" title="全画面で表示" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:0 6px">↗</button>
           <button onclick="closeVmPreview()" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
         </div>
         <div id="vm-preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0"></div>
@@ -1101,6 +1102,7 @@ body.modal-open{overflow:hidden}
       <div id="dm-preview-pane" style="width:0;min-width:0;background:#1a1a1a;display:none;flex-direction:column;overflow:hidden;border-right:1px solid #333;transition:width .2s">
         <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 10px;background:#222;border-bottom:1px solid #333">
           <span id="dm-preview-title" style="font-size:11px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1"></span>
+          <button onclick="expandDmPreview()" title="全画面で表示" style="background:none;border:none;color:#aaa;cursor:pointer;font-size:14px;padding:0 6px">↗</button>
           <button onclick="closeDmPreview()" style="background:none;border:none;color:#888;cursor:pointer;font-size:14px;padding:0 4px">✕</button>
         </div>
         <div id="dm-preview-body" style="flex:1;overflow:auto;display:flex;align-items:center;justify-content:center;min-height:0"></div>
@@ -4921,6 +4923,7 @@ function updateDriverNavLabel(){
 
 // ====== モーダル内プレビューペイン ======
 function openDmPreview(fileId, name, dataUrl){
+  window._dmPreviewFile={fileId:fileId,name:name,dataUrl:dataUrl};
   var pane=document.getElementById('dm-preview-pane');
   var body=document.getElementById('dm-preview-body');
   var title=document.getElementById('dm-preview-title');
@@ -4953,6 +4956,16 @@ function openDmPreview(fileId, name, dataUrl){
   pane.style.minWidth='300px';
   if(modal) modal.classList.add('modal-wide');
 }
+// 2カラムプレビュー→全画面展開
+function expandDmPreview(){
+  var f=window._dmPreviewFile;if(!f) return;
+  openFilePreview(f.fileId?'https://drive.google.com/file/d/'+f.fileId+'/view':'', f.name||'', f.dataUrl||'', f.fileId||'');
+}
+function expandVmPreview(){
+  var f=window._vmPreviewFile;if(!f) return;
+  openFilePreview(f.fileId?'https://drive.google.com/file/d/'+f.fileId+'/view':'', f.name||'', f.dataUrl||'', f.fileId||'');
+}
+
 // 画像ズーム+ドラッグ移動
 function initZoomDrag(wrapId,imgId){
   var wrap=document.getElementById(wrapId);
@@ -5054,6 +5067,7 @@ function renderDmPreviewThumbs(){
 
 // ====== 車両モーダル内プレビューペイン ======
 function openVmPreview(fileId, name, dataUrl){
+  window._vmPreviewFile={fileId:fileId,name:name,dataUrl:dataUrl};
   var pane=document.getElementById('vm-preview-pane');
   var body=document.getElementById('vm-preview-body');
   var title=document.getElementById('vm-preview-title');
