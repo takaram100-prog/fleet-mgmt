@@ -5368,6 +5368,22 @@ function saveDriver(keepOpen){
     })();
   }
   saveLocal();addLog(editingDriverId?'編集':'追加','ドライバー: '+name);
+  // ★ ドライバーの営業所変更→搭乗車両の営業所を同期
+  if(editingDriverId){
+    var updatedVehicles=0;
+    vehicles.forEach(function(v){
+      if(v.driverId&&String(v.driverId)===String(obj.id)){
+        // 車両の営業所をドライバーの営業所に同期
+        var driverOffices=obj.offices||[obj.office].filter(Boolean);
+        if(driverOffices.length){
+          v.office=driverOffices[0];
+          v.offices=driverOffices.slice();
+          updatedVehicles++;
+        }
+      }
+    });
+    if(updatedVehicles) saveLocal();
+  }
   // 未分類ファイル振り分け（closeModalの前に実行）
   var savedObj=drivers.find(d=>d.id===obj.id)||obj;
   processPendingFiles(savedObj,'driver');
