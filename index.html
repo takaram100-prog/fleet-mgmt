@@ -5015,9 +5015,28 @@ function expandVmPreview(){
 
 // PDFドラッグ移動用ラッパー生成
 function buildDraggablePdf(src,prefix){
-  return '<iframe src="'+src+'" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
+  return '<div style="width:100%;height:100%;position:relative">'+
+    '<iframe src="'+src+'" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>'+
+    '<div class="ctrl-zoom-guard" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:10;display:none"></div>'+
+  '</div>';
 }
 function initPdfDrag(prefix){}
+
+// Ctrl押下中にiframe上の透明ガードを表示（ブラウザズームをブロック）
+document.addEventListener('keydown',function(e){
+  if(e.key==='Control'||e.key==='Meta'){
+    document.querySelectorAll('.ctrl-zoom-guard').forEach(function(g){g.style.display='block';});
+  }
+});
+document.addEventListener('keyup',function(e){
+  if(e.key==='Control'||e.key==='Meta'){
+    document.querySelectorAll('.ctrl-zoom-guard').forEach(function(g){g.style.display='none';});
+  }
+});
+// ウィンドウがフォーカスを失った場合もガードを解除
+window.addEventListener('blur',function(){
+  document.querySelectorAll('.ctrl-zoom-guard').forEach(function(g){g.style.display='none';});
+});
 
 // モーダル内Ctrl+ホイールでプレビューペインのみ拡大（ブラウザズーム無効化）
 var _modalPreviewZoom={dm:1,vm:1};
