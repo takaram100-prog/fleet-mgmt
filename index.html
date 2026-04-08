@@ -4970,76 +4970,30 @@ function expandVmPreview(){
 
 // PDFドラッグ移動用ラッパー生成
 function buildDraggablePdf(src,prefix){
-  return '<div id="'+prefix+'-pdf-wrap" style="width:100%;height:100%;overflow:auto;position:relative;cursor:grab">'+
-    '<div id="'+prefix+'-pdf-scaler" style="width:100%;height:100%;transform-origin:0 0;transform:scale(1);position:absolute;top:0;left:0">'+
-      '<iframe src="'+src+'" style="width:100%;height:100%;border:none;pointer-events:none" allow="autoplay"></iframe>'+
-    '</div>'+
-    '<div id="'+prefix+'-pdf-spacer" style="width:100%;height:100%;visibility:hidden;pointer-events:none"></div>'+
-    '<div id="'+prefix+'-pdf-overlay" style="position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;cursor:grab;display:none"></div>'+
-    '<div style="position:sticky;bottom:8px;left:calc(100% - 80px);z-index:2;display:flex;gap:4px;width:68px">'+
-      '<button onclick="pdfZoom(\''+prefix+'\',-1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>'+
-      '<span id="'+prefix+'-pdf-zoom-label" style="color:#fff;font-size:10px;background:rgba(0,0,0,.5);border-radius:10px;padding:2px 6px;display:flex;align-items:center">100%</span>'+
-      '<button onclick="pdfZoom(\''+prefix+'\',1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:16px;font-weight:700;line-height:1">＋</button>'+
+  return '<div id="'+prefix+'-pdf-wrap" style="width:100%;height:100%;position:relative;overflow:hidden">'+
+    '<iframe id="'+prefix+'-pdf-iframe" src="'+src+'" style="width:100%;height:100%;border:none;transform-origin:0 0" allow="autoplay"></iframe>'+
+    '<div style="position:absolute;bottom:8px;right:8px;z-index:2;display:flex;gap:4px;align-items:center">'+
+      '<button onclick="event.stopPropagation();pdfZoom(\''+prefix+'\',-1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:16px;font-weight:700;line-height:1">−</button>'+
+      '<span id="'+prefix+'-pdf-zoom-label" style="color:#fff;font-size:10px;background:rgba(0,0,0,.5);border-radius:10px;padding:2px 6px">100%</span>'+
+      '<button onclick="event.stopPropagation();pdfZoom(\''+prefix+'\',1)" style="width:30px;height:30px;border-radius:50%;border:none;background:rgba(0,0,0,.7);color:#fff;cursor:pointer;font-size:16px;font-weight:700;line-height:1">＋</button>'+
     '</div>'+
   '</div>';
 }
 var _pdfZoomLevels={};
 function pdfZoom(prefix,dir){
   var wrap=document.getElementById(prefix+'-pdf-wrap');if(!wrap) return;
-  var scaler=document.getElementById(prefix+'-pdf-scaler');if(!scaler) return;
-  var spacer=document.getElementById(prefix+'-pdf-spacer');
+  var iframe=document.getElementById(prefix+'-pdf-iframe');if(!iframe) return;
   var label=document.getElementById(prefix+'-pdf-zoom-label');
   var cur=_pdfZoomLevels[prefix]||1;
-  var cx=(wrap.scrollLeft+wrap.clientWidth/2)/(wrap.scrollWidth||1);
-  var cy=(wrap.scrollTop+wrap.clientHeight/2)/(wrap.scrollHeight||1);
   cur=Math.max(0.5,Math.min(3,cur+dir*0.25));
   _pdfZoomLevels[prefix]=cur;
-  scaler.style.transform='scale('+cur+')';
-  if(spacer){spacer.style.width=(cur*100)+'%';spacer.style.height=(cur*100)+'%';}
+  iframe.style.transform='scale('+cur+')';
+  iframe.style.width=(100/cur)+'%';
+  iframe.style.height=(100/cur)+'%';
   if(label) label.textContent=Math.round(cur*100)+'%';
-  requestAnimationFrame(function(){
-    wrap.scrollLeft=cx*wrap.scrollWidth-wrap.clientWidth/2;
-    wrap.scrollTop=cy*wrap.scrollHeight-wrap.clientHeight/2;
-  });
 }
 function initPdfDrag(prefix){
-  var wrap=document.getElementById(prefix+'-pdf-wrap');
-  if(!wrap) return;
   _pdfZoomLevels[prefix]=1;
-  var dragging=false,startX,startY,scrollL,scrollT;
-  wrap.addEventListener('mousedown',function(e){
-    if(e.target.tagName==='BUTTON') return;
-    e.preventDefault();
-    dragging=true;startX=e.clientX;startY=e.clientY;
-    scrollL=wrap.scrollLeft;scrollT=wrap.scrollTop;
-    wrap.style.cursor='grabbing';
-  });
-  document.addEventListener('mousemove',function(e){
-    if(!dragging) return;
-    wrap.scrollLeft=scrollL-(e.clientX-startX);
-    wrap.scrollTop=scrollT-(e.clientY-startY);
-  });
-  document.addEventListener('mouseup',function(){
-    if(!dragging) return;
-    dragging=false;wrap.style.cursor='grab';
-  });
-  var ts={x:0,y:0,sl:0,st:0};
-  wrap.addEventListener('touchstart',function(e){
-    if(e.touches.length!==1) return;
-    ts.x=e.touches[0].clientX;ts.y=e.touches[0].clientY;
-    ts.sl=wrap.scrollLeft;ts.st=wrap.scrollTop;
-  },{passive:true});
-  wrap.addEventListener('touchmove',function(e){
-    if(e.touches.length!==1) return;
-    wrap.scrollLeft=ts.sl-(e.touches[0].clientX-ts.x);
-    wrap.scrollTop=ts.st-(e.touches[0].clientY-ts.y);
-  },{passive:true});
-  // マウスホイールでズーム
-  wrap.addEventListener('wheel',function(e){
-    if(!e.ctrlKey) return;
-    e.preventDefault();
-    pdfZoom(prefix, e.deltaY<0?1:-1);
-  },{passive:false});
 }
 
 // 画像ズーム+ドラッグ移動
