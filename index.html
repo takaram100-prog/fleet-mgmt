@@ -4933,13 +4933,15 @@ function openDmPreview(fileId, name, dataUrl){
   var isPdf=(name||'').match(/\.pdf$/i);
   var isImg=(name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
   if(isPdf&&fileId){
-    body.innerHTML='<iframe src="https://drive.google.com/file/d/'+fileId+'/preview" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
+    body.innerHTML=buildDraggablePdf('https://drive.google.com/file/d/'+fileId+'/preview','dm');
+    initPdfDrag('dm');
   } else if(isPdf&&dataUrl){
     try{
       var b64=dataUrl.split(',')[1];var bs=atob(b64);var bytes=new Uint8Array(bs.length);
       for(var i=0;i<bs.length;i++)bytes[i]=bs.charCodeAt(i);
       var blob=new Blob([bytes],{type:'application/pdf'});
-      body.innerHTML='<iframe src="'+URL.createObjectURL(blob)+'" style="width:100%;height:100%;border:none"></iframe>';
+      body.innerHTML=buildDraggablePdf(URL.createObjectURL(blob),'dm');
+      initPdfDrag('dm');
     }catch(e){body.innerHTML='<div style="color:#888;padding:24px;text-align:center">PDFを表示できません</div>';}
   } else if(isImg){
     var src=dataUrl||(fileId?'https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600':'');
@@ -4956,7 +4958,7 @@ function openDmPreview(fileId, name, dataUrl){
   pane.style.minWidth='300px';
   if(modal) modal.classList.add('modal-wide');
 }
-// 2カラムプレビュー→全画面展開
+// 2カラムPDF→全画面展開
 function expandDmPreview(){
   var f=window._dmPreviewFile;if(!f) return;
   openFilePreview(f.fileId?'https://drive.google.com/file/d/'+f.fileId+'/view':'', f.name||'', f.dataUrl||'', f.fileId||'');
@@ -4964,6 +4966,66 @@ function expandDmPreview(){
 function expandVmPreview(){
   var f=window._vmPreviewFile;if(!f) return;
   openFilePreview(f.fileId?'https://drive.google.com/file/d/'+f.fileId+'/view':'', f.name||'', f.dataUrl||'', f.fileId||'');
+}
+
+// PDFドラッグ移動用ラッパー生成
+function buildDraggablePdf(src,prefix){
+  return '<div id="'+prefix+'-pdf-wrap" style="width:100%;height:100%;overflow:auto;position:relative;cursor:grab">'+
+    '<iframe src="'+src+'" style="width:200%;height:200%;border:none;pointer-events:none" allow="autoplay"></iframe>'+
+    '<div id="'+prefix+'-pdf-overlay" style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;cursor:grab"></div>'+
+    '<div style="position:absolute;bottom:8px;right:8px;z-index:2;display:flex;gap:4px">'+
+      '<button onclick="pdfZoom(\''+prefix+'\',-1)" style="width:28px;height:28px;border-radius:50%;border:1px solid #555;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:14px">−</button>'+
+      '<button onclick="pdfZoom(\''+prefix+'\',1)" style="width:28px;height:28px;border-radius:50%;border:1px solid #555;background:rgba(0,0,0,.6);color:#fff;cursor:pointer;font-size:14px">＋</button>'+
+    '</div>'+
+  '</div>';
+}
+var _pdfZoomLevels={};
+function pdfZoom(prefix,dir){
+  var wrap=document.getElementById(prefix+'-pdf-wrap');if(!wrap) return;
+  var iframe=wrap.querySelector('iframe');if(!iframe) return;
+  var cur=_pdfZoomLevels[prefix]||200;
+  cur=Math.max(100,Math.min(400,cur+dir*50));
+  _pdfZoomLevels[prefix]=cur;
+  iframe.style.width=cur+'%';iframe.style.height=cur+'%';
+}
+function initPdfDrag(prefix){
+  var wrap=document.getElementById(prefix+'-pdf-wrap');
+  var overlay=document.getElementById(prefix+'-pdf-overlay');
+  if(!wrap||!overlay) return;
+  _pdfZoomLevels[prefix]=200;
+  var dragging=false,startX,startY,scrollL,scrollT;
+  overlay.addEventListener('mousedown',function(e){
+    e.preventDefault();
+    dragging=true;startX=e.clientX;startY=e.clientY;
+    scrollL=wrap.scrollLeft;scrollT=wrap.scrollTop;
+    overlay.style.cursor='grabbing';
+  });
+  document.addEventListener('mousemove',function(e){
+    if(!dragging) return;
+    wrap.scrollLeft=scrollL-(e.clientX-startX);
+    wrap.scrollTop=scrollT-(e.clientY-startY);
+  });
+  document.addEventListener('mouseup',function(){
+    if(!dragging) return;
+    dragging=false;overlay.style.cursor='grab';
+  });
+  // タッチ対応
+  var ts={x:0,y:0,sl:0,st:0};
+  overlay.addEventListener('touchstart',function(e){
+    if(e.touches.length!==1) return;
+    ts.x=e.touches[0].clientX;ts.y=e.touches[0].clientY;
+    ts.sl=wrap.scrollLeft;ts.st=wrap.scrollTop;
+  },{passive:true});
+  overlay.addEventListener('touchmove',function(e){
+    if(e.touches.length!==1) return;
+    wrap.scrollLeft=ts.sl-(e.touches[0].clientX-ts.x);
+    wrap.scrollTop=ts.st-(e.touches[0].clientY-ts.y);
+  },{passive:true});
+  // 初期位置: 中央に配置
+  setTimeout(function(){
+    wrap.scrollLeft=(wrap.scrollWidth-wrap.clientWidth)/2;
+    wrap.scrollTop=(wrap.scrollHeight-wrap.clientHeight)/4;
+  },500);
 }
 
 // 画像ズーム+ドラッグ移動
@@ -5077,9 +5139,10 @@ function openVmPreview(fileId, name, dataUrl){
   var isPdf=(name||'').match(/\.pdf$/i);
   var isImg=(name||'').match(/\.(jpg|jpeg|png|gif|webp)$/i);
   if(isPdf&&fileId){
-    body.innerHTML='<iframe src="https://drive.google.com/file/d/'+fileId+'/preview" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
+    body.innerHTML=buildDraggablePdf('https://drive.google.com/file/d/'+fileId+'/preview','vm');
+    initPdfDrag('vm');
   } else if(isPdf&&dataUrl){
-    try{var b64=dataUrl.split(',')[1];var bs=atob(b64);var bytes=new Uint8Array(bs.length);for(var i=0;i<bs.length;i++)bytes[i]=bs.charCodeAt(i);var blob=new Blob([bytes],{type:'application/pdf'});body.innerHTML='<iframe src="'+URL.createObjectURL(blob)+'" style="width:100%;height:100%;border:none"></iframe>';}catch(e){body.innerHTML='<div style="color:#888;padding:24px;text-align:center">PDFを表示できません</div>';}
+    try{var b64=dataUrl.split(',')[1];var bs=atob(b64);var bytes=new Uint8Array(bs.length);for(var i=0;i<bs.length;i++)bytes[i]=bs.charCodeAt(i);var blob=new Blob([bytes],{type:'application/pdf'});body.innerHTML=buildDraggablePdf(URL.createObjectURL(blob),'vm');initPdfDrag('vm');}catch(e){body.innerHTML='<div style="color:#888;padding:24px;text-align:center">PDFを表示できません</div>';}
   } else if(isImg){
     var src=dataUrl||(fileId?'https://drive.google.com/thumbnail?id='+fileId+'&sz=w1600':'');
     body.innerHTML='<div id="vm-img-wrap" style="width:100%;height:100%;overflow:auto;cursor:grab;position:relative"><img src="'+src+'" id="vm-img-zoom" style="max-width:100%;max-height:100%;object-fit:contain;display:block;margin:auto;padding:8px;cursor:zoom-in"></div>';
