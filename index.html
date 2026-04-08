@@ -4945,6 +4945,7 @@ function updateDriverNavLabel(){
 // ====== モーダル内プレビューペイン ======
 function openDmPreview(fileId, name, dataUrl){
   window._dmPreviewFile={fileId:fileId,name:name,dataUrl:dataUrl};
+  _modalPreviewZoom.dm=1;
   var pane=document.getElementById('dm-preview-pane');
   var body=document.getElementById('dm-preview-body');
   var title=document.getElementById('dm-preview-title');
@@ -4994,6 +4995,39 @@ function buildDraggablePdf(src,prefix){
   return '<iframe src="'+src+'" style="width:100%;height:100%;border:none" allow="autoplay"></iframe>';
 }
 function initPdfDrag(prefix){}
+
+// モーダル内Ctrl+ホイールでプレビューペインのみ拡大（ブラウザズーム無効化）
+var _modalPreviewZoom={dm:1,vm:1};
+function initModalWheelZoom(){
+  ['driver-modal','vehicle-modal'].forEach(function(modalId){
+    var modal=document.getElementById(modalId);
+    if(!modal||modal._wheelZoomInit) return;
+    modal._wheelZoomInit=true;
+    modal.addEventListener('wheel',function(e){
+      if(!e.ctrlKey) return;
+      e.preventDefault();
+      var prefix=modalId==='driver-modal'?'dm':'vm';
+      var body=document.getElementById(prefix+'-preview-body');
+      if(!body||!body.firstElementChild) return;
+      var cur=_modalPreviewZoom[prefix]||1;
+      cur=Math.max(0.5,Math.min(3,cur+(e.deltaY<0?0.15:-0.15)));
+      _modalPreviewZoom[prefix]=cur;
+      var target=body.firstElementChild;
+      target.style.transformOrigin='center center';
+      target.style.transform='scale('+cur+')';
+    },{passive:false});
+  });
+}
+// ページ読込後とモーダル表示後に初期化
+document.addEventListener('DOMContentLoaded',initModalWheelZoom);
+setTimeout(initModalWheelZoom,2000);
+// アプリ全体でCtrl+ホイールのブラウザズームを無効化
+document.addEventListener('wheel',function(e){
+  if(e.ctrlKey){
+    var appScreen=document.getElementById('app-screen');
+    if(appScreen&&appScreen.style.display!=='none') e.preventDefault();
+  }
+},{passive:false});
 
 // 画像ズーム+ドラッグ移動
 function initZoomDrag(wrapId,imgId){
@@ -5097,6 +5131,7 @@ function renderDmPreviewThumbs(){
 // ====== 車両モーダル内プレビューペイン ======
 function openVmPreview(fileId, name, dataUrl){
   window._vmPreviewFile={fileId:fileId,name:name,dataUrl:dataUrl};
+  _modalPreviewZoom.vm=1;
   var pane=document.getElementById('vm-preview-pane');
   var body=document.getElementById('vm-preview-body');
   var title=document.getElementById('vm-preview-title');
@@ -11112,6 +11147,11 @@ function toggleDarkMode(){
   if(toggle) toggle.checked=isDark;
 }
 initDarkMode();
+
+// Ctrl+ホイールでブラウザ全体のズームを防止
+document.addEventListener('wheel',function(e){
+  if(e.ctrlKey||e.metaKey){e.preventDefault();}
+},{passive:false});
 
 // ====== CSVインポート ======
 function openCsvImportModal(kind){
