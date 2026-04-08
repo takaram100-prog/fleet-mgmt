@@ -829,25 +829,42 @@ body.modal-open{overflow:hidden}
         </div>
       </div>
       <div id="page-calendar" class="page">
-        <div class="topbar"><h1>書類カレンダー</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div>
-          <div style="display:flex;gap:6px;align-items:center">
-            <button class="btn btn-sm" onclick="calendarNav(-1)">◀ 前月</button>
-            <span id="cal-month-label" style="font-weight:600;font-size:14px;min-width:100px;text-align:center"></span>
-            <button class="btn btn-sm" onclick="calendarNav(1)">次月 ▶</button>
-            <button class="btn btn-sm" onclick="calendarGoToday()" style="margin-left:6px;font-size:10px">今月</button>
-          </div>
-        </div>
-        <div class="content" style="padding:12px">
-          <div id="cal-legend" style="display:flex;gap:12px;margin-bottom:10px;font-size:11px;color:#666;flex-wrap:wrap">
-            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#c62828;margin-right:3px"></span>期限切れ</span>
-            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e65100;margin-right:3px"></span>7日以内</span>
-            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f9a825;margin-right:3px"></span>30日以内</span>
-            <span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#2e7d32;margin-right:3px"></span>期限日</span>
-          </div>
-          <div id="cal-grid" style="display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e0e0e0;border-radius:8px;overflow:hidden"></div>
-          <div id="cal-detail" style="margin-top:12px;display:none;padding:12px;background:#f9fbff;border:1px solid #e0e0e0;border-radius:8px">
-            <div id="cal-detail-title" style="font-weight:600;margin-bottom:8px;font-size:13px"></div>
-            <div id="cal-detail-list" style="font-size:12px"></div>
+        <div class="topbar"><h1>書類カレンダー</h1><div class="topbar-sync" onclick="syncAll(true)"><span class="sync-dot"></span><span class="sync-time"></span></div></div>
+        <div class="content" style="padding:16px 12px">
+          <style>
+            #cal-container{max-width:860px;margin:0 auto}
+            #cal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:12px 16px;background:linear-gradient(135deg,#1a237e,#283593);border-radius:12px;color:#fff}
+            #cal-header .cal-nav-btn{background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 14px;border-radius:8px;cursor:pointer;font-size:12px;font-weight:500;transition:background .2s}
+            #cal-header .cal-nav-btn:hover{background:rgba(255,255,255,.3)}
+            #cal-month-label{font-size:18px;font-weight:700;letter-spacing:1px}
+            #cal-legend{display:flex;gap:16px;justify-content:center;margin-bottom:12px;font-size:11px;color:#888}
+            #cal-legend span{display:flex;align-items:center;gap:4px}
+            #cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:#e8e8e8;border-radius:10px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+            #cal-detail{margin-top:16px;padding:14px 16px;background:var(--bg-card,#fff);border:1px solid var(--border,#e0e0e0);border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,.04)}
+            @media(max-width:768px){#cal-container{max-width:100%}#cal-month-label{font-size:15px}}
+          </style>
+          <div id="cal-container">
+            <div id="cal-header">
+              <button class="cal-nav-btn" onclick="calendarNav(-1)">◀ 前月</button>
+              <div style="text-align:center">
+                <div id="cal-month-label"></div>
+              </div>
+              <div style="display:flex;gap:6px">
+                <button class="cal-nav-btn" onclick="calendarGoToday()">今月</button>
+                <button class="cal-nav-btn" onclick="calendarNav(1)">次月 ▶</button>
+              </div>
+            </div>
+            <div id="cal-legend">
+              <span><span style="width:8px;height:8px;border-radius:50%;background:#c62828"></span>期限切れ</span>
+              <span><span style="width:8px;height:8px;border-radius:50%;background:#e65100"></span>7日以内</span>
+              <span><span style="width:8px;height:8px;border-radius:50%;background:#f9a825"></span>30日以内</span>
+              <span><span style="width:8px;height:8px;border-radius:50%;background:#2e7d32"></span>期限日</span>
+            </div>
+            <div id="cal-grid"></div>
+            <div id="cal-detail" style="display:none">
+              <div id="cal-detail-title" style="font-weight:600;margin-bottom:8px;font-size:13px"></div>
+              <div id="cal-detail-list" style="font-size:12px"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -2562,7 +2579,7 @@ function renderDashboard(){
   const activeEmp=activeDrivers.filter(d=>d.type==='社員').length;
   const activeGai=activeDrivers.filter(d=>d.type==='外注').length;
   const coDrCount=companies.reduce((s,c)=>s+(c.drivers||[]).length,0);
-  document.getElementById('dash-stats').innerHTML=`<div class="stat-card"><div class="stat-label">総ドライバー数</div><div class="stat-value">${activeDrivers.length+coDrCount}</div><div class="stat-sub" style="line-height:1.6">社員${activeEmp} 外注${activeGai}<br>委託会社 ${coDrCount}名</div></div><div class="stat-card"><div class="stat-label">書類 期限切れ</div><div class="stat-value" style="color:#e53935">${ev+ed}</div><div class="stat-sub">車両${ev} / 免許${ed}</div></div><div class="stat-card"><div class="stat-label">車両書類 30日以内</div><div class="stat-value" style="color:#fb8c00">${wv}</div><div class="stat-sub">要注意</div></div>`;
+  document.getElementById('dash-stats').innerHTML=`<div class="stat-card"><div class="stat-label">総ドライバー数</div><div class="stat-value">${activeDrivers.length+coDrCount}</div><div class="stat-sub" style="line-height:1.6">社員${activeEmp} 外注${activeGai}<br>委託会社 ${coDrCount}名</div></div><div class="stat-card"><div class="stat-label">総車両数</div><div class="stat-value">${allVehicles.length}</div><div class="stat-sub" style="line-height:1.6">社有${selfSyayu} 持込${selfMochikomi}${selfOther?' 他'+selfOther:''}<br>委託会社 ${coVehicles.length}台</div></div><div class="stat-card"><div class="stat-label">書類 期限切れ</div><div class="stat-value" style="color:#e53935">${ev+ed}</div><div class="stat-sub">車両${ev} / 免許${ed}</div></div><div class="stat-card"><div class="stat-label">車両書類 30日以内</div><div class="stat-value" style="color:#fb8c00">${wv}</div><div class="stat-sub">要注意</div></div>`;
   // === 期限カウントダウン ===
   let cdItems=[];
   allVehicles.forEach(v=>{
@@ -11259,7 +11276,7 @@ function renderCalendar(){
   var html='';
   var dowLabels=['日','月','火','水','木','金','土'];
   dowLabels.forEach(function(d,i){
-    html+='<div style="padding:6px 4px;text-align:center;font-size:10px;font-weight:600;background:#f5f5f5;color:'+(i===0?'#c62828':i===6?'#1565c0':'#555')+'">'+d+'</div>';
+    html+='<div style="padding:8px 4px;text-align:center;font-size:10px;font-weight:600;letter-spacing:1px;background:#f8f9fa;color:'+(i===0?'#c62828':i===6?'#1565c0':'#666')+'">'+d+'</div>';
   });
   // 空セル
   // 空セル
@@ -11277,18 +11294,18 @@ function renderCalendar(){
       var diffDays=Math.round(diffMs/86400000);
       var bg=diffDays<0?'#ffcdd2':diffDays<=7?'#ffe0b2':diffDays<=30?'#fff9c4':'#c8e6c9';
       var tc=diffDays<0?'#b71c1c':diffDays<=7?'#e65100':diffDays<=30?'#f57f17':'#2e7d32';
+      var bc=diffDays<0?'#c62828':diffDays<=7?'#e65100':diffDays<=30?'#f9a825':'#2e7d32';
       var maxShow=3;
       evts.slice(0,maxShow).forEach(function(e){
-        var icon=e.kind==='driver'?'👤':'🚗';
         var shortName=e.name.length>6?e.name.substring(0,6)+'…':e.name;
-        evtHtml+='<div style="font-size:8px;line-height:1.3;padding:1px 3px;margin-top:1px;border-radius:3px;background:'+bg+';color:'+tc+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(e.name)+' '+e.doc+'">'+icon+shortName+' '+e.doc+'</div>';
+        evtHtml+='<div style="font-size:7.5px;line-height:1.2;padding:1px 3px;margin-top:1px;border-radius:2px;border-left:2px solid '+bc+';background:'+bg+';color:'+tc+';overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+esc(e.name)+' '+e.doc+'">'+esc(shortName)+' <span style="opacity:.7">'+e.doc+'</span></div>';
       });
-      if(evts.length>maxShow) evtHtml+='<div style="font-size:7px;color:#888;text-align:center;margin-top:1px">他'+(evts.length-maxShow)+'件</div>';
+      if(evts.length>maxShow) evtHtml+='<div style="font-size:7px;color:#999;text-align:center;margin-top:1px">+' +(evts.length-maxShow)+'</div>';
     }
-    var cellBg=isToday?'#e3f2fd':'#fff';
-    var border=isToday?'2px solid #1565c0':'none';
+    var cellBg=isToday?'#e8f0fe':'#fff';
+    var border=isToday?'2px solid #1a73e8':'none';
     var cursor=evts.length?'pointer':'default';
-    html+='<div style="background:'+cellBg+';min-height:80px;padding:3px;border:'+border+';cursor:'+cursor+';overflow:hidden" onclick="calendarShowDetail(\''+dateKey+'\')"><div style="font-size:10px;font-weight:'+(isToday?'700':'400')+';color:'+(dow===0?'#c62828':dow===6?'#1565c0':'#333')+';margin-bottom:1px">'+day+'</div>'+evtHtml+'</div>';
+    html+='<div style="background:'+cellBg+';min-height:84px;padding:3px 4px;border:'+border+';cursor:'+cursor+';overflow:hidden" onclick="calendarShowDetail(\''+dateKey+'\')"><div style="font-size:10px;font-weight:'+(isToday?'700':'400')+';color:'+(dow===0?'#c62828':dow===6?'#1565c0':'#444')+';margin-bottom:2px">'+day+'</div>'+evtHtml+'</div>';
   }
   grid.innerHTML=html;
   document.getElementById('cal-detail').style.display='none';
@@ -11327,11 +11344,12 @@ function calendarShowDetail(dateKey){
   title.textContent=(d.getMonth()+1)+'月'+d.getDate()+'日 — '+events.length+'件の期限';
   var html='';
   events.forEach(function(e){
-    var icon=e.kind==='driver'?'👤':'🚗';
+    var typeBg=e.kind==='driver'?'#e3f2fd':'#fce4ec';
+    var typeLabel=e.kind==='driver'?'人':'車';
     var color=e.days<0?'#c62828':e.days<=7?'#e65100':e.days<=30?'#f9a825':'#2e7d32';
     var label=e.days<0?Math.abs(e.days)+'日超過':e.days===0?'本日':e.days+'日後';
-    html+='<div style="display:flex;align-items:center;gap:8px;padding:6px 8px;border-bottom:1px solid #eee">';
-    html+='<span>'+icon+'</span>';
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border,#f0f0f0)">';
+    html+='<span style="font-size:9px;font-weight:600;width:20px;height:20px;border-radius:50%;background:'+typeBg+';display:flex;align-items:center;justify-content:center">'+typeLabel+'</span>';
     html+='<span style="flex:1;font-weight:500">'+esc(e.name)+'</span>';
     html+='<span style="font-size:11px;color:#888">'+e.doc+'</span>';
     html+='<span style="font-size:11px;font-weight:600;color:'+color+'">'+label+'</span>';
