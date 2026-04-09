@@ -123,6 +123,9 @@ body.modal-open{overflow:hidden}
 .modal-body{overflow-x:auto;overflow-y:auto}
 .form-group{display:flex;flex-direction:column;gap:4px}
 .form-group label{font-size:12px;color:#666;font-weight:500}
+.split-card{transition:box-shadow .15s,opacity .15s}
+.split-card.drag-over{box-shadow:0 0 0 2px #4a90e2!important;background:#f0f6ff!important}
+.split-card[draggable]:active{opacity:.6}
 .form-group input,.form-group select{padding:8px 12px;font-size:13px;border:1px solid #ddd;border-radius:6px;background:#fff;color:#1a1a1a;font-family:inherit}
 .form-group input:focus,.form-group select:focus{outline:none;border-color:#4a90e2}
 .section-title{font-size:11px;font-weight:600;color:#888;padding:8px 0 6px;border-bottom:1px solid #e0e0e0;margin-bottom:10px;grid-column:1/-1}
@@ -7687,10 +7690,11 @@ function applyCatChange(kind,ownerId,fileIdx,newCat){
   try{renderExistingFiles(elId,modalKind,ownerId);}catch(e){}
 }
 
-let storageOfficeFilter='西成';
+let storageOfficeFilter='';
 let storageExpandedIds={};
 let storageViewMode='card'; // 'card' or 'file'
 let storageFromSidebar=false;
+let storageSplitMode=false; // true=ドライバー/車両別表示
 
 function toggleStorageView(){
   storageViewMode=storageViewMode==='card'?'file':'card';
@@ -7699,10 +7703,196 @@ function toggleStorageView(){
   renderStorage();
 }
 
-function storageSetOffice(office){
-  storageOfficeFilter=office;
+function storageClickAll(){
+  if(!storageOfficeFilter){
+    // 既に「すべて」選択中 → スプリットモード切替
+    storageSplitMode=!storageSplitMode;
+  } else {
+    storageOfficeFilter='';
+    storageSplitMode=false;
+  }
   storageFromSidebar=false;
   renderStorage();
+}
+function storageSetOffice(office){
+  storageOfficeFilter=office;
+  storageSplitMode=false;
+  storageFromSidebar=false;
+  renderStorage();
+}
+
+// ====== D&D 割当 ======
+var _splitDragData=null;
+function splitDragStart(e){
+  var el=e.target.closest('.split-card');
+  if(!el) return;
+  _splitDragData={kind:el.dataset.kind,id:parseInt(el.dataset.id),name:el.dataset.name||el.dataset.plate||''};
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain','');
+  el.style.opacity='0.5';
+  setTimeout(function(){el.style.opacity='1';},300);
+}
+function splitDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect='move';
+  var el=e.target.closest('.split-card');
+  if(el) el.style.boxShadow='0 0 0 2px #4a90e2';
+}
+function splitDragLeave(e){
+  var el=e.target.closest('.split-card');
+  if(el) el.style.boxShadow='';
+}
+function splitDrop(e){
+  e.preventDefault();
+  var targetEl=e.target.closest('.split-card');
+  if(targetEl) targetEl.style.boxShadow='';
+  if(!_splitDragData||!targetEl) return;
+  var drag=_splitDragData;
+  var drop={kind:targetEl.dataset.kind,id:parseInt(targetEl.dataset.id),name:targetEl.dataset.name||targetEl.dataset.plate||''};
+  _splitDragData=null;
+  // 同種は無視
+  if(drag.kind===drop.kind){return;}
+  // ドライバー＋車両のペアを決定
+  var driverId=drag.kind==='driver'?drag.id:drop.id;
+  var vehicleId=drag.kind==='vehicle'?drag.id:drop.id;
+  var driverName=drag.kind==='driver'?drag.name:drop.name;
+  openAssignConfirmModal(driverId,vehicleId,driverName);
+}
+// ドキュメント全体でドラッグオーバーのスタイルをリセット
+document.addEventListener('dragend',function(){
+  document.querySelectorAll('.split-card').forEach(function(el){el.style.boxShadow='';el.style.opacity='1';});
+});
+
+// ====== 統合確認モーダル ======
+function openAssignConfirmModal(driverId,vehicleId,driverName){
+  var driver=drivers.find(d=>d.id==driverId);
+  if(!driver){companies.forEach(c=>{(c.drivers||[]).forEach(d=>{if(d.id==driverId)driver=d;});});};
+  var vehicle=vehicles.find(v=>v.id==vehicleId);
+  if(!driver||!vehicle) return;
+
+  // 既存の搭乗車両（このドライバーが乗っている車両）
+  var existingVehicles=vehicles.filter(v=>(v.driverId&&String(v.driverId)===String(driverId))||v.driver===driver.name);
+  var hasExisting=existingVehicles.length>0;
+  
+  // 割当先車両の現在の担当ドライバー
+  var currentDriverId=vehicle.driverId?parseInt(vehicle.driverId):null;
+  var currentDriver=currentDriverId?drivers.find(d=>d.id==currentDriverId):null;
+  if(!currentDriver&&vehicle.driver){currentDriver=drivers.find(d=>d.name===vehicle.driver);}
+  var hasConflict=currentDriver&&String(currentDriver.id)!==String(driverId);
+
+  // 既に同じ割当なら何もしない
+  if(!hasExisting&&!hasConflict){
+    execAssign(driverId,vehicleId,'single',null);
+    return;
+  }
+  // 既存車両がなく、競合もない → そのまま割当
+  if(!hasExisting&&!hasConflict){
+    execAssign(driverId,vehicleId,'single',null);return;
+  }
+
+  var modal=document.createElement('div');
+  modal.className='modal-bg';modal.style.display='flex';modal.id='assign-confirm-modal';
+  var html='<div class="modal" style="max-width:500px" onclick="event.stopPropagation()">'+
+    '<div class="modal-header"><span class="modal-title">車両割当の確認</span><button class="modal-close" onclick="this.closest(\'.modal-bg\').remove()">✕</button></div>'+
+    '<div class="modal-body" style="padding:16px;font-size:13px">';
+
+  html+='<div style="padding:10px 12px;background:#e3f2fd;border-radius:8px;margin-bottom:12px">'+
+    '<div style="font-weight:600">■ 割当内容</div>'+
+    '<div style="margin-top:4px">車両: <strong>'+esc(String(vehicle.plate))+'</strong> → ドライバー: <strong>'+esc(driver.name)+'</strong></div>'+
+  '</div>';
+
+  if(hasExisting){
+    html+='<div style="padding:10px 12px;background:#fff8e1;border-radius:8px;margin-bottom:12px;border-left:3px solid #f9a825">'+
+      '<div style="font-weight:600;color:#f57f17">⚠ '+esc(driver.name)+' には既に搭乗車両があります:</div>';
+    existingVehicles.forEach(function(ev){
+      html+='<div style="margin-top:4px;padding:4px 8px;background:#fff;border-radius:4px;font-size:12px">・'+esc(String(ev.plate))+'（'+esc(ev.office||'')+'）</div>';
+    });
+    html+='</div>';
+  }
+
+  if(hasConflict){
+    html+='<div style="padding:10px 12px;background:#fce4ec;border-radius:8px;margin-bottom:12px;border-left:3px solid #e53935">'+
+      '<div style="font-weight:600;color:#c62828">⚠ '+esc(String(vehicle.plate))+' には現在の担当がいます:</div>'+
+      '<div style="margin-top:4px;padding:4px 8px;background:#fff;border-radius:4px;font-size:12px">・'+esc(currentDriver.name)+'（'+(currentDriver.offices||[currentDriver.office]).filter(Boolean).join('・')+'）</div>'+
+      '<div style="margin-top:8px;font-size:12px">'+
+        '<label style="display:flex;align-items:center;gap:6px;cursor:pointer;margin-bottom:4px"><input type="radio" name="conflict-action" value="remove" checked> 担当から外す（'+esc(currentDriver.name)+'は車両未割当に）</label>'+
+        '<label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="radio" name="conflict-action" value="share"> 2人で共有する</label>'+
+      '</div>'+
+    '</div>';
+  }
+
+  html+='</div><div class="modal-footer" style="display:flex;gap:8px;justify-content:flex-end">'+
+    '<button class="btn" onclick="this.closest(\'.modal-bg\').remove()">キャンセル</button>';
+  
+  if(hasExisting){
+    html+='<button class="btn" style="background:#fff3e0;color:#e65100;border-color:#ffcc80" onclick="execAssignFromModal('+driverId+','+vehicleId+',\'multi\','+(hasConflict?currentDriver.id:'null')+')">複数車両登録</button>';
+    html+='<button class="btn btn-primary" onclick="execAssignFromModal('+driverId+','+vehicleId+',\'replace\','+(hasConflict?currentDriver.id:'null')+')">車両差替え</button>';
+  } else {
+    html+='<button class="btn btn-primary" onclick="execAssignFromModal('+driverId+','+vehicleId+',\'single\','+(hasConflict?currentDriver.id:'null')+')">割当する</button>';
+  }
+  html+='</div></div>';
+  modal.innerHTML=html;
+  document.body.appendChild(modal);
+  modal.onclick=function(e){if(e.target===modal)modal.remove();};
+}
+
+function execAssignFromModal(driverId,vehicleId,mode,conflictDriverId){
+  var conflictAction='remove';
+  var radio=document.querySelector('input[name="conflict-action"]:checked');
+  if(radio) conflictAction=radio.value;
+  var modal=document.getElementById('assign-confirm-modal');
+  if(modal) modal.remove();
+  execAssign(driverId,vehicleId,mode,conflictDriverId,conflictAction);
+}
+
+function execAssign(driverId,vehicleId,mode,conflictDriverId,conflictAction){
+  var driver=drivers.find(d=>d.id==driverId);
+  var vehicle=vehicles.find(v=>v.id==vehicleId);
+  if(!driver||!vehicle) return;
+  pushUndo('車両割当変更: '+driver.name+' ← '+String(vehicle.plate));
+  var driverOffices=Array.isArray(driver.offices)?driver.offices:driver.office?[driver.office]:[];
+
+  // (1) 差替えモード: 旧車両の担当クリア＋社有なら本社移動
+  if(mode==='replace'){
+    vehicles.forEach(function(v){
+      if((v.driverId&&String(v.driverId)===String(driverId))||v.driver===driver.name){
+        v.driverId=null;v.driver='';
+        if(v.type==='社有'&&offices.includes('本社')){v.office='本社';v.offices=['本社'];}
+      }
+    });
+  }
+
+  // (2) 競合ドライバーの処理
+  if(conflictDriverId&&conflictAction==='remove'){
+    vehicle.driverId=null;vehicle.driver='';
+  }
+  // 共有の場合: subDriverIdsに追加（将来拡張用）
+  if(conflictDriverId&&conflictAction==='share'){
+    if(!vehicle.subDriverIds) vehicle.subDriverIds=[];
+    if(!vehicle.subDriverIds.includes(conflictDriverId)) vehicle.subDriverIds.push(conflictDriverId);
+  }
+
+  // (3) 新しい割当を設定
+  vehicle.driverId=driverId;
+  vehicle.driver=driver.name;
+  if(driverOffices.length){vehicle.office=driverOffices[0];vehicle.offices=driverOffices.slice();}
+
+  saveLocal();isDirty=true;scheduleAutoSave();
+  addLog('割当','車両割当: '+driver.name+' ← '+String(vehicle.plate)+' ('+mode+')');
+  renderStorage();renderDashboard();renderDrivers(currentOfficeFilter);renderVehicles(currentOfficeFilter);
+}
+
+// ====== 搭乗解除（車両サブカードの×ボタン） ======
+function detachVehicle(vehicleId){
+  var v=vehicles.find(x=>x.id==vehicleId);
+  if(!v) return;
+  if(!confirm(String(v.plate)+' の搭乗を解除しますか？')){return;}
+  pushUndo('搭乗解除: '+String(v.plate));
+  v.driverId=null;v.driver='';
+  if(v.type==='社有'&&offices.includes('本社')){v.office='本社';v.offices=['本社'];}
+  saveLocal();isDirty=true;scheduleAutoSave();
+  addLog('割当','搭乗解除: '+String(v.plate));
+  renderStorage();renderDashboard();
 }
 
 function storageToggleExpand(key){
@@ -7765,12 +7955,21 @@ function renderStorage(){
   const officeCounts={};
   offices.forEach(o=>{officeCounts[o]={d:0,v:0};});
   officeCounts['未分類']={d:0,v:0,f:unassignedFiles.length};
+  var gaishuUnset={d:0,v:0};
   allDrivers.forEach(d=>{
-    if(!d._offices.length){officeCounts['未分類'].d++;return;}
+    if(!d._offices.length){
+      if(d.type==='外注'||d.type==='外注（個人）'){gaishuUnset.d++;}
+      else{officeCounts['未分類'].d++;}
+      return;
+    }
     d._offices.forEach(o=>{if(!officeCounts[o])officeCounts[o]={d:0,v:0};officeCounts[o].d++;});
   });
   allVehicles.forEach(v=>{
-    if(!v._offices.length){officeCounts['未分類'].v++;return;}
+    if(!v._offices.length){
+      if(v.type==='持込'){gaishuUnset.v++;}
+      else{officeCounts['未分類'].v++;}
+      return;
+    }
     v._offices.forEach(o=>{if(!officeCounts[o])officeCounts[o]={d:0,v:0};officeCounts[o].v++;});
   });
 
@@ -7787,18 +7986,25 @@ function renderStorage(){
         '<div style="padding:8px 12px;border-radius:8px;background:#f7f7f7;border:1px solid #ddd;color:#555;cursor:pointer;text-align:center;font-size:11px" onclick="storageFromSidebar=false;storageOfficeFilter=\'\';renderStorage()">全営業所</div>'+
       '</div>';
     } else {
-      // 通常: 全バッジ表示
+      // 通常: 全バッジ表示（すべて追加）
       const allKeys=[];
       const uncatTotal=unassignedFiles.length;
       if(uncatTotal>0) allKeys.push('未分類');
       allKeys.push(...offices);
-      badgesEl.innerHTML=allKeys.map(o=>{
+      if(gaishuUnset.d+gaishuUnset.v>0) allKeys.push('外注(未設定)');
+      officeCounts['外注(未設定)']={d:gaishuUnset.d,v:gaishuUnset.v};
+      var allBadgeActive=!storageOfficeFilter;
+      var allBg=allBadgeActive?(storageSplitMode?'background:#1a237e;color:#fff;border:1px solid #1a237e':'background:#4a90e2;color:#fff;border:1px solid #4a90e2'):'background:#f7f7f7;border:1px solid #ddd;color:#555';
+      var totalD=allDrivers.length, totalV=allVehicles.length;
+      var allBadgeHtml='<div style="padding:8px 6px;border-radius:8px;cursor:pointer;text-align:center;'+allBg+'" onclick="storageClickAll()"><div style="font-size:12px;font-weight:600;white-space:nowrap">すべて</div><div style="font-size:9px;opacity:.7;white-space:nowrap">'+totalD+'人/'+totalV+'台</div></div>';
+      badgesEl.innerHTML=allBadgeHtml+allKeys.map(o=>{
         const cnt=officeCounts[o]||{d:0,v:0};
         const total=cnt.d+cnt.v;
         if(!total&&o!=='未分類') return '';
         const isActive=storageOfficeFilter===o;
         const isUncat=o==='未分類';
-        const bg=isActive?'background:#4a90e2;color:#fff;border:1px solid #4a90e2':'background:#f7f7f7;border:1px solid '+(isUncat?'#e53935':'#ddd')+';color:'+(isUncat?'#e53935':'#555');
+        const isGaishu=o==='外注(未設定)';
+        const bg=isActive?'background:#4a90e2;color:#fff;border:1px solid #4a90e2':'background:#f7f7f7;border:1px solid '+(isUncat?'#e53935':isGaishu?'#E65100':'#ddd')+';color:'+(isUncat?'#e53935':isGaishu?'#E65100':'#555');
         return '<div style="padding:8px 6px;border-radius:8px;cursor:pointer;text-align:center;'+bg+'" onclick="storageSetOffice(\''+(isActive?'':o)+'\')">'+
           '<div style="font-size:12px;font-weight:600;white-space:nowrap">'+o+'</div>'+
           '<div style="font-size:9px;opacity:.7;white-space:nowrap">'+(isUncat?uncatTotal+'件':cnt.d+'人/'+cnt.v+'台')+'</div>'+
@@ -7814,8 +8020,11 @@ function renderStorage(){
   const allDriversUnfiltered=[...allDrivers];
   if(offF){
     if(offF==='未分類'){
-      allDrivers=allDrivers.filter(d=>!d._offices.length);
-      allVehicles=allVehicles.filter(v=>!v._offices.length);
+      allDrivers=allDrivers.filter(d=>!d._offices.length&&d.type!=='外注'&&d.type!=='外注（個人）');
+      allVehicles=allVehicles.filter(v=>!v._offices.length&&v.type!=='持込');
+    } else if(offF==='外注(未設定)'){
+      allDrivers=allDrivers.filter(d=>!d._offices.length&&(d.type==='外注'||d.type==='外注（個人）'));
+      allVehicles=allVehicles.filter(v=>!v._offices.length&&v.type==='持込');
     } else {
       allDrivers=allDrivers.filter(d=>d._offices.includes(offF));
       allVehicles=allVehicles.filter(v=>v._offices.includes(offF)||v.office===offF);
@@ -7841,6 +8050,58 @@ function renderStorage(){
 
   // ====== カード型レイアウト ======
   let html='';
+
+  // スプリットモード: ドライバーと車両を完全分離表示
+  if(storageSplitMode&&!offF){
+    // --- ドライバー一覧 ---
+    if(allDrivers.length){
+      html+='<div style="font-size:13px;font-weight:600;color:#1a237e;margin-bottom:10px;padding:8px 12px;background:linear-gradient(135deg,#e8eaf6,#f3f4ff);border-radius:8px;border-left:4px solid #1a237e">ドライバー一覧（'+allDrivers.length+'名）</div>';
+    var driverCardsSplit=allDrivers.map(d=>{
+      var typeIcon=d.type==='社員'?'社':d.type==='外注'||d.type==='外注（個人）'?'外':'個';
+      var typeColor=d.type==='社員'?'background:#1565C0;color:#fff':d.type==='外注'||d.type==='外注（個人）'?'background:#E65100;color:#fff':'background:#6A1B9A;color:#fff';
+      var cvs2=allVehiclesUnfiltered.filter(v=>(v.driverId&&String(v.driverId)===String(d.id))||v.driver===d.name);
+      var offLabel=(d._offices||[]).join('・')||'未設定';
+      var plateLabel=cvs2.length?cvs2.map(v=>'<span style="background:#546E7A;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">'+esc(String(v.plate))+'</span>').join(' '):'<span style="color:#ccc;font-size:10px">未搭乗</span>';
+      var licExp=d.license?.exp||'';
+      var licColor=licExp?(daysUntil(licExp)<0?'#c62828':daysUntil(licExp)<=30?'#e65100':'#2e7d32'):'#888';
+      return '<div class="split-card split-driver" draggable="true" data-kind="driver" data-id="'+d.id+'" data-name="'+esc(d.name)+'" ondragstart="splitDragStart(event)" ondragover="splitDragOver(event)" ondragleave="splitDragLeave(event)" ondrop="splitDrop(event)" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;cursor:grab;transition:box-shadow .15s">'+
+        '<span style="color:#bbb;font-size:14px;cursor:grab;flex-shrink:0;user-select:none" title="ドラッグで車両に割当">≡</span>'+
+        '<div style="width:28px;height:28px;border-radius:50%;'+typeColor+';display:flex;align-items:center;justify-content:center;font-weight:600;font-size:10px;flex-shrink:0">'+typeIcon+'</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(d.name)+'</div>'+
+        '<div style="font-size:10px;color:#888">'+offLabel+'</div></div>'+
+        '<div style="display:flex;gap:4px;align-items:center;flex-shrink:0">'+plateLabel+'</div>'+
+        (licExp?'<div style="font-size:10px;font-weight:600;color:'+licColor+';flex-shrink:0;min-width:60px;text-align:right">免許 '+licExp.slice(5)+'</div>':'<div style="font-size:10px;color:#ccc;flex-shrink:0;min-width:60px;text-align:right">免許 —</div>')+
+        '<button class="btn btn-sm" style="font-size:9px;padding:2px 8px;flex-shrink:0" onclick="event.stopPropagation();openDriverModal('+d.id+')">編集</button>'+
+      '</div>';
+    });
+    html+='<div style="display:flex;flex-direction:column;gap:4px;margin-bottom:20px">'+driverCardsSplit.join('')+'</div>';
+    }
+    // --- 車両一覧 ---
+    if(allVehicles.length){
+      html+='<div style="font-size:13px;font-weight:600;color:#E65100;margin-bottom:10px;padding:8px 12px;background:linear-gradient(135deg,#fff3e0,#fff8f0);border-radius:8px;border-left:4px solid #E65100">車両一覧（'+allVehicles.length+'台）</div>';
+    var vehicleCardsSplit=allVehicles.map(v=>{
+      var driverName=v.driver||'';
+      if(!driverName&&v.driverId){var dr=allDriversUnfiltered.find(d=>String(d.id)===String(v.driverId));if(dr)driverName=dr.name;}
+      var offLabel=(v._offices||[v.office]).filter(Boolean).join('・')||'未設定';
+      var shakenExp=v.shaken?.exp||'';
+      var shakenColor=shakenExp?(daysUntil(shakenExp)<0?'#c62828':daysUntil(shakenExp)<=30?'#e65100':'#2e7d32'):'#888';
+      var companyBadge=v._src&&v._src!=='自社'?'<span style="font-size:9px;padding:1px 5px;border-radius:3px;background:#f3e5f5;color:#6A1B9A;margin-left:4px">'+esc(v._src)+'</span>':'';
+      var driverBadge=driverName?'<span style="background:#1565C0;color:#fff;padding:1px 6px;border-radius:3px;font-size:9px">'+esc(driverName)+'</span>':'<span style="color:#ccc;font-size:10px">未割当</span>';
+      return '<div class="split-card split-vehicle" draggable="true" data-kind="vehicle" data-id="'+v.id+'" data-plate="'+esc(String(v.plate))+'" ondragstart="splitDragStart(event)" ondragover="splitDragOver(event)" ondragleave="splitDragLeave(event)" ondrop="splitDrop(event)" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:#fff;border:1px solid #e0e0e0;border-radius:8px;cursor:grab;transition:box-shadow .15s">'+
+        '<span style="color:#bbb;font-size:14px;cursor:grab;flex-shrink:0;user-select:none" title="ドラッグでドライバーに割当">≡</span>'+
+        '<div style="width:28px;height:28px;border-radius:50%;background:#546E7A;color:#fff;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:9px;flex-shrink:0">車</div>'+
+        '<div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+esc(String(v.plate))+(v.model?' <span style="font-weight:400;color:#888;font-size:11px">'+esc(v.model)+'</span>':'')+companyBadge+'</div>'+
+        '<div style="font-size:10px;color:#888">'+offLabel+'</div></div>'+
+        '<div style="flex-shrink:0">'+driverBadge+'</div>'+
+        (shakenExp?'<div style="font-size:10px;font-weight:600;color:'+shakenColor+';flex-shrink:0;min-width:60px;text-align:right">車検 '+shakenExp.slice(5)+'</div>':'<div style="font-size:10px;color:#ccc;flex-shrink:0;min-width:60px;text-align:right">車検 —</div>')+
+        '<button class="btn btn-sm" style="font-size:9px;padding:2px 8px;flex-shrink:0" onclick="event.stopPropagation();openVehicleModal('+v.id+')">編集</button>'+
+      '</div>';
+    });
+    html+='<div style="display:flex;flex-direction:column;gap:4px">'+vehicleCardsSplit.join('')+'</div>';
+    }
+    el.innerHTML=html;return;
+  }
+
 
   if(allDrivers.length){
     html+='<div style="font-size:11px;font-weight:500;color:#888;margin-bottom:8px">ドライバー（'+allDrivers.length+'名）</div>';
@@ -7973,6 +8234,7 @@ function renderStorage(){
         cardHtml+='<div style="flex:1;min-width:0"><span style="font-size:10px;color:#555">搭乗車両</span> <strong style="cursor:pointer;color:#4a90e2" onclick="event.stopPropagation();navigateToVehicle(\''+esc(cv.plate)+'\')">'+cv.plate+'</strong> <span style="color:#666">'+(cv.model||'')+'</span></div>';
         cardHtml+='<button class="btn btn-sm" style="font-size:10px;padding:2px 10px;flex-shrink:0" onclick="event.stopPropagation();openVehicleModal('+cv.id+')">編集</button>';
         cardHtml+='<span style="font-size:10px;padding:3px 10px;border-radius:20px;cursor:pointer;background:#4a90e2;color:#fff;flex-shrink:0" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'\')">+ 追加</span>';
+        cardHtml+='<span style="font-size:14px;color:#888;cursor:pointer;flex-shrink:0;padding:0 4px" onclick="event.stopPropagation();detachVehicle('+cv.id+')" title="搭乗解除">×</span>';
         cardHtml+='</div>';
         cardHtml+='<div style="display:flex;gap:4px;flex-wrap:wrap;margin:4px 0 6px;align-items:center">';
         cardHtml+='<span style="font-size:10px;padding:3px 8px;border-radius:20px;white-space:nowrap;cursor:pointer;'+(hasS2?'background:#E65100;color:#fff':'background:#e0e0e0;color:#888')+'" onclick="event.stopPropagation();openQuickUpload(\'vehicle\','+cv.id+',\'shaken\')">車検 '+(cv.shaken?.exp?cv.shaken.exp.slice(5).replace(/-/g,'/'):'—')+'</span>';
