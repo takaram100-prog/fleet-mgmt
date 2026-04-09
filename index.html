@@ -11744,27 +11744,27 @@ function calendarShowDetail(dateKey){
   var today=new Date();today.setHours(0,0,0,0);
   var cellDate=new Date(dateKey);
   var events=[];
-  function check(expiryVal,name,doc,kind){
+  function check(expiryVal,name,doc,kind,entityId,companyId){
     if(!expiryVal) return;
     var d=new Date(expiryVal);if(isNaN(d.getTime())) return;
     var key=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
     if(key===dateKey){
       var diffDays=Math.round((d.getTime()-today.getTime())/86400000);
-      events.push({name:name,doc:doc,kind:kind,days:diffDays});
+      events.push({name:name,doc:doc,kind:kind,days:diffDays,entityId:entityId,companyId:companyId||null});
     }
   }
   drivers.filter(function(d){return !d.status||d.status==='在籍';}).forEach(function(d){
-    check(d.licenseExpiry||d.license?.exp,d.name,'免許証','driver');
-    check(d.healthExpiry||d.other?.exp,d.name,'健康診断書','driver');
+    check(d.licenseExpiry||d.license?.exp,d.name,'免許証','driver',d.id);
+    check(d.healthExpiry||d.other?.exp,d.name,'健康診断書','driver',d.id);
   });
   vehicles.filter(function(v){return !v.status||v.status!=='廃車';}).forEach(function(v){
-    check(v.shakenExpiry||v.shaken?.exp,v.plate,'車検','vehicle');
-    check(v.jibaisekiExpiry||v.jibai?.exp,v.plate,'自賠責','vehicle');
-    check(v.insuranceExpiry||v.nin?.exp,v.plate,'任意保険','vehicle');
+    check(v.shakenExpiry||v.shaken?.exp,String(v.plate),'車検','vehicle',v.id);
+    check(v.jibaisekiExpiry||v.jibai?.exp,String(v.plate),'自賠責','vehicle',v.id);
+    check(v.insuranceExpiry||v.nin?.exp,String(v.plate),'任意保険','vehicle',v.id);
   });
   companies.forEach(function(c){
-    (c.drivers||[]).forEach(function(d){if(d.status!=='退職')check(d.licenseExpiry||d.license?.exp,d.name+' ['+c.name+']','免許証','driver');});
-    (c.vehicles||[]).forEach(function(v){check(v.shakenExpiry||v.shaken?.exp,v.plate+' ['+c.name+']','車検','vehicle');check(v.insuranceExpiry||v.nin?.exp,v.plate+' ['+c.name+']','任意保険','vehicle');});
+    (c.drivers||[]).forEach(function(d){if(d.status!=='退職')check(d.licenseExpiry||d.license?.exp,d.name+' ['+c.name+']','免許証','driver',d.id,c.id);});
+    (c.vehicles||[]).forEach(function(v){check(v.shakenExpiry||v.shaken?.exp,String(v.plate)+' ['+c.name+']','車検','vehicle',v.id,c.id);check(v.insuranceExpiry||v.nin?.exp,String(v.plate)+' ['+c.name+']','任意保険','vehicle',v.id,c.id);});
   });
   var detail=document.getElementById('cal-detail');
   var title=document.getElementById('cal-detail-title');
@@ -11778,9 +11778,14 @@ function calendarShowDetail(dateKey){
     var typeLabel=e.kind==='driver'?'人':'車';
     var color=e.days<0?'#c62828':e.days<=7?'#e65100':e.days<=30?'#f9a825':'#2e7d32';
     var label=e.days<0?Math.abs(e.days)+'日超過':e.days===0?'本日':e.days+'日後';
-    html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border,#f0f0f0)">';
+    var clickAction='';
+    if(e.kind==='driver'&&!e.companyId) clickAction='openDriverModal('+e.entityId+')';
+    else if(e.kind==='vehicle'&&!e.companyId) clickAction='openVehicleModal('+e.entityId+')';
+    else if(e.kind==='driver'&&e.companyId) clickAction='openCompanyDriverModal('+e.companyId+','+e.entityId+')';
+    else if(e.kind==='vehicle'&&e.companyId) clickAction='openCompanyVehicleModal('+e.companyId+','+e.entityId+')';
+    html+='<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-bottom:1px solid var(--border,#f0f0f0);cursor:pointer;border-radius:4px;transition:background .15s" onclick="'+clickAction+'" onmouseover="this.style.background=\'#f5f5f5\'" onmouseout="this.style.background=\'transparent\'">';
     html+='<span style="font-size:9px;font-weight:600;width:20px;height:20px;border-radius:50%;background:'+typeBg+';display:flex;align-items:center;justify-content:center">'+typeLabel+'</span>';
-    html+='<span style="flex:1;font-weight:500">'+esc(e.name)+'</span>';
+    html+='<span style="flex:1;font-weight:500;color:#4a90e2">'+esc(e.name)+'</span>';
     html+='<span style="font-size:11px;color:#888">'+e.doc+'</span>';
     html+='<span style="font-size:11px;font-weight:600;color:'+color+'">'+label+'</span>';
     html+='</div>';
