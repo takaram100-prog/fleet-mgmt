@@ -2707,8 +2707,10 @@ function renderDocPage(){
 }
 
 function switchDocTab(tabId,idx){
+  var scrollY=window.scrollY;
   document.querySelectorAll('.doc-tab[data-tab="'+tabId+'"]').forEach(b=>{b.classList.toggle('active',Number(b.dataset.idx)===idx);});
   document.querySelectorAll('.doc-tab-content[data-tab="'+tabId+'"]').forEach(d=>{d.style.display=Number(d.dataset.idx)===idx?'block':'none';});
+  requestAnimationFrame(function(){window.scrollTo(0,scrollY);});
 }
 
 function toggleSubAll(office,checked){
@@ -2859,7 +2861,7 @@ async function injectStampsIntoDocx(zip, driver){
   var docXml=await zip.file('word/document.xml').async('string');
 
   // プレースホルダーが1つもなければスキップ
-  if(docXml.indexOf('{{会社印}}')===-1&&docXml.indexOf('{{代表印}}')===-1&&docXml.indexOf('{{代表印}}')===-1) return;
+  if(docXml.indexOf('{{会社印}}')===-1&&docXml.indexOf('{{代表印}}')===-1&&docXml.indexOf('{{自社代表印}}')===-1) return;
 
   // 名前空間を個別に追加（既存のものはスキップ）
   if(docXml.indexOf('xmlns:wp=')===-1) docXml=docXml.replace('<w:document ','<w:document xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing" ');
@@ -2924,6 +2926,21 @@ async function injectStampsIntoDocx(zip, driver){
       docXml=docXml.replace(/\{\{代表印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-24"/></w:rPr>'+drawing2+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
     } else {
       docXml=docXml.replace(/\{\{代表印\}\}/g,'');
+    }
+  }
+
+  // {{自社代表印}} — 常に自社代表者印（再委託承認願用）
+  if(docXml.indexOf('{{自社代表印}}')!==-1){
+    var selfRepRId=null;
+    if(ss.repEnabled){
+      if(ss.repImage) selfRepRId=addStamp(null,ss.repImage);
+      else if(ss.repName) selfRepRId=addStamp(ss.repName);
+    }
+    if(selfRepRId){
+      var drawing3=wStamp(selfRepRId,460000);
+      docXml=docXml.replace(/\{\{自社代表印\}\}/g,'</w:t></w:r><w:r><w:rPr><w:position w:val="-24"/></w:rPr>'+drawing3+'</w:r><w:r><w:rPr></w:rPr><w:t xml:space="preserve">');
+    } else {
+      docXml=docXml.replace(/\{\{自社代表印\}\}/g,'');
     }
   }
 
@@ -3052,7 +3069,7 @@ function genSaitakuXml(office,dateStr,driver){
   const addrLine=driver.sub?.company?(driver.addr||''):(driver.addr||'');
   const tel=driver.sub?.tel||driver.tel||'';
   const area=officeAreas[office]||driver.sub?.area||'';
-  return wxDoc([wp('契約書（別紙２）',{right:true}),wp(`${dy.y}年　 ${dy.m}月　  日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp('再委託承認願',{center:true,bold:true,size:28}),wp(`${COMPANY.name}`),wp(`代表取締役　${COMPANY.repName}　{{代表印}}`),wp(COMPANY.address),wp(`℡ ${COMPANY.tel}`),wp(''),wp('貴社から荷物等集配委託契約（以下「本契約」といいます。）で受託した業務の一部を以下のとおり再委託したく、荷物等集配委託契約書第４条第２項に基づき、再委託承認願を提出します。'),wp('業務の再委託に当たっては、再委託先に対して本契約における自己の履行義務と同等の義務を課し、その旨を再委託先との契約書において明示するとともに、再委託先（その従事員を含む。）の行為の一切の責任を当社が負うことといたします。'),wp('また、貴社から再委託先に対する実地監査の実施要請があった場合には、当社が実施する再委託先の実地監査に貴社が同行できることを確約し、必要な協力を行うことを誓約いたします。'),wp('なお、荷物等集委託契約書第４条第４項に規定のとおり、再委託先に第三者への委託をさせないことを約束し、本書及び提出書類について虚偽の内容が判明した場合には、本書による再委託の承認取消、本契約の解除、損害賠償請求等がなされる場合があることを了承します。'),wp('おって、再委託の内容に変更が生じる場合は、改めて再委託承認願を提出して貴社の承認を得ることにいたします。'),wp(''),wp('１　再委託を受ける者の氏名・ふりがな（法人の場合は、法人名及び代表者名）及び生年月日（法人の場合は、代表者の生年月日）',{bold:true}),wp(`氏名（ふりがな）　${nameLine}　　西暦生年月日　${birthLine}`),wp(''),wp('２　再委託を受ける者の住所及び連絡先（法人の場合は、事業所の所在地及び連絡先）',{bold:true}),wp(`住所　${addrLine}　　連絡先　${tel}`),wp(''),wp('３　再委託を受ける者の受持地域',{bold:true}),wp(area||'　'),wp(''),wp('４　再委託に関する添付書類（適合証明書、作業所の現況届、従事員の現況届、車両の現況届等）',{bold:true}),wp('別添のとおり。'),wLine(),wUsage()].join(''));}
+  return wxDoc([wp('契約書（別紙２）',{right:true}),wp(`${dy.y}年　 ${dy.m}月　  日`,{right:true}),wp('日本郵便株式会社'),wp(`${postOffice}長　様`,{indent:960}),wp('再委託承認願',{center:true,bold:true,size:28,spacing:60}),wp(`${COMPANY.name}`,{spacing:0}),wp(`代表取締役　${COMPANY.repName}　{{自社代表印}}`,{spacing:0}),wp(COMPANY.address,{spacing:0}),wp(`℡ ${COMPANY.tel}`),wp(''),wp('貴社から荷物等集配委託契約（以下「本契約」といいます。）で受託した業務の一部を以下のとおり再委託したく、荷物等集配委託契約書第４条第２項に基づき、再委託承認願を提出します。'),wp('業務の再委託に当たっては、再委託先に対して本契約における自己の履行義務と同等の義務を課し、その旨を再委託先との契約書において明示するとともに、再委託先（その従事員を含む。）の行為の一切の責任を当社が負うことといたします。'),wp('また、貴社から再委託先に対する実地監査の実施要請があった場合には、当社が実施する再委託先の実地監査に貴社が同行できることを確約し、必要な協力を行うことを誓約いたします。'),wp('なお、荷物等集委託契約書第４条第４項に規定のとおり、再委託先に第三者への委託をさせないことを約束し、本書及び提出書類について虚偽の内容が判明した場合には、本書による再委託の承認取消、本契約の解除、損害賠償請求等がなされる場合があることを了承します。'),wp('おって、再委託の内容に変更が生じる場合は、改めて再委託承認願を提出して貴社の承認を得ることにいたします。'),wp(''),wp('１　再委託を受ける者の氏名・ふりがな（法人の場合は、法人名及び代表者名）及び生年月日（法人の場合は、代表者の生年月日）',{bold:true}),wp(`氏名（ふりがな）　${nameLine}　　西暦生年月日　${birthLine}`),wp(''),wp('２　再委託を受ける者の住所及び連絡先（法人の場合は、事業所の所在地及び連絡先）',{bold:true}),wp(`住所　${addrLine}　　連絡先　${tel}`),wp(''),wp('３　再委託を受ける者の受持地域',{bold:true}),wp(area||'　'),wp(''),wp('４　再委託に関する添付書類（適合証明書、作業所の現況届、従事員の現況届、車両の現況届等）',{bold:true}),wp('別添のとおり。'),wLine(),wUsage()].join(''));}
 
 // 6. 誓約書（再委託先）- 外注1人1枚
 function genSeiyakuSubXml(dateStr,driver){
