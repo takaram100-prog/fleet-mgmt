@@ -6624,22 +6624,35 @@ function autoAddrToZip(addrEl, zipId){
     addrEl.value=val.replace(/^〒?\s*\d{3}-?\d{4}\s*/, '');
     return;
   }
-  // 住所から郵便番号を逆引き
   if(!val||val.length<4) return;
   var zipEl2=document.getElementById(zipId);
-  if(!zipEl2||zipEl2.value.replace(/[-ー]/g,'').length>=7) return; // 既に郵便番号入力済み
-  // 都道府県+市区町村を抽出（番地以降を除去）
-  var addrQuery=val.replace(/\d+[-ー]\d+.*$/,'').replace(/\d+番地?.*$/,'').replace(/\d+丁目?.*$/,'').trim();
-  if(addrQuery.length<4) return;
-  fetch('https://geoapi.heartrails.com/api/json?method=searchByAddress&address='+encodeURIComponent(addrQuery))
+  if(!zipEl2||zipEl2.value.replace(/[-ー]/g,'').length>=7) return;
+  // 住所から都道府県・市区町村・町名を解析
+  var prefMatch=val.match(/^(北海道|東京都|大阪府|京都府|.{2,3}県)/);
+  if(!prefMatch) return;
+  var pref=prefMatch[1];
+  var rest=val.substring(pref.length);
+  // 市区町村を抽出（政令指定都市の区まで含む）
+  var cityMatch=rest.match(/^(.+?[市郡])(.+?[区町村])?/);
+  if(!cityMatch) return;
+  var city=cityMatch[1]+(cityMatch[2]||'');
+  var townPart=rest.substring(city.length).replace(/\d+.*$/,'').replace(/[-ー].*$/,'').trim();
+  // HeartRails GeoAPI getTowns で町名一覧を取得
+  fetch('https://geoapi.heartrails.com/api/json?method=getTowns&prefecture='+encodeURIComponent(pref)+'&city='+encodeURIComponent(city))
     .then(function(r){return r.json();})
     .then(function(data){
-      if(data&&data.response&&data.response.location&&data.response.location.length>0){
-        var loc=data.response.location[0];
-        var zip=loc.postal;
-        if(zip&&zipEl2&&(!zipEl2.value||zipEl2.value.replace(/[-ー]/g,'').length<7)){
-          zipEl2.value=zip.substring(0,3)+'-'+zip.substring(3);
-        }
+      if(!data||!data.response||!data.response.location) return;
+      var towns=data.response.location;
+      // 町名でマッチング
+      var found=null;
+      if(townPart){
+        found=towns.find(function(t){return t.town&&t.town.indexOf(townPart)===0;});
+        if(!found) found=towns.find(function(t){return t.town&&townPart.indexOf(t.town)===0;});
+      }
+      if(!found&&towns.length===1) found=towns[0];
+      if(found&&found.postal&&zipEl2&&(!zipEl2.value||zipEl2.value.replace(/[-ー]/g,'').length<7)){
+        var z=String(found.postal);
+        zipEl2.value=z.substring(0,3)+'-'+z.substring(3);
       }
     }).catch(function(){});
 }
