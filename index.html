@@ -1154,6 +1154,12 @@ body.modal-open{overflow:hidden}
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="d-mei" placeholder="太郎" class="modal-field"></div>
       <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="d-sei-kana" class="kana-input modal-field" placeholder="ひらがな可"></div>
       <div class="form-group"><label>名（フリガナ）</label><input type="text" id="d-mei-kana" class="kana-input modal-field" placeholder="ひらがな可"></div>
+      <div class="form-group"><label>社員番号（経営管理と共通）
+        <label style="font-size:9px;color:#e67e22;margin-left:6px;cursor:pointer;font-weight:normal">
+          <input type="checkbox" id="d-empno-manual" onchange="toggleEmpNoManual()" style="margin-right:2px">手入力
+        </label>
+      </label>
+      <input type="text" id="d-empno" class="modal-field" placeholder="営業所選択後に自動採番" readonly style="background:#f7f7f7;font-family:monospace;color:#e67e22;font-weight:700"></div>
       <div class="form-group"><label>区分</label><select id="d-type" onchange="toggleSubconFields();toggleContractorField()" class="modal-field"><option value="社員">社員</option><option value="外注">外注（個人）</option><option value="委託会社">委託会社所属</option></select></div>
       <div class="form-group" id="d-contractor-group" style="display:none"><label>所属委託会社</label><select id="d-contractor" class="modal-field"><option value="">選択してください</option></select></div>
       <div class="form-group" style="grid-column:1/-1"><label>担当営業所（複数選択可）</label><div id="d-office-checks" class="office-checkboxes"></div></div>
@@ -1262,6 +1268,14 @@ body.modal-open{overflow:hidden}
       <div class="form-group"><label>名（漢字）*</label><input type="text" id="cd-mei" placeholder="太郎" class="modal-field"></div>
       <div class="form-group"><label>姓（フリガナ）</label><input type="text" id="cd-sei-kana" class="kana-input modal-field" placeholder="ひらがな可"></div>
       <div class="form-group"><label>名（フリガナ）</label><input type="text" id="cd-mei-kana" class="kana-input modal-field" placeholder="ひらがな可"></div>
+      <div class="form-group" style="grid-column:1/-1">
+        <label>社員番号（経営管理と共通）
+          <label style="font-size:9px;color:#e67e22;margin-left:6px;cursor:pointer;font-weight:normal">
+            <input type="checkbox" id="cd-empno-manual" onchange="toggleCdEmpNoManual()" style="margin-right:2px">手入力
+          </label>
+        </label>
+        <input type="text" id="cd-empno" class="modal-field" placeholder="営業所選択後に自動採番" readonly style="background:#f7f7f7;font-family:monospace;color:#e67e22;font-weight:700;max-width:200px">
+      </div>
       <div class="form-group" style="grid-column:1/-1">
         <label>担当営業所（複数選択可）*</label>
         <div id="cd-offices" class="office-multi-select"></div>
@@ -2451,7 +2465,7 @@ function renderDrivers(off){
   });
   if(dSortCol)data=sortData(data,dSortCol,dSortDir);
   document.getElementById('driver-filters').innerHTML=['全て',...offices].map(o=>`<div class="filter-chip ${(o==='全て'&&!off)||(o===off)?'active':''}" onclick="filterDriverChip('${o}')">${o}</div>`).join('');
-  document.getElementById('driver-thead').innerHTML=`<tr>${th('氏名','name',dSortCol,dSortDir,'toggleDSort')}<th>区分</th>${th('営業所','office',dSortCol,dSortDir,'toggleDSort')}${th('免許有効期限','license',dSortCol,dSortDir,'toggleDSort')}<th>免許種別</th><th>免許条件</th><th>外注先</th><th>搭乗車両</th><th></th></tr>`;
+  document.getElementById('driver-thead').innerHTML=`<tr><th style="width:70px">社員番号</th>${th('氏名','name',dSortCol,dSortDir,'toggleDSort')}<th>区分</th>${th('営業所','office',dSortCol,dSortDir,'toggleDSort')}${th('免許有効期限','license',dSortCol,dSortDir,'toggleDSort')}<th>免許種別</th><th>免許条件</th><th>外注先</th><th>搭乗車両</th><th></th></tr>`;
   document.getElementById('driver-tbody').innerHTML=data.map(d=>{
     var allOffs=(Array.isArray(d.offices)&&d.offices.length)?d.offices.join('・'):(d.office||'未設定');
     var af=d.attachedFiles||[];
@@ -2475,6 +2489,7 @@ function renderDrivers(off){
     }
 
     return '<tr class="'+rowCls([d.license?.exp])+'" style="cursor:pointer" onclick="toggleDriverDetail('+did+')">'+
+      '<td style="font-family:monospace;color:#e67e22;font-weight:700;font-size:11px">'+(d.empNo||'—')+'</td>'+
       '<td><span style="font-size:9px;color:#aaa;margin-right:4px">▶</span><strong>'+d.name+'</strong></td>'+
       '<td><span class="badge '+(d.type==='外注'||d.type==='外注（個人）'?'badge-info':'badge-gray')+'">'+d.type+'</span></td>'+
       '<td>'+allOffs+'</td>'+
@@ -2495,7 +2510,7 @@ function renderDrivers(off){
         return '<td style="font-size:11px;color:#888">—</td>';
       })()+
       '<td>'+(d._companyId?'<button class="btn btn-sm" onclick="event.stopPropagation();openCompanyDriverModal('+d._companyId+','+did+')">編集</button>':'<button class="btn btn-sm" onclick="event.stopPropagation();openDriverModal('+did+')">編集</button>')+'</td></tr>'+
-    '<tr id="driver-detail-'+did+'" style="display:none"><td colspan="9" style="background:#f7f8fa;padding:10px 14px">'+buildDriverDetailRow(d,af)+'</td></tr>';
+    '<tr id="driver-detail-'+did+'" style="display:none"><td colspan="10" style="background:#f7f8fa;padding:10px 14px">'+buildDriverDetailRow(d,af)+'</td></tr>';
   }).join('');
 }
 
@@ -4528,13 +4543,153 @@ function renderPrint(){
   document.getElementById('print-content').innerHTML=html||'<div style="padding:24px;text-align:center;color:#888;font-size:12px">表示するデータがありません</div>';
 }
 
+// ====== 委託会社ドライバー：社員番号 手入力切替 & 自動採番 ======
+function toggleCdEmpNoManual(){
+  const manual=document.getElementById('cd-empno-manual')?.checked;
+  const input=document.getElementById('cd-empno');
+  if(!input) return;
+  if(manual){
+    input.readOnly=false;
+    input.style.background='#fffbe6';
+    input.placeholder='例: 1015';
+    input.focus();
+  } else {
+    input.readOnly=true;
+    input.style.background='#f7f7f7';
+    if(!editingCompanyDriverId) autoGenCdEmpNo();
+  }
+}
+
+function autoGenCdEmpNo(){
+  const input=document.getElementById('cd-empno');
+  if(!input || document.getElementById('cd-empno-manual')?.checked) return;
+  const selectedOffices=getSelectedOffices('cd-offices');
+  const officeName = selectedOffices[0]||'';
+  if(!officeName){ input.placeholder='営業所を選択すると自動採番'; input.value=''; return; }
+
+  let officeCode='';
+  try{
+    const mgmtOffices = JSON.parse(localStorage.getItem('nikki_offices')||'[]');
+    const off = mgmtOffices.find(o=>o.name===officeName);
+    officeCode = off?.officeCode || '';
+  }catch(e){}
+
+  if(!officeCode){
+    const idx = offices.indexOf(officeName);
+    if(idx < 0){ input.placeholder='営業所情報取得中...'; input.value=''; return; }
+    officeCode = String(idx+1).padStart(2,'0');
+  }
+
+  const disp = String(parseInt(officeCode));
+  // 全ドライバー（自社＋委託会社）の同営業所番号から最大値+1
+  const allDrivers = [...drivers];
+  companies.forEach(c=>{ (c.drivers||[]).forEach(d=>allDrivers.push(d)); });
+  const existing = allDrivers
+    .filter(d => {
+      const dOff = (d.offices?.[0]||d.office||'');
+      return dOff===officeName && d.empNo && d.empNo.startsWith(disp);
+    })
+    .filter(d => !d.status || d.status==='在籍')
+    .map(d => parseInt(d.empNo.slice(disp.length)) || 0);
+  const next = existing.length ? Math.max(...existing)+1 : 1;
+  if(next > 999){ input.value=''; input.placeholder='上限超過'; return; }
+  input.value = disp + String(next).padStart(3,'0');
+}
+
+// ====== 社員番号：手入力切替 & 自動採番 ======
+function toggleEmpNoManual(){
+  const manual=document.getElementById('d-empno-manual')?.checked;
+  const input=document.getElementById('d-empno');
+  if(!input) return;
+  if(manual){
+    input.readOnly=false;
+    input.style.background='#fffbe6';
+    input.placeholder='例: 1015（現役番号と被らないように）';
+    input.focus();
+  } else {
+    input.readOnly=true;
+    input.style.background='#f7f7f7';
+    // 編集中でなければ自動採番をトリガー
+    if(!editingDriverId) autoGenEmpNo();
+  }
+}
+
+// 営業所が選択された時に自動採番（営業所コードが必要だが、フリートは経営管理と連携している前提）
+// 経営管理側のofficeCodeは localStorage から参照
+function autoGenEmpNo(){
+  const input=document.getElementById('d-empno');
+  if(!input || document.getElementById('d-empno-manual')?.checked) return;
+  const selectedOffices = getSelectedOffices('d-office-checks');
+  const officeName = selectedOffices[0]||'';
+  if(!officeName){ input.placeholder='営業所を選択すると自動採番'; input.value=''; return; }
+
+  // 経営管理のofficeCodeを参照
+  let officeCode = '';
+  try{
+    const mgmtOffices = JSON.parse(localStorage.getItem('nikki_offices')||'[]');
+    const off = mgmtOffices.find(o=>o.name===officeName);
+    officeCode = off?.officeCode || '';
+  }catch(e){}
+
+  if(!officeCode){
+    // 経営管理未同期の場合は営業所名から簡易コード生成
+    const idx = offices.indexOf(officeName);
+    if(idx < 0){ input.placeholder='営業所情報取得中...'; input.value=''; return; }
+    officeCode = String(idx+1).padStart(2,'0');
+  }
+
+  const disp = String(parseInt(officeCode)); // 先頭0除去
+  // 現役ドライバーの同営業所番号から最大値+1
+  const existing = drivers
+    .filter(d => (d.offices?.[0]||d.office)===officeName && d.empNo && d.empNo.startsWith(disp))
+    .filter(d => !d.status || d.status==='在籍')
+    .map(d => parseInt(d.empNo.slice(disp.length)) || 0);
+  const next = existing.length ? Math.max(...existing)+1 : 1;
+  if(next > 999){ input.value=''; input.placeholder='上限超過'; return; }
+  input.value = disp + String(next).padStart(3,'0');
+}
+
+
+function confirmFullDelete(label, name, extra){
+  const retainYears = 7;
+  const warning = `⚠️ 警告：完全削除はすべての関連データが失われます\n\n` +
+    `削除対象：${label}「${name}」\n` +
+    (extra ? extra + '\n\n' : '\n') +
+    `【失われるデータ】\n` +
+    `・マスタ情報（復元不可）\n` +
+    `・関連する過去の書類・記録の参照情報\n\n` +
+    `【法的リスク】\n` +
+    `法人税法・会社法の${retainYears}年保管義務期間中の削除は\n` +
+    `違反になる可能性があります。\n\n` +
+    `本当に完全削除しますか？`;
+  if(!confirm(warning)) return false;
+  if(!confirm(`最終確認\n\n本当に「${name}」を完全削除しますか？\n\nこの操作は取り消せません。`)) return false;
+  return true;
+}
+
+// 7年後の保管期限を計算
+function calcArchiveExpiry(archivedAtISO){
+  if(!archivedAtISO) return '';
+  try{
+    const d = new Date(archivedAtISO);
+    d.setFullYear(d.getFullYear() + 7);
+    return d.toISOString().slice(0,10);
+  }catch(e){ return ''; }
+}
+
 // ====== アーカイブ（退職・廃車）======
 let archiveOfficeFilter='全て';
 let archiveTypeFilter='全て';
+let archiveSearchQuery='';
 
 function archSetFilter(kind,val){
   if(kind==='office') archiveOfficeFilter=val;
   if(kind==='type') archiveTypeFilter=val;
+  renderArchive();
+}
+
+function archSetSearch(val){
+  archiveSearchQuery = (val||'').trim().toLowerCase();
   renderArchive();
 }
 
@@ -4566,18 +4721,45 @@ function renderArchive(){
   badgeHtml+='<span style="font-size:11px;color:#888;padding:5px 0;margin-left:8px">ドライバー '+archivedD.length+'名 / 車両 '+scrapped.length+'台</span>';
   badgeHtml+='</div>';
 
-  document.getElementById('archive-filters').innerHTML=badgeHtml;
+  // 検索UI
+  const searchHtml = `
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;padding:8px;background:#fff5f5;border:1px solid #f5c6c6;border-radius:6px">
+      <input type="text" id="arch-search-box" placeholder="番号・氏名・ナンバー検索" value="${archiveSearchQuery.replace(/"/g,'&quot;')}"
+        oninput="archSetSearch(this.value)"
+        style="flex:1;max-width:280px;padding:6px 10px;font-size:12px;border:1px solid #ddd;border-radius:4px">
+      <span style="font-size:10px;color:#888">検索中: ${archiveSearchQuery||'全件'}</span>
+      ${archiveSearchQuery?'<button class="btn btn-sm" onclick="archSetSearch(\'\')">クリア</button>':''}
+    </div>`;
+  document.getElementById('archive-filters').innerHTML=searchHtml+badgeHtml;
 
   let driverData=archivedD;
   if(filterOffice!=='全て'){
     if(filterOffice==='未分類') driverData=driverData.filter(d=>!offices.some(o=>belongsToOffice(d,o)));
     else driverData=driverData.filter(d=>belongsToOffice(d,filterOffice));
   }
+  // 検索絞り込み（氏名・カナ）
+  if(archiveSearchQuery){
+    const q = archiveSearchQuery;
+    driverData = driverData.filter(d =>
+      (d.name||'').toLowerCase().includes(q) ||
+      (d.kana||'').toLowerCase().includes(q) ||
+      (d.tel||'').includes(q)
+    );
+  }
 
   let vehicleData=scrapped;
   if(filterOffice!=='全て'){
     if(filterOffice==='未分類') vehicleData=vehicleData.filter(v=>!offices.includes(v.office));
     else vehicleData=vehicleData.filter(v=>v.office===filterOffice);
+  }
+  // 検索絞り込み（ナンバー・モデル）
+  if(archiveSearchQuery){
+    const q = archiveSearchQuery;
+    vehicleData = vehicleData.filter(v =>
+      (v.plate||'').toLowerCase().includes(q) ||
+      (v.model||'').toLowerCase().includes(q) ||
+      (v.driver||'').toLowerCase().includes(q)
+    );
   }
 
   let html='';
@@ -4586,7 +4768,11 @@ function renderArchive(){
   if(filterType==='全て'||filterType==='ドライバー'){
     if(driverData.length){
       html+='<div style="font-size:11px;font-weight:600;color:#888;margin:0 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">退職・休止ドライバー（'+driverData.length+'名）</div>';
-      html+=driverData.map(d=>`
+      html+=driverData.map(d=>{
+        const retiredAtISO = d.retiredAt || d.leave?.date || '';
+        const expiry = calcArchiveExpiry(retiredAtISO);
+        const isExpired = expiry && new Date(expiry) < new Date();
+        return `
         <div class="archive-card">
           <div class="archive-card-info">
             <div class="archive-card-name">${d.name}　<span class="badge ${d.status==='退職'?'badge-danger':'badge-pause'}">${d.status}</span>　<span class="badge badge-gray">${d.type}</span>　<span style="font-size:11px;color:#888">${d.office}</span></div>
@@ -4595,14 +4781,16 @@ function renderArchive(){
               ${d.leave?.note?`　${d.leave.note}`:''}
               　免許: ${d.license?.exp?d.license.exp.replace(/-/g,'/'):'-'}
               　書類: ${(d.attachedFiles||[]).length}件
+              ${expiry?`<br><span style="color:${isExpired?'#c0392b':'#888'};font-weight:${isExpired?'700':'normal'}">保管期限: ${expiry.replace(/-/g,'/')}${isExpired?' （期限切れ）':''}</span>`:''}
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="btn btn-sm" onclick="restoreDriver(${d.id})">在籍に戻す</button>
+            <button class="btn btn-sm" onclick="restoreDriver(${d.id})" style="background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7">取引再開</button>
             <button class="btn btn-sm" onclick="openDriverModal(${d.id})">編集</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteArchivedDriver(${d.id})">削除</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteArchivedDriver(${d.id})">完全削除</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   }
 
@@ -4610,21 +4798,26 @@ function renderArchive(){
   if(filterType==='全て'||filterType==='車両'){
     if(vehicleData.length){
       html+='<div style="font-size:11px;font-weight:600;color:#888;margin:12px 0 8px;padding:4px 0;border-bottom:1px solid #e0e0e0">廃車（'+vehicleData.length+'台）</div>';
-      html+=vehicleData.map(v=>`
+      html+=vehicleData.map(v=>{
+        const scrapISO = v.scrappedAt || '';
+        const expiry = calcArchiveExpiry(scrapISO);
+        const isExpired = expiry && new Date(expiry) < new Date();
+        return `
         <div class="archive-card">
           <div class="archive-card-info">
             <div class="archive-card-name">${v.plate}　<span class="badge badge-danger">廃車</span>　<span class="badge badge-gray">${v.type}</span>　<span style="font-size:11px;color:#888">${v.office||''}</span></div>
             <div class="archive-card-sub">
               ${v.model||''}　${v.color||''}　担当: ${v.driver||'なし'}
               　書類: ${(v.attachedFiles||[]).length}件
+              ${expiry?`<br><span style="color:${isExpired?'#c0392b':'#888'};font-weight:${isExpired?'700':'normal'}">保管期限: ${expiry.replace(/-/g,'/')}${isExpired?' （期限切れ）':''}</span>`:''}
             </div>
           </div>
           <div style="display:flex;gap:6px;flex-shrink:0">
-            <button class="btn btn-sm" onclick="restoreVehicle(${v.id})">稼働に戻す</button>
             <button class="btn btn-sm" onclick="openVehicleModal(${v.id})">編集</button>
-            <button class="btn btn-sm btn-danger" onclick="deleteArchivedVehicle(${v.id})">削除</button>
+            <button class="btn btn-sm btn-danger" onclick="deleteArchivedVehicle(${v.id})">完全削除</button>
           </div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
     }
   }
 
@@ -4679,7 +4872,10 @@ function renderArchive(){
 function deleteArchivedDriver(id){
   const d=drivers.find(x=>x.id==id);
   if(!d)return;
-  if(!confirm(`「${d.name}」を完全に削除しますか？\nこの操作は元に戻せません。`))return;
+  const retiredDate = d.leave?.date || d.retiredAt?.slice(0,10) || '-';
+  const expiry = calcArchiveExpiry(d.retiredAt || d.leave?.date);
+  const extra = `退職日：${retiredDate}\n保管期限：${expiry||'-'}`;
+  if(!confirmFullDelete('ドライバー', d.name, extra))return;
   pushUndo('ドライバー削除: '+d.name);
   drivers=drivers.filter(x=>x.id!=id);
   vehicles.forEach(v=>{if(v.driverId==id){v.driver='';v.driverId=null;}});
@@ -4689,9 +4885,11 @@ function deleteArchivedDriver(id){
 function restoreDriver(id){
   const d=drivers.find(x=>x.id==id);
   if(!d)return;
-  if(!confirm(`「${d.name}」を在籍に戻しますか？`))return;
-  pushUndo('ドライバー復元: '+d.name);
-  d.status='在籍';d.leave={};
+  if(!confirm(`「${d.name}」との取引を再開しますか？\n\n稼働中に戻り、通常の一覧に再表示されます。`))return;
+  pushUndo('ドライバー取引再開: '+d.name);
+  d.status='在籍';
+  d.leave={};
+  d.retiredAt=null;
   saveLocal();renderArchive();renderDrivers(currentOfficeFilter);renderDashboard();renderDocPage();
 }
 
@@ -4699,15 +4897,19 @@ function restoreVehicle(id){
   const v=vehicles.find(x=>x.id==id);
   if(!v)return;
   if(!confirm(`「${v.plate}」を稼働に戻しますか？`))return;
-  pushUndo('車両復元: '+v.plate);
+  pushUndo('車両稼働復帰: '+v.plate);
   v.status='稼働';
+  v.scrappedAt=null;
   saveLocal();renderArchive();renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
 }
 
 function deleteArchivedVehicle(id){
   const v=vehicles.find(x=>x.id==id);
   if(!v)return;
-  if(!confirm(`「${v.plate}」を完全に削除しますか？\nこの操作は元に戻せません。`))return;
+  const scrapDate = v.scrappedAt?.slice(0,10) || '-';
+  const expiry = calcArchiveExpiry(v.scrappedAt);
+  const extra = `廃車日：${scrapDate}\n保管期限：${expiry||'-'}`;
+  if(!confirmFullDelete('車両', v.plate, extra))return;
   pushUndo('車両削除: '+v.plate);
   vehicles=vehicles.filter(x=>x.id!=id);
   saveLocal();renderArchive();renderVehicles(currentOfficeFilter);renderDashboard();renderDocPage();
@@ -4842,17 +5044,17 @@ function openVehicleModal(id){
 function saveVehicle(keepOpen){
   const plate=document.getElementById('v-plate').value.trim();if(!plate){alert('車両番号は必須です');return;}
 
-  // 車両番号重複チェック（ドライバー情報付き）
+  // 車両番号重複チェック（ドライバー情報付き、廃車は除外）
   if(!editingVehicleId){
     var dupMessages=[];
-    const dup=vehicles.find(v=>v.plate===plate);
+    const dup=vehicles.find(v=>v.plate===plate && v.status!=='廃車');
     if(dup){
       var driverInfo=dup.driver?' → 担当: '+dup.driver:'';
       dupMessages.push('自社車両「'+plate+'」（'+dup.office+'）'+driverInfo);
     }
     var coDups=[];
     companies.forEach(c=>{(c.vehicles||[]).forEach(v=>{
-      if(v.plate===plate){
+      if(v.plate===plate && v.status!=='廃車'){
         var coDriver=v.driver||'';
         if(!coDriver&&v.driverId){var cd=(c.drivers||[]).find(d=>d.id==v.driverId);if(cd)coDriver=cd.name;}
         coDups.push({plate:v.plate,company:c.name,office:v.office||(v.offices||[]).join('・'),driver:coDriver});
@@ -4897,6 +5099,27 @@ function saveVehicle(keepOpen){
     if(existing){obj.attachedFiles=existing.attachedFiles||[];obj.archivedFiles=existing.archivedFiles||[];}
   }
   if(!obj.attachedFiles) obj.attachedFiles=[];
+  // 廃車の場合、廃車日（scrappedAt）と保管期限を記録
+  if(obj.status==='廃車'){
+    if(editingVehicleId){
+      const existing=vehicles.find(v=>v.id==editingVehicleId);
+      const prevStatus = existing?.status;
+      if(prevStatus!=='廃車'){
+        // 新たに廃車
+        obj.scrappedAt = new Date().toISOString();
+        obj.archiveExpiresAt = calcArchiveExpiry(obj.scrappedAt);
+      } else if(existing){
+        obj.scrappedAt = existing.scrappedAt || new Date().toISOString();
+        obj.archiveExpiresAt = existing.archiveExpiresAt || calcArchiveExpiry(obj.scrappedAt);
+      }
+    } else {
+      obj.scrappedAt = new Date().toISOString();
+      obj.archiveExpiresAt = calcArchiveExpiry(obj.scrappedAt);
+    }
+  } else {
+    obj.scrappedAt = null;
+    obj.archiveExpiresAt = null;
+  }
   if(editingVehicleId){const i=vehicles.findIndex(v=>v.id==editingVehicleId);if(i>=0)vehicles[i]=obj;else vehicles.push(obj);}else vehicles.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const vFiles = modalFiles['v-files'] || [];
@@ -4951,9 +5174,11 @@ function openDriverModal(id){
   }
   // 営業所チェックボックスを構築
   renderOfficeMultiSelect('d-office-checks', []);
-  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note','d-empno'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('d-type').value='社員';document.getElementById('d-sub-count').value='1';
   document.getElementById('d-status').value='在籍';
+  if(document.getElementById('d-empno-manual')) document.getElementById('d-empno-manual').checked=false;
+  if(document.getElementById('d-empno')){document.getElementById('d-empno').readOnly=true;document.getElementById('d-empno').style.background='#f7f7f7';}
   document.getElementById('subcon-fields').style.display='none';
   document.getElementById('archive-fields').style.display='none';
   document.getElementById('other-docs-list').innerHTML='';
@@ -4990,6 +5215,8 @@ function openDriverModal(id){
       if(d.status==='退職'||d.status==='休止'){document.getElementById('archive-fields').style.display='block';document.getElementById('d-leave-date').value=normalizeBirthDate(d.leave?.date);document.getElementById('d-leave-reason').value=d.leave?.reason||'';document.getElementById('d-leave-note').value=d.leave?.note||'';}
       if(d.type==='外注（個人）'){document.getElementById('subcon-fields').style.display='block';document.getElementById('d-sub-company').value=d.sub?.company||'';document.getElementById('d-sub-kana').value=d.sub?.kana||'';document.getElementById('d-sub-birth').value=normalizeBirthDate(d.sub?.birth);document.getElementById('d-sub-area').value=d.sub?.area||'';document.getElementById('d-sub-count').value=d.sub?.count||1;document.getElementById('d-sub-tel').value=d.sub?.tel||'';}
       document.getElementById('d-stamp').checked=!!d.stampEnabled;
+      // 社員番号復元
+      if(document.getElementById('d-empno')) document.getElementById('d-empno').value=d.empNo||'';
       previewDriverStamp();
     }
   }
@@ -5424,9 +5651,11 @@ function saveDriverAndNav(dir){
 
 function loadDriverIntoModal(id){
   // フォームリセット
-  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  ['d-sei','d-mei','d-sei-kana','d-mei-kana','d-tel','d-birth','d-zip','d-addr','d-license-exp','d-license-no','d-license-cond','d-sub-company','d-sub-kana','d-sub-birth','d-sub-area','d-sub-tel','d-leave-date','d-leave-note','d-empno'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
   document.getElementById('d-type').value='社員';document.getElementById('d-sub-count').value='1';
   document.getElementById('d-status').value='在籍';
+  if(document.getElementById('d-empno-manual')) document.getElementById('d-empno-manual').checked=false;
+  if(document.getElementById('d-empno')){document.getElementById('d-empno').readOnly=true;document.getElementById('d-empno').style.background='#f7f7f7';}
   document.getElementById('subcon-fields').style.display='none';
   document.getElementById('archive-fields').style.display='none';
   document.getElementById('other-docs-list').innerHTML='';
@@ -5637,6 +5866,7 @@ function saveDriver(keepOpen){
   }
 
   const obj={id:editingDriverId||Date.now(),name,kana,type,status,
+    empNo:document.getElementById('d-empno')?.value?.trim()||'',
     office: selectedOffices[0]||'',
     offices: selectedOffices,
     tel:formatPhone(document.getElementById('d-tel').value),birth:normalizeBirthDate(document.getElementById('d-birth').value),addr:document.getElementById('d-addr').value,zip:document.getElementById('d-zip').value,license:{exp:normalizeBirthDate(document.getElementById('d-license-exp').value),no:document.getElementById('d-license-no').value,type:document.getElementById('d-license-type').value,cond:document.getElementById('d-license-cond').value},otherDocs,other:otherDocs[0]||{},sub:type==='外注（個人）'?{company:document.getElementById('d-sub-company').value,kana:document.getElementById('d-sub-kana').value,birth:normalizeBirthDate(document.getElementById('d-sub-birth').value),area:document.getElementById('d-sub-area').value,count:document.getElementById('d-sub-count').value,tel:formatPhone(document.getElementById('d-sub-tel').value)}:{},leave:(status==='退職'||status==='休止')?{date:normalizeBirthDate(document.getElementById('d-leave-date').value),reason:document.getElementById('d-leave-reason').value,note:document.getElementById('d-leave-note').value}:{},stampEnabled:!!document.getElementById('d-stamp')?.checked};
@@ -5650,6 +5880,30 @@ function saveDriver(keepOpen){
     }
   }
   if(!obj.attachedFiles) obj.attachedFiles=[];
+  // 退職・休止の場合、退職日（retiredAt）と保管期限を記録
+  if(obj.status==='退職'||obj.status==='休止'){
+    if(editingDriverId){
+      const existing=drivers.find(d=>d.id==editingDriverId);
+      const prevStatus = existing?.status;
+      if(prevStatus!=='退職' && prevStatus!=='休止'){
+        // 新たにアーカイブ状態になった
+        obj.retiredAt = new Date().toISOString();
+        obj.archiveExpiresAt = calcArchiveExpiry(obj.retiredAt);
+      } else if(existing){
+        // 既にアーカイブ状態 → 元の日付を保持
+        obj.retiredAt = existing.retiredAt || new Date().toISOString();
+        obj.archiveExpiresAt = existing.archiveExpiresAt || calcArchiveExpiry(obj.retiredAt);
+      }
+    } else {
+      // 新規作成時に退職扱い（通常ないが念のため）
+      obj.retiredAt = new Date().toISOString();
+      obj.archiveExpiresAt = calcArchiveExpiry(obj.retiredAt);
+    }
+  } else {
+    // 在籍に戻った場合は記録をクリア
+    obj.retiredAt = null;
+    obj.archiveExpiresAt = null;
+  }
   if(editingDriverId){const i=drivers.findIndex(d=>d.id==editingDriverId);if(i>=0)drivers[i]=obj;else drivers.push(obj);}else drivers.push(obj);
   // ★ モーダルの添付ファイルをDriveにアップロード
   const dFiles = modalFiles['d-files'] || [];
@@ -10622,7 +10876,10 @@ function openCompanyDriverModal(companyId, driverId){
   editingCompanyDriverId=driverId||null;
   currentCompanyId=companyId;
   document.getElementById('cdm-title').textContent=driverId?'ドライバー 編集':'ドライバー 登録';
-  ['cd-sei','cd-mei','cd-sei-kana','cd-mei-kana','cd-tel','cd-birth','cd-zip','cd-addr','cd-license-exp','cd-license-no','cd-license-cond'].forEach(f=>document.getElementById(f).value='');
+  ['cd-sei','cd-mei','cd-sei-kana','cd-mei-kana','cd-tel','cd-birth','cd-zip','cd-addr','cd-license-exp','cd-license-no','cd-license-cond','cd-empno'].forEach(f=>{const el=document.getElementById(f);if(el)el.value='';});
+  // 社員番号手入力リセット
+  if(document.getElementById('cd-empno-manual')) document.getElementById('cd-empno-manual').checked=false;
+  if(document.getElementById('cd-empno')){document.getElementById('cd-empno').readOnly=true;document.getElementById('cd-empno').style.background='#f7f7f7';}
   // 営業所複数選択
   renderOfficeMultiSelect('cd-offices', []);
   // 搭乗車両（同委託会社内の車両リスト）
@@ -10650,6 +10907,8 @@ function openCompanyDriverModal(companyId, driverId){
       document.getElementById('cd-license-type').value=d.license?.type||'普通自動車';
       document.getElementById('cd-license-cond').value=d.license?.cond||'';
       renderOfficeMultiSelect('cd-offices', d.offices||[]);
+      // 社員番号復元
+      if(document.getElementById('cd-empno')) document.getElementById('cd-empno').value=d.empNo||'';
       // 搭乗車両の割り当て
       var assignedV=coVehicles.find(v=>String(v.driverId)===String(driverId)||v.driver===d.name);
       if(assignedV) vSel.value=assignedV.id;
@@ -10677,6 +10936,14 @@ function renderOfficeMultiSelect(elId, selected){
 function toggleOfficeCheck(cb){
   const label=cb.parentElement;
   if(cb.checked){label.classList.add('checked');}else{label.classList.remove('checked');}
+  // ドライバーモーダルで営業所が変わった時、社員番号を自動採番
+  if(cb.closest('#d-office-checks') && typeof autoGenEmpNo==='function'){
+    setTimeout(()=>autoGenEmpNo(), 50);
+  }
+  // 委託会社ドライバーモーダルでも同様
+  if(cb.closest('#cd-offices') && typeof autoGenCdEmpNo==='function'){
+    setTimeout(()=>autoGenCdEmpNo(), 50);
+  }
 }
 
 function getSelectedOffices(elId){
@@ -10743,6 +11010,7 @@ function saveCompanyDriver(){
   const obj={
     id:editingCompanyDriverId||Date.now(),
     name, kana,
+    empNo:document.getElementById('cd-empno')?.value?.trim()||'',
     offices:selectedOffices,
     tel:formatPhone(document.getElementById('cd-tel').value),
     birth:document.getElementById('cd-birth').value,
